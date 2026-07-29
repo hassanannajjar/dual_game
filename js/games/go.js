@@ -1,4 +1,4 @@
-import { goPlace, goScore } from '../logic.js';
+import { goPlace, goScore } from '../logic.js?v=1';
 
 const N = 9;
 const M = { board: [], mine: 'b', opp: 'w', forbidden: null, passes: 0, cells: [], msgEl: null };

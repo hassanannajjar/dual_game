@@ -45,6 +45,15 @@ node test.mjs
 
 No build step — Tailwind and PeerJS load from CDNs and the browser loads the ES modules directly.
 
+**Deploying updates:** module URLs carry a `?v=N` cache-busting tag. Before you push a change, bump it so browsers fetch the fresh files instead of stale cached ones:
+
+```bash
+./bump-version.sh 2   # then 3, 4, … each release
+git add -A && git commit -m "release" && git push
+```
+
+(If you ever see a blank home screen or an untranslated label like `search_ph`, it's just stale cache — hard-refresh with Cmd/Ctrl+Shift+R, or bump the version.)
+
 ## Project layout
 
 ```

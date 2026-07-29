@@ -1,25 +1,25 @@
-import { register, boot } from './platform.js';
-import numberDuel from './games/number-duel.js';
-import ticTacToe from './games/tic-tac-toe.js';
-import connectFour from './games/connect-four.js';
-import rps from './games/rock-paper-scissors.js';
-import battleship from './games/battleship.js';
-import gomoku from './games/gomoku.js';
-import reversi from './games/reversi.js';
-import checkers from './games/checkers.js';
-import dots from './games/dots-boxes.js';
-import uttt from './games/ultimate-ttt.js';
-import mancala from './games/mancala.js';
-import memory from './games/memory.js';
-import morris from './games/nine-mens-morris.js';
-import chess from './games/chess.js';
-import hangman from './games/hangman.js';
-import snakes from './games/snakes.js';
-import pig from './games/pig.js';
-import go from './games/go.js';
-import order from './games/order-chaos.js';
-import nim from './games/nim.js';
-import yahtzee from './games/yahtzee.js';
+import { register, boot } from './platform.js?v=1';
+import numberDuel from './games/number-duel.js?v=1';
+import ticTacToe from './games/tic-tac-toe.js?v=1';
+import connectFour from './games/connect-four.js?v=1';
+import rps from './games/rock-paper-scissors.js?v=1';
+import battleship from './games/battleship.js?v=1';
+import gomoku from './games/gomoku.js?v=1';
+import reversi from './games/reversi.js?v=1';
+import checkers from './games/checkers.js?v=1';
+import dots from './games/dots-boxes.js?v=1';
+import uttt from './games/ultimate-ttt.js?v=1';
+import mancala from './games/mancala.js?v=1';
+import memory from './games/memory.js?v=1';
+import morris from './games/nine-mens-morris.js?v=1';
+import chess from './games/chess.js?v=1';
+import hangman from './games/hangman.js?v=1';
+import snakes from './games/snakes.js?v=1';
+import pig from './games/pig.js?v=1';
+import go from './games/go.js?v=1';
+import order from './games/order-chaos.js?v=1';
+import nim from './games/nim.js?v=1';
+import yahtzee from './games/yahtzee.js?v=1';
 
 // Single source of category / difficulty (drives the home grid). category ∈ classic|strategy|luck|word.
 const META = {
