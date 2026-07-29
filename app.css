@@ -11,3 +11,22 @@
 
 /* Prevent accidental text selection / callout on rapid tapping of game cells. */
 button { -webkit-tap-highlight-color: transparent; user-select: none; }
+
+/* ---------- Theme accent ---------- recolor the indigo accent per data-theme.
+   Attribute-scoped selectors outrank Tailwind's plain utilities, so no markup changes. */
+html[data-theme="indigo"]  { --acc:#4f46e5; --acc2:#6366f1; --acc-t:#818cf8; }
+html[data-theme="emerald"] { --acc:#059669; --acc2:#10b981; --acc-t:#34d399; }
+html[data-theme="rose"]    { --acc:#e11d48; --acc2:#f43f5e; --acc-t:#fb7185; }
+html[data-theme="amber"]   { --acc:#d97706; --acc2:#f59e0b; --acc-t:#fbbf24; }
+
+[data-theme] .bg-indigo-600 { background-color: var(--acc, #4f46e5); }
+[data-theme] .hover\:bg-indigo-500:hover { background-color: var(--acc2, #6366f1); }
+[data-theme] .text-indigo-400 { color: var(--acc-t, #818cf8); }
+[data-theme] .border-indigo-500 { border-color: var(--acc2, #6366f1); }
+[data-theme] .hover\:border-indigo-500:hover { border-color: var(--acc2, #6366f1); }
+[data-theme] .ring-indigo-500 { --tw-ring-color: var(--acc2, #6366f1); }
+[data-theme] .focus\:ring-indigo-500:focus { --tw-ring-color: var(--acc2, #6366f1); }
+[data-theme] .hover\:shadow-indigo-500\/60:hover { --tw-shadow-color: var(--acc2, #6366f1); }
+
+/* RTL: keep the mono room code / digit rows visually LTR. */
+html[dir="rtl"] .font-mono { direction: ltr; unicode-bidi: embed; }

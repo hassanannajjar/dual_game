@@ -58,4 +58,65 @@ g = emptyC4();
 r = drop(g, 0, 'R'); drop(g, 1, 'Y');
 assert.strictEqual(connectFourWinner(g, 0, r), null, 'c4 no win');
 
-console.log(`PASS (evaluate: ${evalCases.length}, ttt: 6, c4: 5)`);
+// ---- Gomoku (lineWinner) ----
+import { lineWinner, reversiFlips, reversiLegalMoves, checkerMoves, boxClosed,
+  ultimateWinner, mancalaSow, mancalaEnded, mancalaFinalize, morrisMillsAt } from './js/logic.js';
+function grid2d(h, w) { return Array.from({ length: h }, () => Array(w).fill(null)); }
+let gg = grid2d(13, 13);
+for (let i = 0; i < 5; i++) gg[6][3 + i] = 'B';
+assert.strictEqual(lineWinner(gg, 5, 6, 5), 'B', 'gomoku horizontal 5');
+assert.strictEqual(lineWinner(grid2d(13, 13), 0, 0, 5), null, 'gomoku empty');
+gg = grid2d(13, 13);
+for (let i = 0; i < 4; i++) gg[2 + i][2 + i] = 'W';
+assert.strictEqual(lineWinner(gg, 4, 4, 5), null, 'gomoku only 4');
+
+// ---- Reversi ----
+function rboard() {
+  const b = grid2d(8, 8);
+  b[3][3] = 'W'; b[3][4] = 'B'; b[4][3] = 'B'; b[4][4] = 'W';
+  return b;
+}
+let rb = rboard();
+assert.deepStrictEqual(reversiFlips(rb, 3, 2, 'B').sort(), [[3, 3]].sort(), 'reversi flips one');
+assert.strictEqual(reversiFlips(rb, 0, 0, 'B').length, 0, 'reversi illegal = no flips');
+assert.strictEqual(reversiLegalMoves(rb, 'B').length, 4, 'reversi 4 opening moves');
+
+// ---- Checkers ----
+let cb = grid2d(8, 8);
+cb[2][2] = 'r'; cb[3][3] = 'b';
+assert.deepStrictEqual(checkerMoves(cb, 2, 2).jumps.map((j) => j.to), [[4, 4]], 'checkers jump available');
+cb = grid2d(8, 8); cb[5][5] = 'R'; // king moves all 4 diagonals
+assert.strictEqual(checkerMoves(cb, 5, 5).steps.length, 4, 'checkers king 4 steps');
+
+// ---- Dots & Boxes ----
+const D = 3; // 3x3 dots -> 2x2 boxes
+const H = Array.from({ length: D }, () => Array(D - 1).fill(false));
+const V = Array.from({ length: D - 1 }, () => Array(D).fill(false));
+H[0][0] = H[1][0] = V[0][0] = true;
+assert.strictEqual(boxClosed(H, V, 0, 0), false, 'box not yet closed');
+V[0][1] = true;
+assert.strictEqual(boxClosed(H, V, 0, 0), true, 'box closed by 4th edge');
+
+// ---- Ultimate TTT ----
+assert.strictEqual(ultimateWinner(['X', 'X', 'X', null, 'O', null, 'O', null, null]), 'X', 'uttt macro row');
+assert.strictEqual(ultimateWinner(['X', 'draw', null, null, null, null, null, null, null]), null, 'uttt no macro win');
+
+// ---- Mancala ----
+let mb = Array(14).fill(4); mb[6] = 0; mb[13] = 0;
+let res = mancalaSow(mb, 2);              // 4 seeds from pit 2 -> pits 3,4,5,store6
+assert.strictEqual(res.extraTurn, true, 'mancala last seed in store = extra turn');
+assert.strictEqual(res.board[6], 1, 'mancala store got a seed');
+mb = Array(14).fill(0); mb[0] = 1; mb[6] = 0; mb[13] = 0; mb[12] = 5; // capture: land in empty own pit 1, opposite 11? use mapping
+mb = Array(14).fill(0); mb[2] = 1; mb[3] = 0; mb[9] = 3;              // pit2 -> lands pit3 (empty, mine), opposite 12-3=9 has 3
+res = mancalaSow(mb, 2);
+assert.strictEqual(res.captured, 4, 'mancala capture = opposite(3) + own(1)');
+assert.strictEqual(mancalaEnded(Array(14).fill(0)), true, 'mancala ended when side empty');
+assert.strictEqual(mancalaFinalize([1, 1, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0])[6], 2, 'mancala sweep to store');
+
+// ---- Nine Men's Morris ----
+let nb = Array(24).fill(null); nb[0] = nb[1] = nb[2] = 'A';
+assert.strictEqual(morrisMillsAt(nb, 1).length, 1, 'morris mill formed');
+nb[2] = 'B';
+assert.strictEqual(morrisMillsAt(nb, 1).length, 0, 'morris broken mill');
+
+console.log(`PASS (evaluate: ${evalCases.length}, ttt: 6, c4: 5, gomoku: 3, reversi: 3, checkers: 2, dots: 2, uttt: 2, mancala: 5, morris: 2)`);

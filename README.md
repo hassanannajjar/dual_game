@@ -2,9 +2,11 @@
 
 A small **platform of 2-player games** that runs entirely in the browser and connects the two players **peer-to-peer over WebRTC (PeerJS)** — there is **no server to host**. Deploys straight to GitHub Pages.
 
-Games included: **Number Duel** (Bulls & Cows), **Tic-Tac-Toe**, **Connect Four**, **Rock Paper Scissors**, **Battleship**.
+**13 games:** Number Duel (Bulls & Cows), Tic-Tac-Toe, Connect Four, Rock Paper Scissors, Battleship, Gomoku, Reversi/Othello, Checkers, Dots & Boxes, Ultimate Tic-Tac-Toe, Mancala, Memory Match, Nine Men's Morris.
 
 For guessing games (Number Duel) and hidden-board games (Battleship), your secret **never leaves your device** — your browser only sends feedback about the opponent's moves.
+
+**Extras:** English / **العربية** language toggle (RTL), synthesized **sound effects** for every game, and a **Settings** panel (⚙) with display name, theme/accent colour, and vibration. Rooms can pick the **first-move rule** (coin toss / host first / loser first).
 
 **Resilient matches:** either player can **Pause** (freezes the match for both). If someone drops or refreshes, the match **auto-pauses** and **resumes** when they rejoin — state is saved to `localStorage`, so a refresh reconnects to the same room and restores your board/history where you left off.
 
@@ -47,11 +49,14 @@ No build step — Tailwind and PeerJS load from CDNs and the browser loads the E
 index.html            # shell markup (screens + containers)
 app.css               # small neon-theme extras on top of Tailwind CDN
 js/
-  platform.js         # engine: connection, lobby, coin toss, turns, timer, game-over
-  logic.js            # pure rules (evaluate, ticTacToeWinner, connectFourWinner)
-  games/*.js          # one file per game
+  platform.js         # engine: connection, lobby, coin toss, turns, timer, pause/resume, game-over
+  logic.js            # pure rules (bulls&cows, tic-tac-toe, connect4, gomoku, reversi, checkers, dots, uttt, mancala, morris)
+  i18n.js             # EN/AR dictionaries + t() + RTL
+  sound.js            # Web Audio synth SFX (no audio files)
+  prefs.js            # name / theme / haptics + settings panel
+  games/*.js          # one file per game (13)
   app.js              # imports + registers every game, boots
-test.mjs              # node self-check for logic.js
+test.mjs              # node self-check for logic.js (38 assertions)
 ```
 
 ## Add a new game

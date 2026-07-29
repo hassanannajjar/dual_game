@@ -2,6 +2,9 @@
 // drives phases: home -> connect -> lobby -> [setup] -> [toss] -> play -> over,
 // and handles pause / disconnect-reconnect / refresh-resume.
 // Depends on the global `Peer` (PeerJS, loaded via CDN).
+import { t, initLang, onLangChange } from './i18n.js';
+import { sound } from './sound.js';
+import { initPrefs, getName, haptic } from './prefs.js';
 
 // ---------- DOM helpers ----------
 const $ = (id) => document.getElementById(id);
@@ -15,17 +18,19 @@ const SCREENS = ['home', 'connect', 'lobby', 'setup', 'toss', 'play'];
 function show(name) { for (const s of SCREENS) $('screen-' + s).classList.toggle('hidden', s !== name); }
 function setStatus(msg) { $('status').textContent = msg || ''; }
 export function toast(msg) {
-  const t = $('toast');
-  t.textContent = msg;
-  t.classList.remove('hidden');
+  const n = $('toast');
+  n.textContent = msg;
+  n.classList.remove('hidden');
   clearTimeout(toast._t);
-  toast._t = setTimeout(() => t.classList.add('hidden'), 1800);
+  toast._t = setTimeout(() => n.classList.add('hidden'), 1800);
 }
 
 // ---------- registry ----------
 const games = [];
 export function register(def) { games.push(def); }
 function gameById(id) { return games.find((g) => g.id === id); }
+function gameName(g) { const k = 'g_' + g.id.replace(/-/g, '_'); const s = t(k); return s === k ? g.name : s; }
+function gameTitle(g) { return `${g.emoji} ${gameName(g)}`; }
 
 // ---------- state ----------
 const S = {
@@ -34,6 +39,7 @@ const S = {
   myTurn: false, timerId: null, timerAuth: false, turnStart: 0, remaining: 0,
   myReady: false, oppReady: false, rematchGuard: false,
   inPlay: false, paused: false, over: false, reconnectTimer: null, leaving: false,
+  oppName: '', lastLoserIsHost: null,
 };
 
 // ---------- persistence (localStorage) ----------
@@ -73,7 +79,9 @@ function wireConn(conn) {
   S.conn = conn;
   conn.on('data', onData);
   conn.on('open', () => {
-    setStatus('Connected ✓');
+    setStatus(t('connected'));
+    sound('join');
+    sys('hello', { name: getName() });
     if (S.inPlay) { clearInterval(S.reconnectTimer); sys('resume'); resumeGame(); }
     else if (S.isHost) enterHostLobby();
   });
@@ -83,7 +91,7 @@ function wireConn(conn) {
 function onDisconnect() {
   if (S.leaving) return;
   if (S.conn && S.conn.open) return;      // ignore stale close/error from a replaced connection
-  if (!S.inPlay) { setStatus('Disconnected'); return; }
+  if (!S.inPlay) { setStatus(t('disconnected')); return; }
   pauseGame('disconnect');
   startReconnect();
 }
@@ -109,7 +117,7 @@ function createRoom() {
   const code = randomCode();
   S.peer = new Peer(code);
   setStatus('Creating room…');
-  S.peer.on('open', (id) => { S.roomCode = id; enterHostLobby(); setStatus('Waiting for opponent…'); });
+  S.peer.on('open', (id) => { S.roomCode = id; enterHostLobby(); setStatus(t('waiting_opp')); });
   S.peer.on('connection', wireConn);
   S.peer.on('error', (err) => {
     if (err.type === 'unavailable-id') { S.peer.destroy(); createRoom(); return; }
@@ -124,7 +132,7 @@ function joinRoom(code) {
   setStatus('Joining ' + S.roomCode + '…');
   S.peer.on('open', () => wireConn(S.peer.connect(S.roomCode, { reliable: true })));
   S.peer.on('error', (err) =>
-    setStatus(err.type === 'peer-unavailable' ? 'Room not found. Check the code.' : 'Error: ' + err.type));
+    setStatus(err.type === 'peer-unavailable' ? t('room_not_found') : 'Error: ' + err.type));
   enterGuestLobby();
 }
 function resetConnection() {
@@ -166,6 +174,10 @@ function onData(msg) {
       clearInterval(S.reconnectTimer);
       resumeGame();
       break;
+    case 'hello':
+      S.oppName = (msg.name || '').slice(0, 16);
+      if (!$('screen-play').classList.contains('hidden')) updateTurnLabel();
+      break;
   }
 }
 
@@ -179,7 +191,7 @@ function renderHome() {
       'hover:border-indigo-500 hover:shadow-[0_0_25px_-5px] hover:shadow-indigo-500/60 transition text-left');
     card.innerHTML =
       `<span class="text-4xl">${g.emoji}</span>` +
-      `<span class="font-bold text-lg">${g.name}</span>` +
+      `<span class="font-bold text-lg">${gameName(g)}</span>` +
       `<span class="text-xs text-slate-400">${g.blurb}</span>`;
     card.onclick = () => selectGame(g.id);
     grid.appendChild(card);
@@ -187,7 +199,7 @@ function renderHome() {
 }
 function selectGame(id) {
   S.game = gameById(id);
-  $('connect-title').textContent = `${S.game.emoji} ${S.game.name}`;
+  $('connect-title').textContent = gameTitle(S.game);
   $('join-code').value = '';
   show('connect');
 }
@@ -196,8 +208,10 @@ function selectGame(id) {
 function optionSchema() {
   const opts = (S.game.options || []).slice();
   if (S.game.usesTurns !== false) {
-    opts.push({ key: 'timer', label: 'Turn timer',
-      choices: [{ label: '30s', value: 30 }, { label: '60s', value: 60 }, { label: 'Off', value: 0 }], default: 30 });
+    opts.push({ key: 'timer', label: t('turn_timer'),
+      choices: [{ label: '30s', value: 30 }, { label: '60s', value: 60 }, { label: t('off'), value: 0 }], default: 30 });
+    opts.push({ key: 'firstMove', label: t('first_move'),
+      choices: [{ label: t('fm_toss'), value: 'toss' }, { label: t('fm_host'), value: 'host' }, { label: t('fm_loser'), value: 'loser' }], default: 'toss' });
   }
   return opts;
 }
@@ -230,7 +244,7 @@ function enterHostLobby() {
   const start = $('btn-start');
   const connected = S.conn && S.conn.open;
   start.disabled = !connected;
-  start.textContent = connected ? 'Start Game' : 'Waiting for opponent…';
+  start.textContent = connected ? t('start_game') : t('waiting_opp');
 }
 function enterGuestLobby() {
   show('lobby');
@@ -248,7 +262,7 @@ function proceedAfterConfig() {
 }
 function enterSetup() {
   show('setup');
-  $('setup-title').textContent = `${S.game.emoji} ${S.game.name}`;
+  $('setup-title').textContent = gameTitle(S.game);
   ctx.setupRoot.innerHTML = '';
   S.game.setup(ctx);
 }
@@ -260,7 +274,11 @@ function localReady() {
 function afterReady() {
   if (S.game.usesTurns === false) { startGame(false); return; }
   if (S.isHost) {
-    const firstIsHost = Math.random() < 0.5;
+    const rule = S.config.firstMove || 'toss';
+    let firstIsHost;
+    if (rule === 'host') firstIsHost = true;
+    else if (rule === 'loser' && S.lastLoserIsHost != null) firstIsHost = S.lastLoserIsHost;
+    else firstIsHost = Math.random() < 0.5;
     sys('toss', { firstIsHost });
     runToss(firstIsHost);
   }
@@ -269,18 +287,18 @@ function runToss(iAmFirst) {
   show('toss');
   const coin = $('coin');
   coin.classList.add('coin-flip');
-  $('toss-result').textContent = 'Tossing…';
+  $('toss-result').textContent = t('tossing');
   setTimeout(() => {
     coin.classList.remove('coin-flip');
     coin.textContent = iAmFirst ? '★' : '☆';
-    $('toss-result').textContent = iAmFirst ? 'You go first!' : 'Opponent goes first.';
+    $('toss-result').textContent = iAmFirst ? t('you_first') : t('opp_first');
     setTimeout(() => startGame(iAmFirst), 1300);
   }, 2000);
 }
 function preparePlayScreen() {
   S.over = false;
   show('play');
-  $('game-title').textContent = `${S.game.emoji} ${S.game.name}`;
+  $('game-title').textContent = gameTitle(S.game);
   ctx.root.innerHTML = '';
   const turnsOn = S.game.usesTurns !== false;
   $('turn-bar').classList.toggle('hidden', !turnsOn);
@@ -297,14 +315,17 @@ function startGame(iAmFirst) {
 
 // ---------- turn + timer ----------
 function updateTurnLabel() {
-  $('turn-label').textContent = S.myTurn ? 'Your turn' : "Opponent's turn";
-  $('turn-label').className = 'font-semibold ' + (S.myTurn ? 'text-emerald-400' : 'text-slate-400');
+  const label = S.myTurn ? t('your_turn') : (S.oppName ? t('name_turn', { name: S.oppName }) : t('opp_turn'));
+  $('turn-label').textContent = label;
+  $('turn-label').className = 'font-semibold flex-1 ' + (S.myTurn ? 'text-emerald-400' : 'text-slate-400');
 }
 function setTurn(mine) {
+  const became = mine && !S.myTurn;
   S.myTurn = mine;
   updateTurnLabel();
   S.remaining = S.config.timer;
   startTimer(mine);
+  if (became) { sound('turn'); haptic(30); }
   S.game.onTurn && S.game.onTurn(mine, ctx);
   persist();
 }
@@ -336,10 +357,10 @@ function pauseGame(reason) {
   S.paused = true;
   clearInterval(S.timerId);                 // freeze; S.remaining holds the clock
   const manual = reason === 'manual';
-  $('pause-msg').textContent = manual ? 'Paused' : 'Opponent disconnected — reconnecting…';
+  $('pause-msg').textContent = manual ? t('paused') : t('reconnecting');
   $('btn-resume').classList.toggle('hidden', !manual);
   $('pause-overlay').classList.remove('hidden');
-  if (!manual) setStatus('Reconnecting…');
+  if (!manual) setStatus(t('reconnecting'));
   persist();
 }
 function resumeGame() {
@@ -347,7 +368,7 @@ function resumeGame() {
   S.paused = false;
   clearInterval(S.reconnectTimer);
   $('pause-overlay').classList.add('hidden');
-  setStatus('Connected ✓');
+  setStatus(t('connected'));
   if (S.game.usesTurns !== false) startTimer(S.myTurn);   // continue from S.remaining
   persist();
 }
@@ -375,15 +396,18 @@ function endGame(outcome, msg) {
   clearInterval(S.timerId);
   clearInterval(S.reconnectTimer);
   S.inPlay = false; S.paused = false; S.over = true; S.myTurn = false;
+  if (outcome === 'win') S.lastLoserIsHost = !S.isHost;
+  else if (outcome === 'lose') S.lastLoserIsHost = S.isHost;
   clearSession();
   // Stay on the play screen so the board/history remain visible; swap the
   // turn bar for a result header carrying the actions.
   $('pause-overlay').classList.add('hidden');
   $('turn-bar').classList.add('hidden');
-  const map = { win: ['🏆', 'You win!'], lose: ['💥', 'You lose'], draw: ['🤝', "It's a draw"] };
-  const [emoji, title] = map[outcome] || map.lose;
-  $('result-text').textContent = `${emoji} ${title}` + (msg ? ` — ${msg}` : '');
+  const title = { win: t('you_win'), lose: t('you_lose'), draw: t('draw') }[outcome] || t('you_lose');
+  $('result-text').textContent = title + (msg ? ` — ${msg}` : '');
   $('result-bar').classList.remove('hidden');
+  sound(outcome === 'win' ? 'win' : outcome === 'draw' ? 'draw' : 'lose');
+  haptic(outcome === 'win' ? [40, 40, 80] : 60);
   S.game && S.game.onTurn && S.game.onTurn(false, ctx);   // make board/keypad inert
 }
 function restartMatch(initiator) {
@@ -413,7 +437,8 @@ const ctx = {
   get isHost() { return S.isHost; },
   get config() { return S.config; },
   get myTurn() { return S.myTurn && !S.over; },
-  el, toast, elapsed,
+  get name() { return getName(); },
+  el, toast, elapsed, t, sound, haptic,
   send: gameSend,
   setTurn,
   ready: localReady,
@@ -423,12 +448,15 @@ const ctx = {
 
 // ---------- boot ----------
 export function boot() {
+  initLang();
+  initPrefs();
+  onLangChange(() => { renderHome(); if (!$('screen-play').classList.contains('hidden')) updateTurnLabel(); });
   renderHome();
   $('btn-create').onclick = createRoom;
   $('btn-join').onclick = () => joinRoom($('join-code').value.trim().toUpperCase());
   $('btn-copy').onclick = () => {
     const link = `${location.origin}${location.pathname}?g=${S.game.id}&room=${S.roomCode}`;
-    navigator.clipboard.writeText(link).then(() => toast('Invite link copied'), () => toast(link));
+    navigator.clipboard.writeText(link).then(() => toast(t('invite_copied')), () => toast(link));
   };
   $('btn-start').onclick = () => {
     if (!(S.conn && S.conn.open)) return;
