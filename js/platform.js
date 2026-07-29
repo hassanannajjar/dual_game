@@ -30,6 +30,8 @@ const games = [];
 export function register(def) { games.push(def); }
 function gameById(id) { return games.find((g) => g.id === id); }
 function gameName(g) { const k = 'g_' + g.id.replace(/-/g, '_'); const s = t(k); return s === k ? g.name : s; }
+function gameDesc(g) { const k = 'd_' + g.id.replace(/-/g, '_'); const s = t(k); return s === k ? (g.blurb || '') : s; }
+function gameRules(g) { const k = 'r_' + g.id.replace(/-/g, '_'); const s = t(k); return s === k ? (g.blurb || '') : s; }
 function gameTitle(g) { return `${g.emoji} ${gameName(g)}`; }
 
 // ---------- state ----------
@@ -39,7 +41,7 @@ const S = {
   myTurn: false, timerId: null, timerAuth: false, turnStart: 0, remaining: 0,
   myReady: false, oppReady: false, rematchGuard: false,
   inPlay: false, paused: false, over: false, reconnectTimer: null, leaving: false,
-  oppName: '', lastLoserIsHost: null,
+  oppName: '', lastLoserIsHost: null, homeFilter: 'all', homeSearch: '',
 };
 
 // ---------- persistence (localStorage) ----------
@@ -182,24 +184,59 @@ function onData(msg) {
 }
 
 // ---------- home ----------
-function renderHome() {
-  const grid = $('game-grid');
-  grid.innerHTML = '';
-  for (const g of games) {
-    const card = el('button',
-      'group flex flex-col items-start gap-1 p-4 rounded-2xl bg-slate-800/80 border border-slate-700 ' +
-      'hover:border-indigo-500 hover:shadow-[0_0_25px_-5px] hover:shadow-indigo-500/60 transition text-left');
-    card.innerHTML =
-      `<span class="text-4xl">${g.emoji}</span>` +
-      `<span class="font-bold text-lg">${gameName(g)}</span>` +
-      `<span class="text-xs text-slate-400">${g.blurb}</span>`;
-    card.onclick = () => selectGame(g.id);
-    grid.appendChild(card);
+const CATS = ['classic', 'strategy', 'luck', 'word'];
+const DIFF_COLOR = { easy: 'text-emerald-400', medium: 'text-amber-400', hard: 'text-rose-400' };
+function renderChips() {
+  const box = $('cat-chips'); box.innerHTML = '';
+  for (const key of ['all', ...CATS]) {
+    const active = (S.homeFilter || 'all') === key;
+    const b = el('button', 'shrink-0 px-3 py-1.5 rounded-full text-sm font-semibold transition ' +
+      (active ? 'bg-indigo-600' : 'bg-slate-800 text-slate-400 hover:text-slate-200'), t(key === 'all' ? 'all_games' : 'cat_' + key));
+    b.onclick = () => { S.homeFilter = key; renderHome(); };
+    box.appendChild(b);
   }
+}
+function gameCard(g) {
+  const card = el('button', 'group flex items-center gap-3 p-3 rounded-2xl bg-slate-800/70 border border-slate-700 ' +
+    'hover:border-indigo-500 hover:shadow-[0_0_25px_-6px] hover:shadow-indigo-500/60 active:scale-[0.98] transition text-start w-full');
+  const diff = g.difficulty || 'medium';
+  card.innerHTML =
+    `<span class="text-3xl w-10 text-center shrink-0">${g.emoji}</span>` +
+    `<span class="flex-1 min-w-0">` +
+      `<span class="block font-bold truncate">${gameName(g)}</span>` +
+      `<span class="block text-xs text-slate-400 truncate">${gameDesc(g)}</span>` +
+      `<span class="mt-1 inline-flex gap-1.5 text-[10px]">` +
+        `<span class="px-1.5 py-0.5 rounded bg-slate-700 text-slate-300">${t('players2')}</span>` +
+        `<span class="px-1.5 py-0.5 rounded bg-slate-700 ${DIFF_COLOR[diff]}">${t('diff_' + diff)}</span>` +
+      `</span>` +
+    `</span>`;
+  card.onclick = () => selectGame(g.id);
+  return card;
+}
+function renderHome() {
+  renderChips();
+  const container = $('game-sections'); container.innerHTML = '';
+  const q = (S.homeSearch || '').trim().toLowerCase();
+  const match = (g) => !q || gameName(g).toLowerCase().includes(q) || gameDesc(g).toLowerCase().includes(q) || g.name.toLowerCase().includes(q);
+  let any = false;
+  for (const cat of CATS) {
+    if (S.homeFilter && S.homeFilter !== 'all' && S.homeFilter !== cat) continue;
+    const list = games.filter((g) => (g.category || 'classic') === cat && match(g));
+    if (!list.length) continue;
+    any = true;
+    const sec = el('div', 'mb-5');
+    sec.appendChild(el('h2', 'text-xs font-bold uppercase tracking-wider text-slate-500 mb-2', t('cat_' + cat)));
+    const grid = el('div', 'grid grid-cols-1 sm:grid-cols-2 gap-3');
+    for (const g of list) grid.appendChild(gameCard(g));
+    sec.appendChild(grid);
+    container.appendChild(sec);
+  }
+  if (!any) container.appendChild(el('p', 'text-center text-slate-500 py-8', t('no_results')));
 }
 function selectGame(id) {
   S.game = gameById(id);
   $('connect-title').textContent = gameTitle(S.game);
+  $('howto-text').textContent = gameRules(S.game);
   $('join-code').value = '';
   show('connect');
 }
@@ -453,6 +490,7 @@ export function boot() {
   onLangChange(() => { renderHome(); if (!$('screen-play').classList.contains('hidden')) updateTurnLabel(); });
   renderHome();
   $('btn-create').onclick = createRoom;
+  $('game-search').oninput = (e) => { S.homeSearch = e.target.value; renderHome(); };
   $('btn-join').onclick = () => joinRoom($('join-code').value.trim().toUpperCase());
   $('btn-copy').onclick = () => {
     const link = `${location.origin}${location.pathname}?g=${S.game.id}&room=${S.roomCode}`;

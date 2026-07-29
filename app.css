@@ -30,3 +30,22 @@ html[data-theme="amber"]   { --acc:#d97706; --acc2:#f59e0b; --acc-t:#fbbf24; }
 
 /* RTL: keep the mono room code / digit rows visually LTR. */
 html[dir="rtl"] .font-mono { direction: ltr; unicode-bidi: embed; }
+
+/* Home hero: subtle animated neon gradient using the current accent. */
+.hero-card {
+  background:
+    radial-gradient(120% 140% at 0% 0%, color-mix(in srgb, var(--acc2, #6366f1) 35%, transparent), transparent 60%),
+    radial-gradient(120% 140% at 100% 100%, color-mix(in srgb, var(--acc-t, #818cf8) 22%, transparent), transparent 55%),
+    #0f172a;
+  background-size: 180% 180%, 180% 180%, 100% 100%;
+  animation: heroShift 12s ease-in-out infinite alternate;
+}
+@keyframes heroShift {
+  0% { background-position: 0% 0%, 100% 100%, 0 0; }
+  100% { background-position: 40% 30%, 60% 70%, 0 0; }
+}
+@media (prefers-reduced-motion: reduce) { .hero-card { animation: none; } }
+
+/* Horizontal chip row: hide scrollbar. */
+#cat-chips::-webkit-scrollbar { display: none; }
+#cat-chips { scrollbar-width: none; }

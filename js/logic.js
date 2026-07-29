@@ -178,3 +178,142 @@ export function morrisMillsAt(board, pos) {
   if (!p) return [];
   return MORRIS_MILLS.filter((m) => m.includes(pos) && m.every((i) => board[i] === p));
 }
+
+// ---------- Chess ---------- board 8x8 [y][x]; UPPER=white, lower=black. y=0 rank 8, y=7 rank 1. White moves -y.
+const cIn = (x, y) => x >= 0 && x < 8 && y >= 0 && y < 8;
+const cColor = (p) => p ? (p === p.toUpperCase() ? 'w' : 'b') : null;
+export function chessInitial() {
+  const back = 'RNBQKBNR';
+  const b = Array.from({ length: 8 }, () => Array(8).fill(null));
+  for (let x = 0; x < 8; x++) { b[0][x] = back[x].toLowerCase(); b[1][x] = 'p'; b[6][x] = 'P'; b[7][x] = back[x]; }
+  return { board: b, turn: 'w', castling: { wk: true, wq: true, bk: true, bq: true }, ep: null };
+}
+function attacked(board, x, y, by) {
+  const pr = y + (by === 'w' ? 1 : -1), pp = by === 'w' ? 'P' : 'p';
+  if (cIn(x - 1, pr) && board[pr][x - 1] === pp) return true;
+  if (cIn(x + 1, pr) && board[pr][x + 1] === pp) return true;
+  const kn = by === 'w' ? 'N' : 'n';
+  for (const [dx, dy] of [[1, 2], [2, 1], [-1, 2], [-2, 1], [1, -2], [2, -1], [-1, -2], [-2, -1]])
+    if (cIn(x + dx, y + dy) && board[y + dy][x + dx] === kn) return true;
+  const kg = by === 'w' ? 'K' : 'k';
+  for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) if ((dx || dy) && cIn(x + dx, y + dy) && board[y + dy][x + dx] === kg) return true;
+  const rq = by === 'w' ? 'RQ' : 'rq', bq = by === 'w' ? 'BQ' : 'bq';
+  const ray = (dirs, set) => { for (const [dx, dy] of dirs) { let cx = x + dx, cy = y + dy; while (cIn(cx, cy)) { const q = board[cy][cx]; if (q) { if (set.includes(q)) return true; break; } cx += dx; cy += dy; } } return false; };
+  return ray([[1, 0], [-1, 0], [0, 1], [0, -1]], rq) || ray([[1, 1], [1, -1], [-1, 1], [-1, -1]], bq);
+}
+function kingPos(board, color) { const k = color === 'w' ? 'K' : 'k'; for (let y = 0; y < 8; y++) for (let x = 0; x < 8; x++) if (board[y][x] === k) return [x, y]; return null; }
+export function chessInCheck(state, color) { const k = kingPos(state.board, color); return k ? attacked(state.board, k[0], k[1], color === 'w' ? 'b' : 'w') : false; }
+function pseudo(state, x, y) {
+  const board = state.board, p = board[y][x]; if (!p) return [];
+  const c = cColor(p), opp = c === 'w' ? 'b' : 'w', out = [], t = p.toUpperCase();
+  const add = (tx, ty) => { if (cIn(tx, ty)) { const q = board[ty][tx]; if (!q || cColor(q) === opp) out.push([tx, ty]); } };
+  const slide = (dirs) => { for (const [dx, dy] of dirs) { let cx = x + dx, cy = y + dy; while (cIn(cx, cy)) { const q = board[cy][cx]; if (!q) out.push([cx, cy]); else { if (cColor(q) === opp) out.push([cx, cy]); break; } cx += dx; cy += dy; } } };
+  if (t === 'P') {
+    const dir = c === 'w' ? -1 : 1, sy = c === 'w' ? 6 : 1;
+    if (cIn(x, y + dir) && !board[y + dir][x]) { out.push([x, y + dir]); if (y === sy && !board[y + 2 * dir][x]) out.push([x, y + 2 * dir]); }
+    for (const dx of [-1, 1]) { const tx = x + dx, ty = y + dir; if (cIn(tx, ty)) { const q = board[ty][tx]; if (q && cColor(q) === opp) out.push([tx, ty]); else if (state.ep && state.ep[0] === tx && state.ep[1] === ty) out.push([tx, ty]); } }
+  } else if (t === 'N') { for (const [dx, dy] of [[1, 2], [2, 1], [-1, 2], [-2, 1], [1, -2], [2, -1], [-1, -2], [-2, -1]]) add(x + dx, y + dy); }
+  else if (t === 'B') slide([[1, 1], [1, -1], [-1, 1], [-1, -1]]);
+  else if (t === 'R') slide([[1, 0], [-1, 0], [0, 1], [0, -1]]);
+  else if (t === 'Q') slide([[1, 1], [1, -1], [-1, 1], [-1, -1], [1, 0], [-1, 0], [0, 1], [0, -1]]);
+  else if (t === 'K') {
+    for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) if (dx || dy) add(x + dx, y + dy);
+    const rank = c === 'w' ? 7 : 0, oc = opp, rk = c === 'w' ? 'R' : 'r';
+    if (y === rank && x === 4) {
+      const ks = c === 'w' ? state.castling.wk : state.castling.bk, qs = c === 'w' ? state.castling.wq : state.castling.bq;
+      if (ks && !board[rank][5] && !board[rank][6] && board[rank][7] === rk && !attacked(board, 4, rank, oc) && !attacked(board, 5, rank, oc) && !attacked(board, 6, rank, oc)) out.push([6, rank]);
+      if (qs && !board[rank][3] && !board[rank][2] && !board[rank][1] && board[rank][0] === rk && !attacked(board, 4, rank, oc) && !attacked(board, 3, rank, oc) && !attacked(board, 2, rank, oc)) out.push([2, rank]);
+    }
+  }
+  return out;
+}
+export function chessApply(state, from, to, promo) {
+  const [fx, fy] = from, [tx, ty] = to;
+  const board = state.board.map((r) => r.slice()), castling = { ...state.castling };
+  let p = board[fy][fx]; const c = cColor(p), t = p.toUpperCase(); let ep = null;
+  if (t === 'P' && fx !== tx && !board[ty][tx]) board[fy][tx] = null; // en passant
+  board[fy][fx] = null;
+  if (t === 'P' && (ty === 0 || ty === 7)) { const pr = (promo || 'Q').toUpperCase(); p = c === 'w' ? pr : pr.toLowerCase(); }
+  board[ty][tx] = p;
+  if (t === 'K' && Math.abs(tx - fx) === 2) { const rk = fy; if (tx === 6) { board[rk][5] = board[rk][7]; board[rk][7] = null; } else { board[rk][3] = board[rk][0]; board[rk][0] = null; } }
+  if (t === 'K') { if (c === 'w') { castling.wk = castling.wq = false; } else { castling.bk = castling.bq = false; } }
+  if (fx === 0 && fy === 7) castling.wq = false; if (fx === 7 && fy === 7) castling.wk = false;
+  if (fx === 0 && fy === 0) castling.bq = false; if (fx === 7 && fy === 0) castling.bk = false;
+  if (tx === 0 && ty === 7) castling.wq = false; if (tx === 7 && ty === 7) castling.wk = false;
+  if (tx === 0 && ty === 0) castling.bq = false; if (tx === 7 && ty === 0) castling.bk = false;
+  if (t === 'P' && Math.abs(ty - fy) === 2) ep = [fx, (fy + ty) / 2];
+  return { board, turn: c === 'w' ? 'b' : 'w', castling, ep };
+}
+export function chessLegalMoves(state, from) {
+  const [x, y] = from, p = state.board[y][x]; if (!p || cColor(p) !== state.turn) return [];
+  return pseudo(state, x, y).filter((to) => !chessInCheck(chessApply(state, from, to, 'Q'), state.turn));
+}
+export function chessAllMoves(state) {
+  const res = [];
+  for (let y = 0; y < 8; y++) for (let x = 0; x < 8; x++) { const p = state.board[y][x]; if (p && cColor(p) === state.turn) for (const to of chessLegalMoves(state, [x, y])) res.push({ from: [x, y], to }); }
+  return res;
+}
+export function chessStatus(state) {
+  const moves = chessAllMoves(state), chk = chessInCheck(state, state.turn);
+  if (!moves.length) return chk ? 'checkmate' : 'stalemate';
+  return chk ? 'check' : 'normal';
+}
+
+// ---------- Go (9x9) ---------- board 9x9 [y][x] of 'b'|'w'|null.
+const goNbr = (x, y) => { const r = []; if (x > 0) r.push([x - 1, y]); if (x < 8) r.push([x + 1, y]); if (y > 0) r.push([x, y - 1]); if (y < 8) r.push([x, y + 1]); return r; };
+function goGroup(board, x, y) {
+  const color = board[y][x], seen = new Set(), stack = [[x, y]], cells = [], libs = new Set();
+  while (stack.length) {
+    const [cx, cy] = stack.pop(), k = cy * 9 + cx; if (seen.has(k)) continue; seen.add(k); cells.push([cx, cy]);
+    for (const [nx, ny] of goNbr(cx, cy)) { const v = board[ny][nx]; if (v === null) libs.add(ny * 9 + nx); else if (v === color && !seen.has(ny * 9 + nx)) stack.push([nx, ny]); }
+  }
+  return { cells, libs: libs.size };
+}
+export function goPlace(board, x, y, color) {
+  if (board[y][x]) return null;
+  const b = board.map((r) => r.slice()); b[y][x] = color; const opp = color === 'b' ? 'w' : 'b';
+  let captured = 0;
+  for (const [nx, ny] of goNbr(x, y)) if (b[ny][nx] === opp) { const g = goGroup(b, nx, ny); if (g.libs === 0) for (const [gx, gy] of g.cells) { b[gy][gx] = null; captured++; } }
+  if (goGroup(b, x, y).libs === 0) return null; // suicide
+  return { board: b, captured };
+}
+export function goScore(board) {
+  let b = 0, w = 0;
+  for (const row of board) for (const c of row) { if (c === 'b') b++; else if (c === 'w') w++; }
+  const seen = new Set();
+  for (let y = 0; y < 9; y++) for (let x = 0; x < 9; x++) {
+    if (board[y][x] || seen.has(y * 9 + x)) continue;
+    const stack = [[x, y]], region = [], border = new Set();
+    while (stack.length) { const [cx, cy] = stack.pop(), k = cy * 9 + cx; if (seen.has(k)) continue; seen.add(k); region.push(k); for (const [nx, ny] of goNbr(cx, cy)) { const v = board[ny][nx]; if (v === null) { if (!seen.has(ny * 9 + nx)) stack.push([nx, ny]); } else border.add(v); } }
+    if (border.size === 1) { if (border.has('b')) b += region.length; else w += region.length; }
+  }
+  return { b, w };
+}
+
+// ---------- Yahtzee ---------- dice = array(5) of 1..6.
+export function yahtzeeScore(cat, dice) {
+  const counts = {}; for (const d of dice) counts[d] = (counts[d] || 0) + 1;
+  const vc = Object.values(counts), sum = dice.reduce((a, b) => a + b, 0);
+  const has = (n) => vc.some((c) => c >= n);
+  const straight = (len) => { let run = 0, mx = 0; for (let n = 1; n <= 6; n++) { if (counts[n]) { run++; mx = Math.max(mx, run); } else run = 0; } return mx >= len; };
+  const num = { ones: 1, twos: 2, threes: 3, fours: 4, fives: 5, sixes: 6 };
+  if (cat in num) return (counts[num[cat]] || 0) * num[cat];
+  switch (cat) {
+    case 'threeKind': return has(3) ? sum : 0;
+    case 'fourKind': return has(4) ? sum : 0;
+    case 'fullHouse': return (vc.includes(3) && vc.includes(2)) ? 25 : 0;
+    case 'smallStraight': return straight(4) ? 30 : 0;
+    case 'largeStraight': return straight(5) ? 40 : 0;
+    case 'yahtzee': return has(5) ? 50 : 0;
+    case 'chance': return sum;
+  }
+  return 0;
+}
+export const YAHTZEE_CATS = ['ones', 'twos', 'threes', 'fours', 'fives', 'sixes', 'threeKind', 'fourKind', 'fullHouse', 'smallStraight', 'largeStraight', 'yahtzee', 'chance'];
+
+// ---------- Nim ---------- rows = array of stick counts.
+export function nimEmpty(rows) { return rows.every((n) => n === 0); }
+
+// ---------- Snakes & Ladders ---------- square -> destination (ladders up, snakes down).
+export const SNL_MAP = { 1: 38, 4: 14, 9: 31, 21: 42, 28: 84, 36: 44, 51: 67, 71: 91, 80: 100, 16: 6, 47: 26, 49: 11, 56: 53, 62: 19, 64: 60, 87: 24, 93: 73, 95: 75, 98: 78 };
+

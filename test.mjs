@@ -119,4 +119,42 @@ assert.strictEqual(morrisMillsAt(nb, 1).length, 1, 'morris mill formed');
 nb[2] = 'B';
 assert.strictEqual(morrisMillsAt(nb, 1).length, 0, 'morris broken mill');
 
-console.log(`PASS (evaluate: ${evalCases.length}, ttt: 6, c4: 5, gomoku: 3, reversi: 3, checkers: 2, dots: 2, uttt: 2, mancala: 5, morris: 2)`);
+// ---- Chess ----
+import { chessInitial, chessLegalMoves, chessApply, chessStatus, chessInCheck, yahtzeeScore, goPlace, goScore, nimEmpty } from './js/logic.js';
+let cs = chessInitial();
+assert.strictEqual(chessLegalMoves(cs, [4, 6]).length, 2, 'chess e-pawn has 2 moves');   // white e2 pawn
+assert.strictEqual(chessStatus(cs), 'normal', 'chess start normal');
+// back-rank style mate: black Kh8, white Qg7 protected by Kf6, black to move
+const mateB = Array.from({ length: 8 }, () => Array(8).fill(null));
+mateB[0][7] = 'k'; mateB[1][6] = 'Q'; mateB[2][5] = 'K';
+const mate = { board: mateB, turn: 'b', castling: { wk: false, wq: false, bk: false, bq: false }, ep: null };
+assert.strictEqual(chessInCheck(mate, 'b'), true, 'chess black in check');
+assert.strictEqual(chessStatus(mate), 'checkmate', 'chess checkmate');
+// castling: clear f1,g1 -> white king may castle kingside
+let cc = chessInitial(); cc.board[7][5] = null; cc.board[7][6] = null;
+assert.ok(chessLegalMoves(cc, [4, 7]).some(([x, y]) => x === 6 && y === 7), 'chess kingside castle offered');
+
+// ---- Go ----
+let gb = Array.from({ length: 9 }, () => Array(9).fill(null));
+gb[0][0] = 'w'; gb[1][0] = 'b';                  // white at (0,0)[x0y0], black below at (0,1)[x0y1]
+let gr = goPlace(gb, 1, 0, 'b');                 // black plays (1,0) -> captures white corner
+assert.strictEqual(gr.captured, 1, 'go capture 1');
+assert.strictEqual(gr.board[0][0], null, 'go captured stone removed');
+let sb = Array.from({ length: 9 }, () => Array(9).fill(null));
+sb[0][1] = 'w'; sb[1][0] = 'w';                  // white surrounds corner (0,0)
+assert.strictEqual(goPlace(sb, 0, 0, 'b'), null, 'go suicide rejected');
+assert.strictEqual(goScore([[ 'b', null, 'w' ].concat(Array(6).fill(null))].concat(Array(8).fill(Array(9).fill(null)))).b >= 1, true, 'go score counts stones');
+
+// ---- Yahtzee ----
+assert.strictEqual(yahtzeeScore('fullHouse', [2, 2, 3, 3, 3]), 25, 'yahtzee full house');
+assert.strictEqual(yahtzeeScore('smallStraight', [1, 2, 3, 4, 6]), 30, 'yahtzee small straight');
+assert.strictEqual(yahtzeeScore('largeStraight', [2, 3, 4, 5, 6]), 40, 'yahtzee large straight');
+assert.strictEqual(yahtzeeScore('yahtzee', [5, 5, 5, 5, 5]), 50, 'yahtzee 5-kind');
+assert.strictEqual(yahtzeeScore('threeKind', [3, 3, 3, 1, 2]), 12, 'yahtzee three kind sum');
+assert.strictEqual(yahtzeeScore('fours', [4, 4, 1, 4, 2]), 12, 'yahtzee fours');
+
+// ---- Nim ----
+assert.strictEqual(nimEmpty([0, 0, 0]), true, 'nim empty');
+assert.strictEqual(nimEmpty([0, 1, 0]), false, 'nim not empty');
+
+console.log('PASS (all logic incl. chess/go/yahtzee/nim)');

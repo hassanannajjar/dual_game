@@ -24,15 +24,24 @@
         style="padding-bottom: max(1.25rem, env(safe-area-inset-bottom));">
 
     <!-- HOME -->
-    <section id="screen-home">
-      <h1 class="text-2xl font-black mb-1" data-i18n="pick_game">Pick a game</h1>
-      <p class="text-slate-400 text-sm mb-5" data-i18n="tagline">2 players · peer-to-peer · no sign-up</p>
-      <div id="game-grid" class="grid grid-cols-2 gap-3"></div>
+    <section id="screen-home" class="space-y-4">
+      <div class="hero-card rounded-2xl p-5 border border-slate-800">
+        <h1 class="text-2xl font-black mb-1" data-i18n="pick_game">Pick a game</h1>
+        <p class="text-slate-300/80 text-sm" data-i18n="tagline">2 players · peer-to-peer · no sign-up</p>
+      </div>
+      <input id="game-search" data-i18n-ph="search_ph" placeholder="Search games…"
+             class="w-full py-2.5 px-4 rounded-xl bg-slate-800 border border-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 placeholder:text-slate-500" />
+      <div id="cat-chips" class="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1"></div>
+      <div id="game-sections"></div>
     </section>
 
     <!-- CONNECT (pre-connection: create or join) -->
     <section id="screen-connect" class="hidden space-y-4">
       <h2 id="connect-title" class="text-xl font-bold"></h2>
+      <div class="bg-slate-800/60 border border-slate-700 rounded-xl p-4">
+        <h3 class="text-xs font-bold uppercase tracking-wider text-indigo-400 mb-1" data-i18n="how_to_play">How to play</h3>
+        <p id="howto-text" class="text-sm text-slate-300 leading-relaxed"></p>
+      </div>
       <button id="btn-create" class="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 font-semibold transition" data-i18n="create_room">Create a Room</button>
       <div class="flex items-center gap-2 text-slate-500 text-xs"><div class="flex-1 h-px bg-slate-800"></div><span data-i18n="or">OR</span><div class="flex-1 h-px bg-slate-800"></div></div>
       <input id="join-code" maxlength="6" placeholder="ENTER ROOM CODE" data-i18n-ph="enter_code"
