@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dual Game — Number Duel</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+  <style>
+    .digit-input::-webkit-outer-spin-button,
+    .digit-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+    .digit-input { -moz-appearance: textfield; }
+    @keyframes flip { 0% { transform: rotateX(0); } 50% { transform: rotateX(90deg); } 100% { transform: rotateX(0); } }
+    .coin-flip { animation: flip 0.4s linear 6; }
+  </style>
+</head>
+<body class="min-h-screen bg-slate-900 text-slate-100 flex items-center justify-center p-4 font-sans">
+
+  <main class="w-full max-w-lg">
+    <h1 class="text-3xl font-bold text-center mb-1 text-indigo-400">Number Duel</h1>
+    <p class="text-center text-slate-400 text-sm mb-6">Crack your opponent's secret number first.</p>
+
+    <!-- status bar -->
+    <div id="status" class="text-center text-xs text-slate-400 mb-4 h-4"></div>
+
+    <!-- 1. LANDING -->
+    <section id="screen-landing" class="bg-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
+      <button id="btn-create" class="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 font-semibold transition">Create a Room</button>
+      <div class="flex items-center gap-2 text-slate-500 text-xs"><div class="flex-1 h-px bg-slate-700"></div>OR<div class="flex-1 h-px bg-slate-700"></div></div>
+      <div class="space-y-2">
+        <input id="join-code" maxlength="6" placeholder="ENTER ROOM CODE" class="w-full py-3 px-4 rounded-xl bg-slate-700 text-center tracking-widest uppercase placeholder:tracking-normal placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        <button id="btn-join" class="w-full py-3 rounded-xl bg-slate-700 hover:bg-slate-600 font-semibold transition">Join Room</button>
+      </div>
+    </section>
+
+    <!-- 2. LOBBY (host config) -->
+    <section id="screen-lobby" class="hidden bg-slate-800 rounded-2xl p-6 shadow-xl space-y-5">
+      <div id="lobby-host">
+        <h2 class="font-semibold mb-3">Game Settings</h2>
+        <label class="block text-sm text-slate-400 mb-1">Number length</label>
+        <div id="opt-length" class="grid grid-cols-3 gap-2 mb-4"></div>
+        <label class="block text-sm text-slate-400 mb-1">Turn timer</label>
+        <div id="opt-timer" class="grid grid-cols-2 gap-2 mb-4"></div>
+      </div>
+
+      <div class="bg-slate-900 rounded-xl p-4 text-center">
+        <p class="text-xs text-slate-400 mb-1">Room code</p>
+        <p id="room-code" class="text-3xl font-mono font-bold tracking-widest text-indigo-400">------</p>
+        <button id="btn-copy" class="mt-3 text-sm py-2 px-4 rounded-lg bg-slate-700 hover:bg-slate-600 transition">Copy invite link</button>
+      </div>
+
+      <button id="btn-start" class="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed" disabled>Waiting for opponent…</button>
+    </section>
+
+    <!-- 3. SECRET ENTRY -->
+    <section id="screen-secret" class="hidden bg-slate-800 rounded-2xl p-6 shadow-xl space-y-4 text-center">
+      <h2 class="font-semibold">Set your secret number</h2>
+      <p class="text-sm text-slate-400" id="secret-hint">Enter a number.</p>
+      <input id="secret-input" inputmode="numeric" class="digit-input w-full py-4 rounded-xl bg-slate-700 text-center text-3xl font-mono tracking-[0.4em] focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+      <button id="btn-lock" class="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 font-semibold transition">Lock it in</button>
+      <p id="secret-status" class="text-sm text-slate-400 h-5"></p>
+    </section>
+
+    <!-- 4. COIN TOSS -->
+    <section id="screen-toss" class="hidden bg-slate-800 rounded-2xl p-8 shadow-xl text-center space-y-4">
+      <div id="coin" class="mx-auto w-24 h-24 rounded-full bg-gradient-to-br from-yellow-400 to-amber-600 flex items-center justify-center text-3xl font-bold text-amber-900">?</div>
+      <p id="toss-result" class="text-lg font-semibold">Tossing…</p>
+    </section>
+
+    <!-- 5. PLAY -->
+    <section id="screen-play" class="hidden space-y-4">
+      <div class="bg-slate-800 rounded-2xl p-4 shadow-xl">
+        <div class="flex items-center justify-between mb-3">
+          <span id="turn-label" class="font-semibold"></span>
+          <span id="timer" class="font-mono text-xl px-3 py-1 rounded-lg bg-slate-900">--</span>
+        </div>
+        <div class="flex gap-2">
+          <input id="guess-input" inputmode="numeric" class="digit-input flex-1 py-3 rounded-xl bg-slate-700 text-center text-2xl font-mono tracking-[0.3em] focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-40" />
+          <button id="btn-guess" class="px-5 rounded-xl bg-indigo-600 hover:bg-indigo-500 font-semibold transition disabled:opacity-40">Guess</button>
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div class="bg-slate-800 rounded-2xl p-3 shadow-xl">
+          <h3 class="text-sm font-semibold text-indigo-400 mb-2 text-center">Your guesses</h3>
+          <ul id="log-you" class="space-y-1 text-sm max-h-72 overflow-y-auto"></ul>
+        </div>
+        <div class="bg-slate-800 rounded-2xl p-3 shadow-xl">
+          <h3 class="text-sm font-semibold text-amber-400 mb-2 text-center">Opponent</h3>
+          <ul id="log-opp" class="space-y-1 text-sm max-h-72 overflow-y-auto"></ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- 6. GAME OVER -->
+    <section id="screen-over" class="hidden bg-slate-800 rounded-2xl p-8 shadow-xl text-center space-y-4">
+      <div id="over-emoji" class="text-6xl">🏆</div>
+      <h2 id="over-title" class="text-2xl font-bold"></h2>
+      <p id="over-sub" class="text-slate-400"></p>
+      <button id="btn-rematch" class="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 font-semibold transition">Rematch</button>
+      <button id="btn-quit" class="w-full py-2 rounded-xl bg-slate-700 hover:bg-slate-600 text-sm transition">Back to start</button>
+    </section>
+
+    <p class="text-center text-xs text-slate-600 mt-6">Peer-to-peer · your secret never leaves your device</p>
+  </main>
+
+  <!-- toast -->
+  <div id="toast" class="hidden fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-700 text-sm px-4 py-2 rounded-lg shadow-lg"></div>
+
+  <script src="evaluate.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>
