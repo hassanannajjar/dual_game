@@ -1,0 +1,13 @@
+/* Neon arcade extras on top of Tailwind CDN. */
+
+/* Hide number-input spinners so digit fields look clean. */
+.digit-input::-webkit-outer-spin-button,
+.digit-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.digit-input { -moz-appearance: textfield; }
+
+/* Coin-toss flip. */
+@keyframes flip { 0% { transform: rotateX(0); } 50% { transform: rotateX(90deg); } 100% { transform: rotateX(0); } }
+.coin-flip { animation: flip 0.4s linear 5; }
+
+/* Prevent accidental text selection / callout on rapid tapping of game cells. */
+button { -webkit-tap-highlight-color: transparent; user-select: none; }
