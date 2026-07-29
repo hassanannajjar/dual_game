@@ -157,4 +157,42 @@ assert.strictEqual(yahtzeeScore('fours', [4, 4, 1, 4, 2]), 12, 'yahtzee fours');
 assert.strictEqual(nimEmpty([0, 0, 0]), true, 'nim empty');
 assert.strictEqual(nimEmpty([0, 1, 0]), false, 'nim not empty');
 
-console.log('PASS (all logic incl. chess/go/yahtzee/nim)');
+// ---- Hex ----
+import { hexConnected, ludoStep, ludoAbs, bgInitial, bgLegalMoves, bgApply, bgAllHome, ccReachable } from './js/logic.js';
+function hexBoard() { return Array.from({ length: 11 }, () => Array(11).fill(null)); }
+let hx = hexBoard();
+for (let x = 0; x < 11; x++) hx[5][x] = 'b';          // full row -> blue connects left..right
+assert.strictEqual(hexConnected(hx, 'b'), true, 'hex blue connected');
+assert.strictEqual(hexConnected(hx, 'r'), false, 'hex red not connected');
+hx = hexBoard(); for (let x = 0; x < 10; x++) hx[5][x] = 'b'; // gap at x=10
+assert.strictEqual(hexConnected(hx, 'b'), false, 'hex blue broken chain');
+
+// ---- Ludo ----
+assert.strictEqual(ludoStep(0, 6), 1, 'ludo leave base on 6');
+assert.strictEqual(ludoStep(0, 3), null, 'ludo cannot leave base without 6');
+assert.strictEqual(ludoStep(55, 3), null, 'ludo overshoot blocked');
+assert.strictEqual(ludoStep(54, 3), 57, 'ludo exact finish');
+assert.strictEqual(ludoAbs(0, 1), ludoAbs(26, 27), 'ludo opposite entries collide at abs 0');
+
+// ---- Backgammon ----
+let bg = bgInitial();
+bg.points[10] = 1;                                    // white blot at 10
+bg.points[5] = -1;                                    // a black checker at 5 (moves +5 -> 10)
+let bm = bgLegalMoves(bg, 5, 'b').find((m) => m.to === 10);   // black from 5 with die 5 -> 10
+assert.ok(bm, 'bg black can move onto white blot');
+let after = bgApply(bg, bm.from, 10, 'b');
+assert.strictEqual(after.bar.w, 1, 'bg hit sends white to bar');
+assert.strictEqual(after.points[10], -1, 'bg blot replaced by black');
+// bear off: all white home, one on point 0, die 1
+let hb = { points: Array(24).fill(0), bar: { w: 0, b: 0 }, off: { w: 0, b: 0 } };
+hb.points[0] = 1; hb.points[3] = 14;
+assert.strictEqual(bgAllHome(hb, 'w'), true, 'bg white all home');
+assert.ok(bgLegalMoves(hb, 1, 'w').some((m) => m.to === 'off'), 'bg bear off from point 0 with die 1');
+
+// ---- Chinese Checkers hop ----
+const adj = new Map([[0, [[1, 2]]], [1, [[0, null], [2, null]]], [2, [[1, 0]]]]);
+const reach = ccReachable(adj, new Set([1]), 0);
+assert.ok(reach.has(2), 'cc hop over peg to empty');
+assert.ok(!reach.has(1), 'cc cannot land on occupied');
+
+console.log('PASS (all logic incl. hex/ludo/backgammon/chinese-checkers)');

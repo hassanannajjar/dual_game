@@ -74,6 +74,13 @@ const DICT = {
     r_order: 'Both players place X or O on 6×6. Order wins by making five in a row; Chaos wins by filling the board without one.',
     r_nim: 'On your turn take any number of sticks from one row. Whoever takes the last stick loses.',
     r_yahtzee: 'Roll five dice up to three times, keeping any. Score into a category each turn. Highest total wins.',
+    g_hex: 'Hex', g_ludo: 'Ludo', g_backgammon: 'Backgammon', g_chinesecheckers: 'Chinese Checkers',
+    d_hex: 'Bridge your two sides.', d_ludo: 'Race your tokens home.',
+    d_backgammon: 'Roll, hit, and bear off.', d_chinesecheckers: 'Hop pegs to the far side.',
+    r_hex: 'Take turns placing a stone. Connect your two opposite edges with one unbroken chain to win — there are no draws.',
+    r_ludo: 'Roll to leave base on a 6, then race all four tokens around to home. Land on a lone opponent to send it back. A 6 rolls again.',
+    r_backgammon: 'Roll two dice and move your checkers toward your home. Land on a lone enemy checker to send it to the bar. Bear all fifteen off first to win.',
+    r_chinesecheckers: 'Move a peg to an adjacent hole, or hop over pegs in a line (chained hops allowed). Get all your pegs into the opposite triangle first.',
   },
   ar: {
     tagline: 'لاعبان · اتصال مباشر · بدون تسجيل',
@@ -144,6 +151,13 @@ const DICT = {
     r_order: 'يضع اللاعبان X أو O على 6×6. النظام يفوز بصنع خمسة في صف؛ الفوضى تفوز بملء اللوح دون ذلك.',
     r_nim: 'في دورك خذ أي عدد من الأعواد من صف واحد. من يأخذ العود الأخير يخسر.',
     r_yahtzee: 'ارمِ خمسة نرد حتى ثلاث مرات محتفظًا بما تشاء. سجّل في فئة كل دور. أعلى مجموع يفوز.',
+    g_hex: 'هيكس', g_ludo: 'لودو', g_backgammon: 'الطاولة', g_chinesecheckers: 'الداما الصينية',
+    d_hex: 'اربط جانبيك.', d_ludo: 'سابق رموزك إلى البيت.',
+    d_backgammon: 'ارمِ واضرب وأخرج قطعك.', d_chinesecheckers: 'انقل القطع للجهة المقابلة.',
+    r_hex: 'تناوبوا وضع حجر. اربط حافتيك المتقابلتين بسلسلة متصلة لتفوز — لا تعادل.',
+    r_ludo: 'ارمِ لتخرج من القاعدة عند 6، ثم سابق رموزك الأربعة حول المسار إلى البيت. الوقوف على رمز خصم منفرد يعيده. الـ 6 يمنح رمية إضافية.',
+    r_backgammon: 'ارمِ نردين وحرّك قطعك نحو بيتك. الوقوف على قطعة عدو منفردة يرسلها للحاجز. أخرج قطعك الخمسة عشرة أولًا لتفوز.',
+    r_chinesecheckers: 'انقل قطعة إلى حفرة مجاورة، أو اقفز فوق القطع في خط (قفزات متتالية مسموحة). أوصل كل قطعك إلى المثلث المقابل أولًا.',
   },
 };
 

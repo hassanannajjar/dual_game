@@ -317,3 +317,99 @@ export function nimEmpty(rows) { return rows.every((n) => n === 0); }
 // ---------- Snakes & Ladders ---------- square -> destination (ladders up, snakes down).
 export const SNL_MAP = { 1: 38, 4: 14, 9: 31, 21: 42, 28: 84, 36: 44, 51: 67, 71: 91, 80: 100, 16: 6, 47: 26, 49: 11, 56: 53, 62: 19, 64: 60, 87: 24, 93: 73, 95: 75, 98: 78 };
 
+// ---------- Hex ---------- board NxN [y][x] of 'r'|'b'|null. 'r' connects top<->bottom, 'b' connects left<->right.
+export function hexConnected(board, color) {
+  const N = board.length;
+  const nbrs = (x, y) => [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1], [x + 1, y - 1], [x - 1, y + 1]].filter(([a, b]) => a >= 0 && a < N && b >= 0 && b < N);
+  const seen = new Set(), stack = [];
+  if (color === 'r') { for (let x = 0; x < N; x++) if (board[0][x] === 'r') stack.push([x, 0]); }
+  else { for (let y = 0; y < N; y++) if (board[y][0] === 'b') stack.push([0, y]); }
+  while (stack.length) {
+    const [x, y] = stack.pop(), k = y * N + x;
+    if (seen.has(k) || board[y][x] !== color) continue;
+    seen.add(k);
+    if (color === 'r' && y === N - 1) return true;
+    if (color === 'b' && x === N - 1) return true;
+    for (const [nx, ny] of nbrs(x, y)) if (!seen.has(ny * N + nx) && board[ny][nx] === color) stack.push([nx, ny]);
+  }
+  return false;
+}
+
+// ---------- Ludo (2-player) ---------- token progress 0=base, 1..51 main track, 52..56 home column, 57=home.
+export function ludoStep(steps, roll) {
+  if (steps === 0) return roll === 6 ? 1 : null;   // leave base only on a 6
+  const ns = steps + roll;
+  if (ns > 57) return null;                          // must be exact to finish
+  return ns;
+}
+export function ludoAbs(entry, steps) {              // absolute main-track cell (0..51), or null off-track
+  return (steps >= 1 && steps <= 51) ? (entry + steps - 1) % 52 : null;
+}
+
+// ---------- Backgammon ---------- points[24] signed ints (+white, -black); white moves 23->0 (home 0..5), black 0->23 (home 18..23).
+export function bgInitial() {
+  const p = Array(24).fill(0);
+  p[23] = 2; p[12] = 5; p[7] = 3; p[5] = 5;          // white +
+  p[0] = -2; p[11] = -5; p[16] = -3; p[18] = -5;     // black -
+  return { points: p, bar: { w: 0, b: 0 }, off: { w: 0, b: 0 } };
+}
+const bgSign = (c) => (c === 'w' ? 1 : -1);
+export function bgAllHome(state, color) {
+  const s = bgSign(color);
+  if ((color === 'w' ? state.bar.w : state.bar.b) > 0) return false;
+  for (let i = 0; i < 24; i++) if (state.points[i] * s > 0) { const home = color === 'w' ? i <= 5 : i >= 18; if (!home) return false; }
+  return true;
+}
+export function bgLegalMoves(state, die, color) {
+  const s = bgSign(color), dir = color === 'w' ? -1 : 1, moves = [];
+  const own = (i) => state.points[i] * s > 0;
+  const blocked = (i) => state.points[i] * s <= -2;
+  const bar = color === 'w' ? state.bar.w : state.bar.b;
+  if (bar > 0) {
+    const entry = color === 'w' ? 24 - die : die - 1;
+    if (entry >= 0 && entry < 24 && !blocked(entry)) moves.push({ from: 'bar', to: entry });
+    return moves;
+  }
+  for (let i = 0; i < 24; i++) {
+    if (!own(i)) continue;
+    const to = i + dir * die;
+    if (to >= 0 && to < 24) { if (!blocked(to)) moves.push({ from: i, to }); }
+    else if (bgAllHome(state, color)) {
+      const need = color === 'w' ? i + 1 : 24 - i;
+      if (die === need) moves.push({ from: i, to: 'off' });
+      else if (die > need) {
+        let higher = false;
+        if (color === 'w') { for (let j = i + 1; j <= 5; j++) if (own(j)) higher = true; }
+        else { for (let j = 18; j < i; j++) if (own(j)) higher = true; }
+        if (!higher) moves.push({ from: i, to: 'off' });
+      }
+    }
+  }
+  return moves;
+}
+export function bgApply(state, from, to, color) {
+  const s = bgSign(color);
+  const st = { points: state.points.slice(), bar: { ...state.bar }, off: { ...state.off } };
+  if (from === 'bar') { if (color === 'w') st.bar.w--; else st.bar.b--; }
+  else st.points[from] -= s;
+  if (to === 'off') { if (color === 'w') st.off.w++; else st.off.b++; }
+  else {
+    if (st.points[to] * s === -1) { st.points[to] = 0; if (color === 'w') st.bar.b++; else st.bar.w++; } // hit blot
+    st.points[to] += s;
+  }
+  return st;
+}
+export function bgWon(state, color) { return (color === 'w' ? state.off.w : state.off.b) === 15; }
+
+// ---------- Chinese Checkers hop search ---------- adj: Map pos -> [[neighbor, beyond]]; occupied: Set of pegged positions.
+export function ccReachable(adj, occupied, start) {
+  const dest = new Set();
+  for (const [n] of (adj.get(start) || [])) if (!occupied.has(n)) dest.add(n);   // single steps
+  const seen = new Set([start]), stack = [start];
+  while (stack.length) {
+    const p = stack.pop();
+    for (const [n, b] of (adj.get(p) || [])) if (b != null && occupied.has(n) && !occupied.has(b) && !seen.has(b)) { seen.add(b); dest.add(b); stack.push(b); }
+  }
+  return dest;
+}
+

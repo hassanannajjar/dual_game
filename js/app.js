@@ -20,6 +20,10 @@ import go from './games/go.js?v=1';
 import order from './games/order-chaos.js?v=1';
 import nim from './games/nim.js?v=1';
 import yahtzee from './games/yahtzee.js?v=1';
+import hex from './games/hex.js?v=1';
+import ludo from './games/ludo.js?v=1';
+import backgammon from './games/backgammon.js?v=1';
+import chinesecheckers from './games/chinese-checkers.js?v=1';
 
 // Single source of category / difficulty (drives the home grid). category ∈ classic|strategy|luck|word.
 const META = {
@@ -30,11 +34,13 @@ const META = {
   morris: ['strategy', 'medium'], chess: ['strategy', 'hard'], hangman: ['word', 'easy'],
   snakes: ['luck', 'easy'], pig: ['luck', 'easy'], go: ['strategy', 'hard'],
   order: ['strategy', 'medium'], nim: ['strategy', 'easy'], yahtzee: ['luck', 'medium'],
+  hex: ['strategy', 'medium'], ludo: ['luck', 'easy'], backgammon: ['strategy', 'hard'], chinesecheckers: ['strategy', 'hard'],
 };
 
 // Add a game: import it above and add it here.
 [numberDuel, ticTacToe, connectFour, rps, battleship, gomoku, reversi, checkers, dots, uttt,
-  mancala, memory, morris, chess, hangman, snakes, pig, go, order, nim, yahtzee].forEach((g) => {
+  mancala, memory, morris, chess, hangman, snakes, pig, go, order, nim, yahtzee,
+  hex, ludo, backgammon, chinesecheckers].forEach((g) => {
   const m = META[g.id]; if (m) { g.category = m[0]; g.difficulty = m[1]; }
   register(g);
 });

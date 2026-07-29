@@ -5,6 +5,7 @@
 import { t, initLang, onLangChange } from './i18n.js?v=1';
 import { sound } from './sound.js?v=1';
 import { initPrefs, getName, haptic } from './prefs.js?v=1';
+import { demo } from './demos.js?v=1';
 
 // ---------- DOM helpers ----------
 const $ = (id) => document.getElementById(id);
@@ -15,7 +16,11 @@ export function el(tag, cls, html) {
   return n;
 }
 const SCREENS = ['home', 'connect', 'lobby', 'setup', 'toss', 'play'];
-function show(name) { for (const s of SCREENS) $('screen-' + s).classList.toggle('hidden', s !== name); }
+function stopHowto() { if (S.demoStop) { S.demoStop(); S.demoStop = null; } }
+function show(name) {
+  if (name !== 'connect') stopHowto();
+  for (const s of SCREENS) $('screen-' + s).classList.toggle('hidden', s !== name);
+}
 function setStatus(msg) { $('status').textContent = msg || ''; }
 export function toast(msg) {
   const n = $('toast');
@@ -239,6 +244,8 @@ function selectGame(id) {
   $('howto-text').textContent = gameRules(S.game);
   $('join-code').value = '';
   show('connect');
+  stopHowto();
+  S.demoStop = demo(S.game.id, $('howto-demo'), S.game.emoji);
 }
 
 // ---------- lobby / config ----------
@@ -459,6 +466,9 @@ function goHome() {
   S.inPlay = false; S.paused = false;
   clearSession();
   clearInterval(S.reconnectTimer);
+  stopHowto();
+  if (S.helpDemoStop) { S.helpDemoStop(); S.helpDemoStop = null; }
+  $('help-panel').classList.add('hidden');
   $('pause-overlay').classList.add('hidden');
   resetConnection();
   S.game = null;
@@ -503,6 +513,19 @@ export function boot() {
     proceedAfterConfig();
   };
   $('btn-rematch').onclick = () => restartMatch(true);
+  const stopHelp = () => { if (S.helpDemoStop) { S.helpDemoStop(); S.helpDemoStop = null; } };
+  const closeHelp = () => { stopHelp(); $('help-panel').classList.add('hidden'); };
+  $('btn-help').onclick = () => {
+    if (!S.game) return;
+    $('help-title').textContent = gameTitle(S.game);
+    $('help-rules').textContent = gameRules(S.game);
+    stopHelp();
+    S.helpDemoStop = demo(S.game.id, $('help-demo'), S.game.emoji);
+    $('help-panel').classList.remove('hidden');
+  };
+  $('btn-help-close').onclick = closeHelp;
+  $('btn-help-close2').onclick = closeHelp;
+  $('help-panel').addEventListener('click', (e) => { if (e.target === $('help-panel')) closeHelp(); });
   $('btn-pause').onclick = () => { pauseGame('manual'); sys('pause'); };
   $('btn-resume').onclick = () => { resumeGame(); sys('resume-play'); };
   $('btn-pause-leave').onclick = goHome;
