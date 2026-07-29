@@ -6,6 +6,8 @@ Games included: **Number Duel** (Bulls & Cows), **Tic-Tac-Toe**, **Connect Four*
 
 For guessing games (Number Duel) and hidden-board games (Battleship), your secret **never leaves your device** — your browser only sends feedback about the opponent's moves.
 
+**Resilient matches:** either player can **Pause** (freezes the match for both). If someone drops or refreshes, the match **auto-pauses** and **resumes** when they rejoin — state is saved to `localStorage`, so a refresh reconnects to the same room and restores your board/history where you left off.
+
 ## Play
 
 1. On the home grid, **pick a game**.
@@ -76,5 +78,6 @@ test.mjs              # node self-check for logic.js
 
 - **Strict NATs:** the free PeerJS broker has no TURN relay, so some corporate/mobile networks may fail to connect. Add a TURN server (or switch transport to Firebase) if you hit this.
 - **Trust:** peer-to-peer with no referee — assumes both players run an unmodified client. Fine for casual play.
-- **No reconnection:** if a player drops, the match ends; start a new room.
+- **Resume is per-browser:** `localStorage` state restores only on the same device/browser, and only for a match still in progress (a ~30-min window). Pre-game disconnects (lobby/setup) just return home.
+- **Reconnect on host refresh** can take a few seconds while the PeerJS broker releases the old room id (it retries automatically).
 - **Battleship** uses random ship placement (with a Shuffle button); manual placement is a future add.

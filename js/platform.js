@@ -1,5 +1,6 @@
 // Arcade engine — game-agnostic P2P shell. Games register() themselves; the engine
-// drives phases: home -> connect -> lobby -> [setup] -> [toss] -> play -> over.
+// drives phases: home -> connect -> lobby -> [setup] -> [toss] -> play -> over,
+// and handles pause / disconnect-reconnect / refresh-resume.
 // Depends on the global `Peer` (PeerJS, loaded via CDN).
 
 // ---------- DOM helpers ----------
@@ -30,9 +31,32 @@ function gameById(id) { return games.find((g) => g.id === id); }
 const S = {
   game: null, peer: null, conn: null, isHost: false,
   config: {}, working: {},
-  myTurn: false, timerId: null, turnStart: 0,
+  myTurn: false, timerId: null, timerAuth: false, turnStart: 0, remaining: 0,
   myReady: false, oppReady: false, rematchGuard: false,
+  inPlay: false, paused: false, reconnectTimer: null, leaving: false,
 };
+
+// ---------- persistence (localStorage) ----------
+const SESSION_KEY = 'arcade:session';
+const SESSION_TTL = 30 * 60 * 1000;
+function persist() {
+  if (!S.inPlay || !S.game) return;
+  try {
+    localStorage.setItem(SESSION_KEY, JSON.stringify({
+      v: 1, ts: Date.now(), gameId: S.game.id, roomCode: S.roomCode,
+      isHost: S.isHost, config: S.config, myTurn: S.myTurn, remaining: S.remaining,
+      state: S.game.getState ? S.game.getState() : null,
+    }));
+  } catch (e) {}
+}
+function loadSession() {
+  try {
+    const s = JSON.parse(localStorage.getItem(SESSION_KEY));
+    if (!s || s.v !== 1 || Date.now() - s.ts > SESSION_TTL || !gameById(s.gameId)) return null;
+    return s;
+  } catch (e) { return null; }
+}
+function clearSession() { try { localStorage.removeItem(SESSION_KEY); } catch (e) {} }
 
 // ---------- networking ----------
 function randomCode() {
@@ -50,16 +74,33 @@ function wireConn(conn) {
   conn.on('data', onData);
   conn.on('open', () => {
     setStatus('Connected ✓');
-    if (S.isHost) enterHostLobby();
+    if (S.inPlay) { clearInterval(S.reconnectTimer); sys('resume'); resumeGame(); }
+    else if (S.isHost) enterHostLobby();
   });
   conn.on('close', onDisconnect);
   conn.on('error', onDisconnect);
 }
 function onDisconnect() {
-  setStatus('Opponent disconnected.');
-  if (['setup', 'play', 'toss'].some((s) => !$('screen-' + s).classList.contains('hidden'))) {
-    endGame('lose', 'Opponent left the game.');
-  }
+  if (S.leaving) return;
+  if (S.conn && S.conn.open) return;      // ignore stale close/error from a replaced connection
+  if (!S.inPlay) { setStatus('Disconnected'); return; }
+  pauseGame('disconnect');
+  startReconnect();
+}
+function startReconnect() {
+  clearInterval(S.reconnectTimer);
+  if (S.isHost) return;             // host keeps its Peer (id === roomCode) and waits for 'connection'
+  S.reconnectTimer = setInterval(() => {
+    if (S.conn && S.conn.open) return;
+    try { wireConn(S.peer.connect(S.roomCode, { reliable: true })); } catch (e) {}
+  }, 3000);
+}
+function spawnHostPeer() {                 // host reload: re-register the room-code id (retry past broker ghosts)
+  S.peer = new Peer(S.roomCode);
+  S.peer.on('connection', wireConn);
+  S.peer.on('error', (err) => {
+    if (err.type === 'unavailable-id') { try { S.peer.destroy(); } catch (e) {} setTimeout(spawnHostPeer, 1500); }
+  });
 }
 
 function createRoom() {
@@ -90,6 +131,7 @@ function resetConnection() {
   try { S.conn && S.conn.close(); S.peer && S.peer.destroy(); } catch (e) {}
   S.conn = S.peer = null;
   clearInterval(S.timerId);
+  clearInterval(S.reconnectTimer);
 }
 
 // ---------- message routing ----------
@@ -108,11 +150,21 @@ function onData(msg) {
     case 'toss':
       runToss(!msg.firstIsHost);
       break;
-    case 'pass':          // generic turn hand-off (default onTimeout)
+    case 'pass':
       setTurn(true);
       break;
     case 'rematch':
       if (!S.rematchGuard) restartMatch(false);
+      break;
+    case 'pause':
+      pauseGame('manual');
+      break;
+    case 'resume-play':
+      resumeGame();
+      break;
+    case 'resume':
+      clearInterval(S.reconnectTimer);
+      resumeGame();
       break;
   }
 }
@@ -170,7 +222,7 @@ function renderOptions() {
   }
 }
 function enterHostLobby() {
-  if (!S.roomCode) return;                 // wait until peer 'open' set the code
+  if (!S.roomCode) return;
   show('lobby');
   $('lobby-host').classList.remove('hidden');
   $('room-code').textContent = S.roomCode;
@@ -211,7 +263,7 @@ function afterReady() {
     const firstIsHost = Math.random() < 0.5;
     sys('toss', { firstIsHost });
     runToss(firstIsHost);
-  } // guest waits for sys 'toss'
+  }
 }
 function runToss(iAmFirst) {
   show('toss');
@@ -225,51 +277,104 @@ function runToss(iAmFirst) {
     setTimeout(() => startGame(iAmFirst), 1300);
   }, 2000);
 }
-function startGame(iAmFirst) {
+function preparePlayScreen() {
   show('play');
   $('game-title').textContent = `${S.game.emoji} ${S.game.name}`;
   ctx.root.innerHTML = '';
   const turnsOn = S.game.usesTurns !== false;
   $('turn-bar').classList.toggle('hidden', !turnsOn);
+  $('pause-overlay').classList.add('hidden');
+  return turnsOn;
+}
+function startGame(iAmFirst) {
+  S.inPlay = true; S.paused = false;
+  const turnsOn = preparePlayScreen();
   S.game.start(ctx, { iAmFirst });
-  if (turnsOn) setTurn(iAmFirst);
+  if (turnsOn) setTurn(iAmFirst); else persist();
 }
 
 // ---------- turn + timer ----------
+function updateTurnLabel() {
+  $('turn-label').textContent = S.myTurn ? 'Your turn' : "Opponent's turn";
+  $('turn-label').className = 'font-semibold ' + (S.myTurn ? 'text-emerald-400' : 'text-slate-400');
+}
 function setTurn(mine) {
   S.myTurn = mine;
-  $('turn-label').textContent = mine ? 'Your turn' : "Opponent's turn";
-  $('turn-label').className = 'font-semibold ' + (mine ? 'text-emerald-400' : 'text-slate-400');
-  runTimer(mine);
+  updateTurnLabel();
+  S.remaining = S.config.timer;
+  startTimer(mine);
   S.game.onTurn && S.game.onTurn(mine, ctx);
+  persist();
 }
-function runTimer(authoritative) {
+function startTimer(authoritative) {
   clearInterval(S.timerId);
+  S.timerAuth = authoritative;
   const dur = S.config.timer;
   const tEl = $('timer');
   if (!dur) { tEl.classList.add('hidden'); return; }
   tEl.classList.remove('hidden');
-  let remaining = dur;
   S.turnStart = Date.now();
-  const render = () => { tEl.textContent = remaining + 's'; tEl.classList.toggle('text-rose-400', remaining <= 5); };
+  const render = () => { tEl.textContent = S.remaining + 's'; tEl.classList.toggle('text-rose-400', S.remaining <= 5); };
   render();
   S.timerId = setInterval(() => {
-    remaining--;
-    if (remaining <= 0) {
-      clearInterval(S.timerId); tEl.textContent = '0s';
-      if (authoritative) onTimeout();
-    } else render();
+    S.remaining--;
+    if (S.remaining <= 0) { clearInterval(S.timerId); tEl.textContent = '0s'; if (authoritative) onTimeout(); }
+    else render();
   }, 1000);
 }
 function onTimeout() {
   if (S.game.onTimeout) S.game.onTimeout(ctx);
-  else { sys('pass'); setTurn(false); }   // default: forfeit turn
+  else { sys('pass'); setTurn(false); }
 }
 export function elapsed() { return S.turnStart ? Math.max(0, Math.round((Date.now() - S.turnStart) / 1000)) : 0; }
 
-// ---------- game over / rematch ----------
+// ---------- pause / resume ----------
+function pauseGame(reason) {
+  if (!S.inPlay) return;
+  S.paused = true;
+  clearInterval(S.timerId);                 // freeze; S.remaining holds the clock
+  const manual = reason === 'manual';
+  $('pause-msg').textContent = manual ? 'Paused' : 'Opponent disconnected — reconnecting…';
+  $('btn-resume').classList.toggle('hidden', !manual);
+  $('pause-overlay').classList.remove('hidden');
+  if (!manual) setStatus('Reconnecting…');
+  persist();
+}
+function resumeGame() {
+  if (!S.inPlay || !S.paused) return;
+  S.paused = false;
+  clearInterval(S.reconnectTimer);
+  $('pause-overlay').classList.add('hidden');
+  setStatus('Connected ✓');
+  if (S.game.usesTurns !== false) startTimer(S.myTurn);   // continue from S.remaining
+  persist();
+}
+
+// ---------- resume after refresh ----------
+function resumePlay(state) {
+  S.inPlay = true;
+  const turnsOn = preparePlayScreen();
+  if (S.game.restore) S.game.restore(state, ctx);
+  else S.game.start(ctx, { iAmFirst: S.myTurn });
+  if (turnsOn) { updateTurnLabel(); S.game.onTurn && S.game.onTurn(S.myTurn, ctx); }
+  pauseGame('disconnect');                  // stay frozen until the channel is back
+}
+function reconnect() {
+  if (S.isHost) spawnHostPeer();
+  else {
+    S.peer = new Peer();
+    S.peer.on('open', () => startReconnect());
+    S.peer.on('error', () => {});
+  }
+}
+
+// ---------- game over / rematch / home ----------
 function endGame(outcome, msg) {
   clearInterval(S.timerId);
+  clearInterval(S.reconnectTimer);
+  S.inPlay = false; S.paused = false;
+  clearSession();
+  $('pause-overlay').classList.add('hidden');
   show('over');
   const map = { win: ['🏆', 'You win!'], lose: ['💥', 'You lose'], draw: ['🤝', "It's a draw"] };
   const [emoji, title] = map[outcome] || map.lose;
@@ -280,10 +385,22 @@ function endGame(outcome, msg) {
 function restartMatch(initiator) {
   S.rematchGuard = true;
   if (initiator) sys('rematch');
+  clearSession();
   proceedAfterConfig();
   setTimeout(() => { S.rematchGuard = false; }, 500);
 }
-function goHome() { resetConnection(); S.game = null; show('home'); setStatus(''); }
+function goHome() {
+  S.leaving = true;
+  S.inPlay = false; S.paused = false;
+  clearSession();
+  clearInterval(S.reconnectTimer);
+  $('pause-overlay').classList.add('hidden');
+  resetConnection();
+  S.game = null;
+  show('home');
+  setStatus('');
+  setTimeout(() => { S.leaving = false; }, 300);
+}
 
 // ---------- ctx passed to games ----------
 const ctx = {
@@ -297,6 +414,7 @@ const ctx = {
   setTurn,
   ready: localReady,
   endGame,
+  save: persist,
 };
 
 // ---------- boot ----------
@@ -315,8 +433,22 @@ export function boot() {
     proceedAfterConfig();
   };
   $('btn-rematch').onclick = () => restartMatch(true);
+  $('btn-pause').onclick = () => { pauseGame('manual'); sys('pause'); };
+  $('btn-resume').onclick = () => { resumeGame(); sys('resume-play'); };
+  $('btn-pause-leave').onclick = goHome;
   for (const id of ['btn-home', 'btn-home-play', 'btn-over-home', 'btn-back-connect', 'btn-back-lobby']) {
     const b = $(id); if (b) b.onclick = goHome;
+  }
+
+  // Refresh auto-resume: restore an in-progress match and reconnect.
+  const sess = loadSession();
+  if (sess) {
+    S.game = gameById(sess.gameId);
+    S.roomCode = sess.roomCode; S.isHost = sess.isHost;
+    S.config = sess.config; S.myTurn = sess.myTurn; S.remaining = sess.remaining;
+    resumePlay(sess.state);
+    reconnect();
+    return;
   }
 
   // Deep link: ?g=<id>&room=<code>

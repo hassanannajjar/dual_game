@@ -22,6 +22,28 @@ function place(i, mark, ctx) {
   return false;
 }
 
+function build(ctx) {
+  M.btns = [];
+  const wrap = ctx.el('div', 'max-w-xs mx-auto');
+  wrap.appendChild(ctx.el('p', 'text-center text-slate-400 text-sm mb-3',
+    `You are <span class="font-bold ${M.mine === 'X' ? 'text-indigo-400' : 'text-amber-400'}">${M.mine}</span>`));
+  const grid = ctx.el('div', 'grid grid-cols-3 gap-2');
+  for (let i = 0; i < 9; i++) {
+    const b = ctx.el('button', '');
+    b.onclick = () => {
+      if (!ctx.myTurn || M.cells[i]) return;
+      const ended = place(i, M.mine, ctx);
+      ctx.send('move', { i });
+      if (!ended) ctx.setTurn(false);
+    };
+    M.btns.push(b);
+    grid.appendChild(b);
+  }
+  wrap.appendChild(grid);
+  ctx.root.appendChild(wrap);
+  render(ctx);
+}
+
 export default {
   id: 'ttt', name: 'Tic-Tac-Toe', emoji: '⭕', blurb: 'Three in a row',
 
@@ -29,25 +51,7 @@ export default {
     M.cells = Array(9).fill(null);
     M.mine = iAmFirst ? 'X' : 'O';
     M.opp = iAmFirst ? 'O' : 'X';
-    M.btns = [];
-    const wrap = ctx.el('div', 'max-w-xs mx-auto');
-    wrap.appendChild(ctx.el('p', 'text-center text-slate-400 text-sm mb-3',
-      `You are <span class="font-bold ${iAmFirst ? 'text-indigo-400' : 'text-amber-400'}">${M.mine}</span>`));
-    const grid = ctx.el('div', 'grid grid-cols-3 gap-2');
-    for (let i = 0; i < 9; i++) {
-      const b = ctx.el('button', '');
-      b.onclick = () => {
-        if (!ctx.myTurn || M.cells[i]) return;
-        const ended = place(i, M.mine, ctx);
-        ctx.send('move', { i });
-        if (!ended) ctx.setTurn(false);
-      };
-      M.btns.push(b);
-      grid.appendChild(b);
-    }
-    wrap.appendChild(grid);
-    ctx.root.appendChild(wrap);
-    render(ctx);
+    build(ctx);
   },
 
   onTurn(mine, ctx) { render(ctx); },
@@ -57,4 +61,7 @@ export default {
     const ended = place(msg.i, M.opp, ctx);
     if (!ended) ctx.setTurn(true);
   },
+
+  getState() { return { cells: M.cells, mine: M.mine, opp: M.opp }; },
+  restore(state, ctx) { M.cells = state.cells; M.mine = state.mine; M.opp = state.opp; build(ctx); },
 };

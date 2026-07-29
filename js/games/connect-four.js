@@ -32,6 +32,24 @@ export default {
     M.grid = Array.from({ length: COLS }, () => []);
     M.mine = iAmFirst ? 'R' : 'Y';
     M.opp = iAmFirst ? 'Y' : 'R';
+    build(ctx);
+  },
+
+  onTurn() { /* clicks gated by ctx.myTurn */ },
+
+  onMessage(msg, ctx) {
+    if (msg.type !== 'drop') return;
+    const res = drop(msg.c, M.opp, ctx);
+    if (res.winner) ctx.endGame('lose');
+    else if (res.boardFull) ctx.endGame('draw');
+    else ctx.setTurn(true);
+  },
+
+  getState() { return { grid: M.grid, mine: M.mine, opp: M.opp }; },
+  restore(state, ctx) { M.grid = state.grid; M.mine = state.mine; M.opp = state.opp; build(ctx); },
+};
+
+function build(ctx) {
     M.cellEls = [];
     const wrap = ctx.el('div', 'mx-auto', '');
     wrap.style.maxWidth = 'min(92vw, 30rem)';
@@ -64,15 +82,4 @@ export default {
     wrap.appendChild(board);
     ctx.root.appendChild(wrap);
     render(ctx);
-  },
-
-  onTurn() { /* clicks gated by ctx.myTurn */ },
-
-  onMessage(msg, ctx) {
-    if (msg.type !== 'drop') return;
-    const res = drop(msg.c, M.opp, ctx);
-    if (res.winner) ctx.endGame('lose');
-    else if (res.boardFull) ctx.endGame('draw');
-    else ctx.setTurn(true);
-  },
-};
+}

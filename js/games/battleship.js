@@ -89,29 +89,10 @@ export default {
   },
 
   start(ctx) {
-    M.incoming = new Set();      // indices of cells opponent has fired on my board
-    M.shots = new Set();         // indices I've fired on target board
-    const root = ctx.root;
-    const wrap = ctx.el('div', 'space-y-4');
-
-    const tHead = ctx.el('h3', 'text-center text-sm font-semibold text-rose-400', 'Enemy waters — tap to fire');
-    const target = makeGrid(ctx, (x, y, cell) => {
-      if (!ctx.myTurn) return;
-      const key = y * SIZE + x;
-      if (M.shots.has(key)) return;
-      M.shots.add(key);
-      cell.disabled = true;
-      ctx.send('fire', { x, y });
-      ctx.setTurn(false);
-    });
-    M.target = target;
-
-    const mHead = ctx.el('h3', 'text-center text-sm font-semibold text-indigo-400 mt-4', 'Your fleet');
-    const mine = makeGrid(ctx, null);
-    M.mine = mine;
-    wrap.append(tHead, target.g, mHead, mine.g);
-    root.appendChild(wrap);
-    paintMine(ctx);
+    M.incoming = new Set();       // cell indices the opponent has fired at on my board
+    M.shots = new Set();          // cell indices I've fired at on the target board
+    M.targetMarks = [];           // [{x,y,hit,sunk}] learned about the opponent's board
+    buildPlay(ctx);
   },
 
   onMessage(msg, ctx) {
@@ -131,11 +112,57 @@ export default {
       if (win) ctx.endGame('lose', 'Your fleet was sunk.');
       else ctx.setTurn(true);
     } else if (msg.type === 'result') {
-      const cell = M.target.at(msg.x, msg.y);
-      cell.className = 'aspect-square rounded border text-sm ' +
-        (msg.hit ? 'bg-rose-500 border-rose-400' : 'bg-slate-600 border-slate-500');
-      if (msg.hit) cell.textContent = msg.sunk ? '💀' : '✱';
+      M.targetMarks.push({ x: msg.x, y: msg.y, hit: msg.hit, sunk: msg.sunk });
+      paintTarget();
+      ctx.save();
       if (msg.win) ctx.endGame('win', 'You sank the enemy fleet!');
     }
   },
+
+  getState() {
+    return {
+      board: M.board,
+      ships: M.ships.map((s) => ({ cells: s.cells, hits: [...s.hits] })),
+      incoming: [...M.incoming], shots: [...M.shots], targetMarks: M.targetMarks,
+    };
+  },
+  restore(state, ctx) {
+    M.board = state.board;
+    M.ships = state.ships.map((s) => ({ cells: s.cells, hits: new Set(s.hits) }));
+    M.incoming = new Set(state.incoming);
+    M.shots = new Set(state.shots);
+    M.targetMarks = state.targetMarks || [];
+    buildPlay(ctx);
+  },
 };
+
+function buildPlay(ctx) {
+  const wrap = ctx.el('div', 'space-y-4');
+  wrap.appendChild(ctx.el('h3', 'text-center text-sm font-semibold text-rose-400', 'Enemy waters — tap to fire'));
+  M.target = makeGrid(ctx, (x, y, cell) => {
+    if (!ctx.myTurn) return;
+    const key = y * SIZE + x;
+    if (M.shots.has(key)) return;
+    M.shots.add(key);
+    cell.disabled = true;
+    ctx.send('fire', { x, y });
+    ctx.setTurn(false);
+  });
+  wrap.appendChild(M.target.g);
+  wrap.appendChild(ctx.el('h3', 'text-center text-sm font-semibold text-indigo-400 mt-4', 'Your fleet'));
+  M.mine = makeGrid(ctx, null);
+  wrap.appendChild(M.mine.g);
+  ctx.root.appendChild(wrap);
+  paintMine(ctx);
+  paintTarget();
+}
+
+function paintTarget() {
+  M.shots.forEach((key) => { const c = M.target.cells[key]; if (c) c.disabled = true; });
+  for (const m of M.targetMarks) {
+    const cell = M.target.at(m.x, m.y);
+    cell.className = 'aspect-square rounded border text-sm ' +
+      (m.hit ? 'bg-rose-500 border-rose-400' : 'bg-slate-600 border-slate-500');
+    if (m.hit) cell.textContent = m.sunk ? '💀' : '✱';
+  }
+}
