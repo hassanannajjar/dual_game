@@ -74,6 +74,16 @@
         <span id="timer" class="font-mono text-xl px-3 py-1 rounded-lg bg-slate-950">--</span>
         <button id="btn-pause" class="text-sm px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700" title="Pause">⏸</button>
       </div>
+
+      <!-- result header (shown in place of the turn bar when the match ends; board stays below) -->
+      <div id="result-bar" class="hidden bg-slate-900 rounded-xl p-3 border border-slate-700 space-y-2">
+        <p id="result-text" class="text-center text-lg font-bold"></p>
+        <div class="grid grid-cols-2 gap-2">
+          <button id="btn-rematch" class="py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 font-semibold transition">Rematch</button>
+          <button id="btn-result-home" class="py-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 font-semibold transition">Back to games</button>
+        </div>
+      </div>
+
       <div id="game-root"></div>
 
       <!-- pause / reconnect overlay -->
@@ -83,15 +93,6 @@
         <button id="btn-resume" class="w-full max-w-xs py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 font-semibold transition">Resume</button>
         <button id="btn-pause-leave" class="w-full max-w-xs py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-sm transition">Leave game</button>
       </div>
-    </section>
-
-    <!-- GAME OVER -->
-    <section id="screen-over" class="hidden text-center py-10 space-y-4">
-      <div id="over-emoji" class="text-6xl">🏆</div>
-      <h2 id="over-title" class="text-2xl font-bold"></h2>
-      <p id="over-sub" class="text-slate-400"></p>
-      <button id="btn-rematch" class="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 font-semibold transition">Rematch</button>
-      <button id="btn-over-home" class="w-full py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-sm transition">← Back to games</button>
     </section>
   </main>
 

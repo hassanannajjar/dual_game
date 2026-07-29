@@ -11,7 +11,7 @@ export function el(tag, cls, html) {
   if (html != null) n.innerHTML = html;
   return n;
 }
-const SCREENS = ['home', 'connect', 'lobby', 'setup', 'toss', 'play', 'over'];
+const SCREENS = ['home', 'connect', 'lobby', 'setup', 'toss', 'play'];
 function show(name) { for (const s of SCREENS) $('screen-' + s).classList.toggle('hidden', s !== name); }
 function setStatus(msg) { $('status').textContent = msg || ''; }
 export function toast(msg) {
@@ -33,7 +33,7 @@ const S = {
   config: {}, working: {},
   myTurn: false, timerId: null, timerAuth: false, turnStart: 0, remaining: 0,
   myReady: false, oppReady: false, rematchGuard: false,
-  inPlay: false, paused: false, reconnectTimer: null, leaving: false,
+  inPlay: false, paused: false, over: false, reconnectTimer: null, leaving: false,
 };
 
 // ---------- persistence (localStorage) ----------
@@ -278,11 +278,13 @@ function runToss(iAmFirst) {
   }, 2000);
 }
 function preparePlayScreen() {
+  S.over = false;
   show('play');
   $('game-title').textContent = `${S.game.emoji} ${S.game.name}`;
   ctx.root.innerHTML = '';
   const turnsOn = S.game.usesTurns !== false;
   $('turn-bar').classList.toggle('hidden', !turnsOn);
+  $('result-bar').classList.add('hidden');
   $('pause-overlay').classList.add('hidden');
   return turnsOn;
 }
@@ -372,15 +374,17 @@ function reconnect() {
 function endGame(outcome, msg) {
   clearInterval(S.timerId);
   clearInterval(S.reconnectTimer);
-  S.inPlay = false; S.paused = false;
+  S.inPlay = false; S.paused = false; S.over = true; S.myTurn = false;
   clearSession();
+  // Stay on the play screen so the board/history remain visible; swap the
+  // turn bar for a result header carrying the actions.
   $('pause-overlay').classList.add('hidden');
-  show('over');
+  $('turn-bar').classList.add('hidden');
   const map = { win: ['🏆', 'You win!'], lose: ['💥', 'You lose'], draw: ['🤝', "It's a draw"] };
   const [emoji, title] = map[outcome] || map.lose;
-  $('over-emoji').textContent = emoji;
-  $('over-title').textContent = title;
-  $('over-sub').textContent = msg || '';
+  $('result-text').textContent = `${emoji} ${title}` + (msg ? ` — ${msg}` : '');
+  $('result-bar').classList.remove('hidden');
+  S.game && S.game.onTurn && S.game.onTurn(false, ctx);   // make board/keypad inert
 }
 function restartMatch(initiator) {
   S.rematchGuard = true;
@@ -408,7 +412,7 @@ const ctx = {
   get setupRoot() { return $('setup-root'); },
   get isHost() { return S.isHost; },
   get config() { return S.config; },
-  get myTurn() { return S.myTurn; },
+  get myTurn() { return S.myTurn && !S.over; },
   el, toast, elapsed,
   send: gameSend,
   setTurn,
@@ -436,7 +440,7 @@ export function boot() {
   $('btn-pause').onclick = () => { pauseGame('manual'); sys('pause'); };
   $('btn-resume').onclick = () => { resumeGame(); sys('resume-play'); };
   $('btn-pause-leave').onclick = goHome;
-  for (const id of ['btn-home', 'btn-home-play', 'btn-over-home', 'btn-back-connect', 'btn-back-lobby']) {
+  for (const id of ['btn-home', 'btn-home-play', 'btn-result-home', 'btn-back-connect', 'btn-back-lobby']) {
     const b = $(id); if (b) b.onclick = goHome;
   }
 
