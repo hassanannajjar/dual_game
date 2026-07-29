@@ -91,6 +91,41 @@ function rpsDemo(el) {
   const seq = ['🪨 vs ✂️', '📄 vs 🪨', '✂️ vs 📄'];
   return play(el, 700, seq.map((t) => () => w.textContent = t));
 }
+function tilesDemo(el) { // 2048
+  el.innerHTML = ''; const g = div('grid grid-cols-4 gap-1 w-max mx-auto');
+  const c = []; for (let i = 0; i < 16; i++) { const x = div('w-7 h-7 rounded bg-slate-800 flex items-center justify-center text-xs font-bold'); c.push(x); g.appendChild(x); } el.appendChild(g);
+  const set = (i, v, cls) => { c[i].textContent = v || ''; c[i].className = 'w-7 h-7 rounded flex items-center justify-center text-xs font-bold ' + cls; };
+  const frames = [
+    () => { c.forEach((x) => set([...c].indexOf(x), 0, 'bg-slate-800')); set(0, 2, 'bg-slate-600'); set(1, 2, 'bg-slate-600'); },
+    () => { set(0, 4, 'bg-amber-600'); set(1, 0, 'bg-slate-800'); },
+    () => { set(0, 4, 'bg-amber-600'); set(3, 4, 'bg-amber-600'); },
+    () => { set(0, 8, 'bg-orange-500'); set(3, 0, 'bg-slate-800'); },
+  ];
+  return play(el, 620, frames);
+}
+function fallDemo(el) { // tetris
+  el.innerHTML = ''; const g = div('grid grid-cols-4 gap-0.5 w-max mx-auto'); const c = [];
+  for (let i = 0; i < 20; i++) { const x = div('w-4 h-4 rounded-sm bg-slate-800'); c.push(x); g.appendChild(x); } el.appendChild(g);
+  const on = (idx, cls) => idx.forEach((i) => c[i].className = 'w-4 h-4 rounded-sm ' + cls);
+  const frames = [
+    () => { c.forEach((x) => x.className = 'w-4 h-4 rounded-sm bg-slate-800'); on([0, 1], 'bg-cyan-400'); },
+    () => { c.forEach((x) => x.className = 'w-4 h-4 rounded-sm bg-slate-800'); on([8, 9], 'bg-cyan-400'); },
+    () => { c.forEach((x) => x.className = 'w-4 h-4 rounded-sm bg-slate-800'); on([16, 17, 18, 19], 'bg-emerald-400'); },
+  ];
+  return play(el, 460, frames);
+}
+function puckDemo(el) { // air hockey
+  el.innerHTML = ''; const box = div('relative w-16 h-24 rounded-lg bg-slate-800 mx-auto border border-slate-600');
+  const p = div('absolute w-3 h-3 rounded-full bg-slate-100'); box.appendChild(p); el.appendChild(box);
+  const pos = [['10%', '20%'], ['60%', '50%'], ['30%', '80%'], ['60%', '50%']];
+  return play(el, 400, pos.map(([t, l]) => () => { p.style.top = t; p.style.left = l; }));
+}
+function trailDemo(el) { // tron
+  el.innerHTML = ''; const g = div('grid grid-cols-6 gap-px w-max mx-auto'); const c = [];
+  for (let i = 0; i < 24; i++) { const x = div('w-4 h-4 bg-slate-800'); c.push(x); g.appendChild(x); } el.appendChild(g);
+  const frames = [0, 1, 2, 3].map((n) => () => { c.forEach((x) => x.className = 'w-4 h-4 bg-slate-800'); for (let i = 6; i <= 6 + n; i++) c[i].className = 'w-4 h-4 bg-emerald-500'; for (let i = 17; i >= 17 - n; i--) c[i].className = 'w-4 h-4 bg-amber-500'; });
+  return play(el, 420, frames);
+}
 function generic(el, emoji) {
   el.innerHTML = ''; const s = div('text-5xl text-center transition-transform', emoji || '🎮'); el.appendChild(s);
   let big = false;
@@ -105,6 +140,7 @@ const MAP = {
   memory: cards, nim: sticks,
   checkers: moveDemo, chinesecheckers: moveDemo, mancala: moveDemo, dots: moveDemo,
   rps: rpsDemo,
+  '2048': tilesDemo, tetris: fallDemo, airhockey: puckDemo, tron: trailDemo,
 };
 
 export function demo(id, el, emoji) {

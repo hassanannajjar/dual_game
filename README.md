@@ -2,7 +2,7 @@
 
 A small **platform of 2-player games** that runs entirely in the browser and connects the two players **peer-to-peer over WebRTC (PeerJS)** — there is **no server to host**. Deploys straight to GitHub Pages.
 
-**25 games:** Number Duel (Bulls & Cows), Tic-Tac-Toe, Connect Four, Rock Paper Scissors, Battleship, Gomoku, Reversi/Othello, Checkers, Dots & Boxes, Ultimate Tic-Tac-Toe, Mancala, Memory Match, Nine Men's Morris, Chess, Hangman (word duel), Snakes & Ladders, Dice Pig, Go (9×9), Order & Chaos, Nim, Yahtzee, Hex, Ludo, Backgammon, Chinese Checkers.
+**29 games** across Classic / Strategy / Arcade / Luck / Word: Number Duel, Tic-Tac-Toe, Connect Four, Rock Paper Scissors, Battleship, Gomoku, Reversi/Othello, Checkers, Dots & Boxes, Ultimate Tic-Tac-Toe, Mancala, Memory Match, Nine Men's Morris, Chess, Hangman, Snakes & Ladders, Dice Pig, Go (9×9), Order & Chaos, Nim, Yahtzee, Hex, Ludo, Backgammon, Chinese Checkers, plus real-time arcade duels: **2048, Tetris, Air Hockey, Light Cycles (Tron)**.
 
 The home screen is a browsable arcade: a search box, category chips (Classic / Strategy / Luck / Word), grouped sections, and rich cards showing each game's description and difficulty. Picking a game shows a **How to play** panel with a small **looping animation** of the mechanic (pure CSS/JS, no video files); a **?** button in-game reopens the rules + demo any time.
 

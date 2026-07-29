@@ -2,10 +2,10 @@
 // drives phases: home -> connect -> lobby -> [setup] -> [toss] -> play -> over,
 // and handles pause / disconnect-reconnect / refresh-resume.
 // Depends on the global `Peer` (PeerJS, loaded via CDN).
-import { t, initLang, onLangChange } from './i18n.js?v=1';
-import { sound } from './sound.js?v=1';
-import { initPrefs, getName, haptic } from './prefs.js?v=1';
-import { demo } from './demos.js?v=1';
+import { t, initLang, onLangChange } from './i18n.js?v=2';
+import { sound } from './sound.js?v=2';
+import { initPrefs, getName, haptic } from './prefs.js?v=2';
+import { demo } from './demos.js?v=2';
 
 // ---------- DOM helpers ----------
 const $ = (id) => document.getElementById(id);
@@ -53,7 +53,7 @@ const S = {
 const SESSION_KEY = 'arcade:session';
 const SESSION_TTL = 30 * 60 * 1000;
 function persist() {
-  if (!S.inPlay || !S.game) return;
+  if (!S.inPlay || !S.game || S.game.realtime) return;
   try {
     localStorage.setItem(SESSION_KEY, JSON.stringify({
       v: 1, ts: Date.now(), gameId: S.game.id, roomCode: S.roomCode,
@@ -99,6 +99,7 @@ function onDisconnect() {
   if (S.leaving) return;
   if (S.conn && S.conn.open) return;      // ignore stale close/error from a replaced connection
   if (!S.inPlay) { setStatus(t('disconnected')); return; }
+  if (S.game && S.game.realtime) { endGame('lose', t('opp_left')); return; } // live games can't pause/rejoin
   pauseGame('disconnect');
   startReconnect();
 }
@@ -189,7 +190,7 @@ function onData(msg) {
 }
 
 // ---------- home ----------
-const CATS = ['classic', 'strategy', 'luck', 'word'];
+const CATS = ['classic', 'strategy', 'arcade', 'luck', 'word'];
 const DIFF_COLOR = { easy: 'text-emerald-400', medium: 'text-amber-400', hard: 'text-rose-400' };
 function renderChips() {
   const box = $('cat-chips'); box.innerHTML = '';
@@ -340,6 +341,7 @@ function runToss(iAmFirst) {
   }, 2000);
 }
 function preparePlayScreen() {
+  if (S.game && S.game.stop) S.game.stop();   // halt any prior real-time loop before rebuilding
   S.over = false;
   show('play');
   $('game-title').textContent = gameTitle(S.game);
@@ -439,6 +441,7 @@ function reconnect() {
 function endGame(outcome, msg) {
   clearInterval(S.timerId);
   clearInterval(S.reconnectTimer);
+  if (S.game && S.game.stop) S.game.stop();
   S.inPlay = false; S.paused = false; S.over = true; S.myTurn = false;
   if (outcome === 'win') S.lastLoserIsHost = !S.isHost;
   else if (outcome === 'lose') S.lastLoserIsHost = S.isHost;
@@ -463,6 +466,7 @@ function restartMatch(initiator) {
 }
 function goHome() {
   S.leaving = true;
+  if (S.game && S.game.stop) S.game.stop();
   S.inPlay = false; S.paused = false;
   clearSession();
   clearInterval(S.reconnectTimer);

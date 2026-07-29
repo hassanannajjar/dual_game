@@ -195,4 +195,23 @@ const reach = ccReachable(adj, new Set([1]), 0);
 assert.ok(reach.has(2), 'cc hop over peg to empty');
 assert.ok(!reach.has(1), 'cc cannot land on occupied');
 
-console.log('PASS (all logic incl. hex/ludo/backgammon/chinese-checkers)');
+// ---- 2048 ----
+import { move2048, has2048Move, tetrisFits, tetrisClear, TETROMINOES } from './js/logic.js';
+let r2 = move2048([[2, 2, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]], 'left');
+assert.strictEqual(r2.board[0][0], 4, '2048 merge 2+2=4');
+assert.strictEqual(r2.score, 4, '2048 score from merge');
+assert.strictEqual(r2.moved, true, '2048 moved');
+assert.strictEqual(move2048([[2, 4, 2, 4], [4, 2, 4, 2], [2, 4, 2, 4], [4, 2, 4, 2]], 'left').moved, false, '2048 no move on checker board');
+assert.strictEqual(has2048Move([[2, 4, 2, 4], [4, 2, 4, 2], [2, 4, 2, 4], [4, 2, 4, 2]]), false, '2048 board full no merges');
+assert.strictEqual(has2048Move([[2, 2, 0, 4], [4, 8, 16, 2], [2, 4, 8, 16], [4, 2, 4, 8]]), true, '2048 has a merge');
+
+// ---- Tetris ----
+const tg = Array.from({ length: 6 }, () => Array(6).fill(0));
+assert.strictEqual(tetrisFits(tg, TETROMINOES.O, 2, 0), true, 'tetris O fits in empty');
+assert.strictEqual(tetrisFits(tg, TETROMINOES.I, 4, 1), false, 'tetris I off right edge');
+tg[5] = [1, 1, 1, 1, 1, 1]; tg[4] = [0, 1, 1, 1, 1, 1];
+const tc = tetrisClear(tg);
+assert.strictEqual(tc.lines, 1, 'tetris clears one full row');
+assert.strictEqual(tc.grid[5][0], 0, 'tetris row above shifted down');
+
+console.log('PASS (all logic incl. 2048/tetris + earlier)');

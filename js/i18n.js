@@ -37,7 +37,7 @@ const DICT = {
     g_chess: 'Chess', g_hangman: 'Hangman', g_snakes: 'Snakes & Ladders', g_pig: 'Dice Pig',
     g_go: 'Go', g_order: 'Order & Chaos', g_nim: 'Nim', g_yahtzee: 'Yahtzee',
     // home UI
-    all_games: 'All', cat_classic: 'Classic', cat_strategy: 'Strategy', cat_luck: 'Luck', cat_word: 'Word',
+    all_games: 'All', cat_classic: 'Classic', cat_strategy: 'Strategy', cat_arcade: 'Arcade', cat_luck: 'Luck', cat_word: 'Word',
     search_ph: 'Search games…', how_to_play: 'How to play', players2: '2P',
     diff_easy: 'Easy', diff_medium: 'Medium', diff_hard: 'Hard', no_results: 'No games found',
     // short descriptions
@@ -81,6 +81,13 @@ const DICT = {
     r_ludo: 'Roll to leave base on a 6, then race all four tokens around to home. Land on a lone opponent to send it back. A 6 rolls again.',
     r_backgammon: 'Roll two dice and move your checkers toward your home. Land on a lone enemy checker to send it to the bar. Bear all fifteen off first to win.',
     r_chinesecheckers: 'Move a peg to an adjacent hole, or hop over pegs in a line (chained hops allowed). Get all your pegs into the opposite triangle first.',
+    g_2048: '2048 Duel', g_tetris: 'Tetris Duel', g_airhockey: 'Air Hockey', g_tron: 'Light Cycles',
+    d_2048: 'Race to the 2048 tile.', d_tetris: 'Clear lines, send garbage.',
+    d_airhockey: 'Fast paddle duel.', d_tron: 'Trap your rival.',
+    r_2048: 'Swipe or use arrow keys to slide tiles; equal tiles merge. First to make a 2048 tile wins — or the higher tile when your board fills.',
+    r_tetris: 'Move and rotate falling pieces to clear full lines. Cleared lines send garbage rows to your opponent. If your stack tops out, you lose.',
+    r_airhockey: 'Drag your paddle to hit the puck into the opponent’s goal. First to 7 goals wins.',
+    r_tron: 'Steer your light cycle; it leaves a solid trail. Force your opponent to crash into a wall or a trail while you survive.',
   },
   ar: {
     tagline: 'لاعبان · اتصال مباشر · بدون تسجيل',
@@ -116,7 +123,7 @@ const DICT = {
     g_uttt: 'إكس-أو الشامل', g_mancala: 'المنقلة', g_memory: 'الذاكرة', g_morris: 'طاحونة',
     g_chess: 'شطرنج', g_hangman: 'الكلمة المخفية', g_snakes: 'السلالم والأفاعي', g_pig: 'خنزير النرد',
     g_go: 'جو', g_order: 'النظام والفوضى', g_nim: 'نيم', g_yahtzee: 'ياتزي',
-    all_games: 'الكل', cat_classic: 'كلاسيكي', cat_strategy: 'استراتيجية', cat_luck: 'حظ', cat_word: 'كلمات',
+    all_games: 'الكل', cat_classic: 'كلاسيكي', cat_strategy: 'استراتيجية', cat_arcade: 'أركيد', cat_luck: 'حظ', cat_word: 'كلمات',
     search_ph: 'ابحث عن لعبة…', how_to_play: 'كيف تلعب', players2: 'لاعبان',
     diff_easy: 'سهل', diff_medium: 'متوسط', diff_hard: 'صعب', no_results: 'لا توجد ألعاب',
     d_number_duel: 'خمّن رقم خصمك السري.', d_ttt: 'ثلاثة في صف تفوز.',
@@ -158,6 +165,13 @@ const DICT = {
     r_ludo: 'ارمِ لتخرج من القاعدة عند 6، ثم سابق رموزك الأربعة حول المسار إلى البيت. الوقوف على رمز خصم منفرد يعيده. الـ 6 يمنح رمية إضافية.',
     r_backgammon: 'ارمِ نردين وحرّك قطعك نحو بيتك. الوقوف على قطعة عدو منفردة يرسلها للحاجز. أخرج قطعك الخمسة عشرة أولًا لتفوز.',
     r_chinesecheckers: 'انقل قطعة إلى حفرة مجاورة، أو اقفز فوق القطع في خط (قفزات متتالية مسموحة). أوصل كل قطعك إلى المثلث المقابل أولًا.',
+    g_2048: 'تحدي 2048', g_tetris: 'تحدي تتريس', g_airhockey: 'هوكي الهواء', g_tron: 'الدراجات الضوئية',
+    d_2048: 'سابق إلى بلاطة 2048.', d_tetris: 'امسح الصفوف وأرسل الفوضى.',
+    d_airhockey: 'مبارزة مضارب سريعة.', d_tron: 'أوقع خصمك.',
+    r_2048: 'اسحب أو استخدم الأسهم لتحريك البلاطات؛ المتساويتان تندمجان. أول من يصنع بلاطة 2048 يفوز — أو صاحب البلاطة الأكبر عند امتلاء اللوح.',
+    r_tetris: 'حرّك وأدر القطع الساقطة لمسح الصفوف الكاملة. الصفوف الممسوحة ترسل صفوف فوضى لخصمك. إذا امتلأ لوحك حتى القمة تخسر.',
+    r_airhockey: 'اسحب مضربك لتضرب القرص نحو مرمى الخصم. أول من يسجل 7 أهداف يفوز.',
+    r_tron: 'وجّه دراجتك الضوئية؛ تترك أثرًا صلبًا. أجبر خصمك على الاصطدام بجدار أو أثر بينما تنجو أنت.',
   },
 };
 

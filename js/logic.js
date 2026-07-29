@@ -413,3 +413,64 @@ export function ccReachable(adj, occupied, start) {
   return dest;
 }
 
+// ---------- 2048 ---------- board = 4x4 [y][x] of number (0 = empty). dir: 'left'|'right'|'up'|'down'.
+function slideRow(row) {                              // collapse one row to the left, return {row, gained}
+  const nums = row.filter((n) => n);
+  let gained = 0;
+  for (let i = 0; i < nums.length - 1; i++) if (nums[i] === nums[i + 1]) { nums[i] *= 2; gained += nums[i]; nums.splice(i + 1, 1); }
+  while (nums.length < 4) nums.push(0);
+  return { row: nums, gained };
+}
+export function move2048(board, dir) {
+  const n = 4;
+  let g = board.map((r) => r.slice());
+  const rev = (m) => m.map((r) => r.slice().reverse());
+  const transpose = (m) => m[0].map((_, x) => m.map((r) => r[x]));
+  if (dir === 'up') g = transpose(g);
+  else if (dir === 'down') g = rev(transpose(g));
+  else if (dir === 'right') g = rev(g);
+  let score = 0;
+  g = g.map((r) => { const s = slideRow(r); score += s.gained; return s.row; });
+  if (dir === 'up') g = transpose(g);
+  else if (dir === 'down') g = transpose(rev(g));
+  else if (dir === 'right') g = rev(g);
+  const moved = JSON.stringify(g) !== JSON.stringify(board);
+  let max = 0; for (const r of g) for (const v of r) if (v > max) max = v;
+  return { board: g, moved, score, max };
+}
+export function has2048Move(board) {                  // any merge or empty cell available
+  for (let y = 0; y < 4; y++) for (let x = 0; x < 4; x++) {
+    if (!board[y][x]) return true;
+    if (x < 3 && board[y][x] === board[y][x + 1]) return true;
+    if (y < 3 && board[y][x] === board[y + 1][x]) return true;
+  }
+  return false;
+}
+
+// ---------- Tetris ---------- grid = rows(H) x cols(W) of 0|colorIndex. cells = [[dx,dy],...] relative offsets.
+export function tetrisFits(grid, cells, x, y) {
+  const H = grid.length, W = grid[0].length;
+  for (const [dx, dy] of cells) {
+    const cx = x + dx, cy = y + dy;
+    if (cx < 0 || cx >= W || cy >= H) return false;
+    if (cy >= 0 && grid[cy][cx]) return false;
+  }
+  return true;
+}
+export function tetrisClear(grid) {                   // remove full rows, return {grid, lines}
+  const W = grid[0].length;
+  const kept = grid.filter((row) => row.some((c) => !c));
+  const lines = grid.length - kept.length;
+  while (kept.length < grid.length) kept.unshift(Array(W).fill(0));
+  return { grid: kept, lines };
+}
+export const TETROMINOES = {
+  I: [[0, 1], [1, 1], [2, 1], [3, 1]], O: [[1, 0], [2, 0], [1, 1], [2, 1]],
+  T: [[1, 0], [0, 1], [1, 1], [2, 1]], S: [[1, 0], [2, 0], [0, 1], [1, 1]],
+  Z: [[0, 0], [1, 0], [1, 1], [2, 1]], J: [[0, 0], [0, 1], [1, 1], [2, 1]],
+  L: [[2, 0], [0, 1], [1, 1], [2, 1]],
+};
+export function rotateCells(cells) {                  // rotate 90° CW around (1.5,1.5) box, snap to ints
+  return cells.map(([x, y]) => [3 - y, x]);
+}
+

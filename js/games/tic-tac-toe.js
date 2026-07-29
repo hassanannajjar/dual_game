@@ -1,4 +1,4 @@
-import { ticTacToeWinner } from '../logic.js?v=1';
+import { ticTacToeWinner } from '../logic.js?v=2';
 
 const M = { cells: [], mine: 'X', opp: 'O', btns: [] };
 
