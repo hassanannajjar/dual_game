@@ -1,4 +1,4 @@
-import { MORRIS_ADJ, morrisMillsAt } from '../logic.js?v=7';
+import { MORRIS_ADJ, morrisMillsAt } from '../logic.js?v=8';
 
 // Node coordinates on a 0..6 grid [col, row].
 const COORD = [
