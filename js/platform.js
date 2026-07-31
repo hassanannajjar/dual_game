@@ -2,10 +2,11 @@
 // drives phases: home -> connect -> lobby -> [setup] -> [toss] -> play -> over,
 // and handles pause / disconnect-reconnect / refresh-resume.
 // Depends on the global `Peer` (PeerJS, loaded via CDN).
-import { t, initLang, onLangChange } from './i18n.js?v=4';
-import { sound } from './sound.js?v=4';
-import { initPrefs, getName, haptic } from './prefs.js?v=4';
-import { demo } from './demos.js?v=4';
+import { t, initLang, onLangChange } from './i18n.js?v=5';
+import { sound } from './sound.js?v=5';
+import { initPrefs, getName, setName, haptic } from './prefs.js?v=5';
+import { demo } from './demos.js?v=5';
+import { goOnline as presenceOnline, goOffline as presenceOffline } from './presence.js?v=5';
 
 // ---------- DOM helpers ----------
 const $ = (id) => document.getElementById(id);
@@ -15,7 +16,7 @@ export function el(tag, cls, html) {
   if (html != null) n.innerHTML = html;
   return n;
 }
-const SCREENS = ['home', 'connect', 'lobby', 'setup', 'toss', 'play'];
+const SCREENS = ['home', 'online', 'connect', 'lobby', 'setup', 'toss', 'play'];
 function stopHowto() { if (S.demoStop) { S.demoStop(); S.demoStop = null; } }
 function show(name) {
   if (name !== 'connect') stopHowto();
@@ -191,6 +192,19 @@ function onData(msg) {
       S.game = gameById(msg.gameId) || S.game;
       if (S.isHost) enterHostLobby(); else enterGuestLobby();
       break;
+    case 'invite':
+      S.pendingInvite = { fromId: msg.fromId, name: msg.name };
+      $('invite-text').textContent = t('invited_by', { name: msg.name || 'Player' });
+      $('invite-panel').classList.remove('hidden');
+      break;
+    case 'invite-accept':
+      beginInvitedGame(true);
+      break;
+    case 'invite-declined':
+      toast(t('invite_declined', { name: S.pendingInviteeName || '' }));
+      try { S.conn && S.conn.close(); } catch (e) {}
+      S.conn = null; S.isHost = false;
+      break;
   }
 }
 
@@ -270,6 +284,87 @@ function changeGame(id) {
     sys('changegame', { gameId: id });
     if (S.isHost) enterHostLobby(); else enterGuestLobby();
   } else selectGame(id);
+}
+
+// ---------- online lobby (presence over MQTT) + invites ----------
+const esc = (s) => String(s).replace(/[<>&"]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c]));
+function openOnlineLobby() {
+  show('online');
+  $('online-name').value = getName() || '';
+  try { $('online-circle').value = localStorage.getItem('arcade:circle') || ''; } catch (e) {}
+  $('online-status').textContent = '';
+  $('online-list').innerHTML = '';
+  $('btn-go-online').textContent = t(S.inLobby ? 'go_offline' : 'go_online');
+}
+function ensureLobbyPeer(cb) {
+  if (S.lobbyPeer && S.lobbyPeer.open) { cb(S.lobbyPeer.id); return; }
+  S.lobbyPeer = new Peer();
+  S.lobbyPeer.on('open', (id) => cb(id));
+  S.lobbyPeer.on('connection', onLobbyConn);
+  S.lobbyPeer.on('error', () => { $('online-status').textContent = 'Error'; });
+}
+function toggleOnline() {
+  if (S.inLobby) { presenceOffline(); S.inLobby = false; $('btn-go-online').textContent = t('go_online'); $('online-status').textContent = ''; $('online-list').innerHTML = ''; return; }
+  const name = ($('online-name').value.trim() || getName());
+  if (!name) { toast(t('need_name')); return; }
+  setName(name);
+  const circle = $('online-circle').value.trim() || 'public';
+  try { localStorage.setItem('arcade:circle', circle); } catch (e) {}
+  $('online-status').textContent = t('connecting_lobby');
+  ensureLobbyPeer((peerId) => {
+    presenceOnline(circle, name, peerId, renderOnlineList);
+    S.inLobby = true;
+    $('online-status').textContent = t('online_now');
+    $('btn-go-online').textContent = t('go_offline');
+  });
+}
+function renderOnlineList(list) {
+  const ul = $('online-list'); if (!ul) return; ul.innerHTML = '';
+  if (!list.length) { ul.appendChild(el('li', 'text-center text-slate-500 text-sm py-4', t('no_players'))); return; }
+  for (const p of list) {
+    const li = el('li', 'flex items-center justify-between gap-2 bg-slate-800 rounded-xl px-3 py-2');
+    li.appendChild(el('span', 'font-semibold truncate', `🟢 ${esc(p.name)}`));
+    const b = el('button', 'px-4 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-sm font-semibold', t('invite'));
+    b.onclick = () => invitePlayer(p.peerId, p.name);
+    li.appendChild(b);
+    ul.appendChild(li);
+  }
+}
+function wireInvite(conn) {
+  conn.on('data', onData);
+  conn.on('close', onDisconnect);
+  conn.on('error', onDisconnect);
+}
+function onLobbyConn(conn) {
+  if (S.conn && S.conn.open) { try { conn.close(); } catch (e) {} return; } // busy
+  S.conn = conn;
+  wireInvite(conn);
+}
+function invitePlayer(peerId, name) {
+  if (S.conn && S.conn.open) return;
+  S.pendingInviteeName = name;
+  const conn = S.lobbyPeer.connect(peerId, { reliable: true });
+  S.conn = conn; S.isHost = true;
+  wireInvite(conn);
+  conn.on('open', () => sys('invite', { name: getName() || 'Player', fromId: S.lobbyPeer.id }));
+  toast(t('inviting', { name }));
+}
+function beginInvitedGame(iAmHost) {
+  $('invite-panel').classList.add('hidden');
+  presenceOffline(); S.inLobby = false;
+  S.isHost = iAmHost;
+  S.peer = S.lobbyPeer;
+  S.roomCode = iAmHost ? S.lobbyPeer.id : (S.pendingInvite ? S.pendingInvite.fromId : S.roomCode);
+  S.oppName = (iAmHost ? S.pendingInviteeName : (S.pendingInvite && S.pendingInvite.name)) || '';
+  if (iAmHost) openPicker();
+  else { enterGuestLobby(); $('room-code').textContent = S.oppName || '—'; }
+}
+function leaveLobby() {
+  presenceOffline();
+  try { S.lobbyPeer && S.lobbyPeer.destroy(); } catch (e) {}
+  S.lobbyPeer = null; S.inLobby = false;
+  $('btn-go-online').textContent = t('go_online');
+  show('home');
 }
 function selectGame(id) {
   S.game = gameById(id);
@@ -501,6 +596,7 @@ function restartMatch(initiator) {
 function goHome() {
   S.leaving = true;
   if (S.game && S.game.stop) S.game.stop();
+  presenceOffline(); S.inLobby = false;
   S.inPlay = false; S.paused = false;
   clearSession();
   clearInterval(S.reconnectTimer);
@@ -569,6 +665,11 @@ export function boot() {
   $('btn-picker-cancel').onclick = closePicker;
   $('btn-picker-cancel2').onclick = closePicker;
   $('picker-panel').addEventListener('click', (e) => { if (e.target === $('picker-panel')) closePicker(); });
+  $('btn-find-players').onclick = openOnlineLobby;
+  $('btn-go-online').onclick = toggleOnline;
+  $('btn-online-back').onclick = leaveLobby;
+  $('btn-invite-accept').onclick = () => { $('invite-panel').classList.add('hidden'); sys('invite-accept'); beginInvitedGame(false); };
+  $('btn-invite-decline').onclick = () => { $('invite-panel').classList.add('hidden'); sys('invite-declined'); try { S.conn && S.conn.close(); } catch (e) {} S.conn = null; };
   $('btn-pause').onclick = () => { pauseGame('manual'); sys('pause'); };
   $('btn-resume').onclick = () => { resumeGame(); sys('resume-play'); };
   $('btn-pause-leave').onclick = goHome;

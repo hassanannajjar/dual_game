@@ -12,6 +12,10 @@ For guessing games (Number Duel) and hidden-board games (Battleship), your secre
 
 **Resilient matches:** either player can **Pause** (freezes the match for both). If someone drops or refreshes, the match **auto-pauses** and **resumes** when they rejoin — state is saved to `localStorage`, so a refresh reconnects to the same room and restores your board/history where you left off.
 
+**Find players online:** from the home screen, **Find players online** → enter a name + a *circle* (default `public`) → **Go online**. Everyone on the same circle sees each other; tap **Invite** and the other player gets an Accept/Decline prompt, then you pick a game and play. Presence uses a **free public MQTT broker** (no backend, no sign-up) purely as an online directory — the games themselves are still peer-to-peer. Public brokers are best-effort and not private (names on your circle are visible to anyone on that broker), so use a non-obvious circle name for a private group. The broker URL is a swappable constant in `js/presence.js`.
+
+**Change game in-room:** the **⇄** button (in-play) and **Change game** (result screen) open a picker to switch games without leaving the room.
+
 ## Play
 
 1. On the home grid, **pick a game**.

@@ -6,6 +6,7 @@
   <title>Arcade — 2-Player Games</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+  <script src="https://unpkg.com/mqtt@5.7.0/dist/mqtt.min.js"></script>
   <link rel="stylesheet" href="app.css" />
 </head>
 <body class="min-h-[100dvh] bg-slate-950 text-slate-100 flex flex-col">
@@ -29,10 +30,28 @@
         <h1 class="text-2xl font-black mb-1" data-i18n="pick_game">Pick a game</h1>
         <p class="text-slate-300/80 text-sm" data-i18n="tagline">2 players · peer-to-peer · no sign-up</p>
       </div>
+      <button id="btn-find-players" class="w-full py-3 rounded-xl bg-emerald-600/90 hover:bg-emerald-500 font-semibold transition flex items-center justify-center gap-2">
+        <span>🟢</span><span data-i18n="find_players">Find players online</span>
+      </button>
       <input id="game-search" data-i18n-ph="search_ph" placeholder="Search games…"
              class="w-full py-2.5 px-4 rounded-xl bg-slate-800 border border-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 placeholder:text-slate-500" />
       <div id="cat-chips" class="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1"></div>
       <div id="game-sections"></div>
+    </section>
+
+    <!-- ONLINE LOBBY -->
+    <section id="screen-online" class="hidden space-y-4">
+      <h2 class="text-xl font-bold" data-i18n="online_players">Online players</h2>
+      <div class="grid grid-cols-2 gap-2">
+        <input id="online-name" maxlength="16" data-i18n-ph="display_name" placeholder="Your name"
+               class="py-2.5 px-3 rounded-xl bg-slate-800 border border-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        <input id="online-circle" maxlength="24" data-i18n-ph="circle_ph" placeholder="Circle (e.g. family)"
+               class="py-2.5 px-3 rounded-xl bg-slate-800 border border-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+      </div>
+      <button id="btn-go-online" class="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 font-semibold transition" data-i18n="go_online">Go online</button>
+      <p id="online-status" class="text-center text-xs text-slate-400 h-4"></p>
+      <ul id="online-list" class="space-y-2"></ul>
+      <button id="btn-online-back" class="w-full py-2 text-sm text-slate-500 hover:text-slate-300" data-i18n="back_games">← Back to games</button>
     </section>
 
     <!-- CONNECT (pre-connection: create or join) -->
@@ -174,8 +193,20 @@
     </div>
   </div>
 
+  <!-- INCOMING INVITE -->
+  <div id="invite-panel" class="hidden fixed inset-0 z-40 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
+    <div class="w-full max-w-xs bg-slate-900 border border-slate-700 rounded-2xl p-5 text-center space-y-4">
+      <div class="text-4xl">🎮</div>
+      <p id="invite-text" class="text-lg font-semibold"></p>
+      <div class="grid grid-cols-2 gap-2">
+        <button id="btn-invite-accept" class="py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 font-semibold" data-i18n="accept">Accept</button>
+        <button id="btn-invite-decline" class="py-3 rounded-xl bg-slate-700 hover:bg-slate-600 font-semibold" data-i18n="decline">Decline</button>
+      </div>
+    </div>
+  </div>
+
   <div id="toast" class="hidden fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-800 text-sm px-4 py-2 rounded-lg shadow-lg border border-slate-700 z-40"></div>
 
-  <script type="module" src="js/app.js?v=4"></script>
+  <script type="module" src="js/app.js?v=5"></script>
 </body>
 </html>
