@@ -2,10 +2,10 @@
 // drives phases: home -> connect -> lobby -> [setup] -> [toss] -> play -> over,
 // and handles pause / disconnect-reconnect / refresh-resume.
 // Depends on the global `Peer` (PeerJS, loaded via CDN).
-import { t, initLang, onLangChange } from './i18n.js?v=2';
-import { sound } from './sound.js?v=2';
-import { initPrefs, getName, haptic } from './prefs.js?v=2';
-import { demo } from './demos.js?v=2';
+import { t, initLang, onLangChange } from './i18n.js?v=3';
+import { sound } from './sound.js?v=3';
+import { initPrefs, getName, haptic } from './prefs.js?v=3';
+import { demo } from './demos.js?v=3';
 
 // ---------- DOM helpers ----------
 const $ = (id) => document.getElementById(id);
@@ -284,6 +284,8 @@ function enterHostLobby() {
   if (!S.roomCode) return;
   show('lobby');
   $('lobby-host').classList.remove('hidden');
+  $('lobby-wait').classList.add('hidden');     // reset shared elements from any prior guest lobby
+  $('btn-start').classList.remove('hidden');
   $('room-code').textContent = S.roomCode;
   renderOptions();
   const start = $('btn-start');

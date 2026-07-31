@@ -1,6 +1,6 @@
 // Preferences: display name, theme/accent, haptics + the settings panel.
-import { applyLang, getLang, t, onLangChange } from './i18n.js?v=2';
-import { setSound, soundOn } from './sound.js?v=2';
+import { applyLang, getLang, t, onLangChange } from './i18n.js?v=3';
+import { setSound, soundOn } from './sound.js?v=3';
 
 const THEMES = ['indigo', 'emerald', 'rose', 'amber'];
 const SWATCH = { indigo: '#6366f1', emerald: '#10b981', rose: '#f43f5e', amber: '#f59e0b' };
