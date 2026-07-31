@@ -1,7 +1,8 @@
 // Service worker — offline app shell + runtime cache. Bump CACHE on each release.
-const CACHE = 'arcade-v6';
+const CACHE = 'arcade-v7';
 const SHELL = [
-  './', './index.html', './app.css', './manifest.webmanifest', './icon.svg',
+  './', './index.html', './app.css', './manifest.webmanifest',
+  './icon.svg', './icon-192.png', './icon-512.png', './apple-touch-icon-180.png',
   'https://cdn.tailwindcss.com',
   'https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js',
   'https://unpkg.com/mqtt@5.7.0/dist/mqtt.min.js',

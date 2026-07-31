@@ -1,4 +1,4 @@
-import { ticTacToeWinner, ultimateWinner } from '../logic.js?v=6';
+import { ticTacToeWinner, ultimateWinner } from '../logic.js?v=7';
 
 const M = { boards: [], small: [], active: -1, mine: 'X', opp: 'O', cellEls: [], boardEls: [] };
 const boardFull = (i) => M.boards[i].every(Boolean);

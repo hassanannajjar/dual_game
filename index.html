@@ -7,7 +7,7 @@
   <link rel="manifest" href="manifest.webmanifest" />
   <meta name="theme-color" content="#0b1020" />
   <link rel="icon" href="icon.svg" type="image/svg+xml" />
-  <link rel="apple-touch-icon" href="icon.svg" />
+  <link rel="apple-touch-icon" href="apple-touch-icon-180.png" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Arcade" />
@@ -222,6 +222,13 @@
     </div>
   </div>
 
+  <!-- iOS install hint (Safari has no install prompt) -->
+  <div id="ios-install" class="hidden fixed bottom-3 left-3 right-3 z-40 bg-slate-800 border border-slate-600 rounded-xl p-3 text-sm shadow-xl flex items-center gap-3">
+    <span class="text-2xl">📲</span>
+    <span class="flex-1">Install: tap <b>Share</b> <span class="inline-block">⬆️</span> then <b>“Add to Home Screen”</b>.</span>
+    <button id="ios-install-close" class="text-slate-400 hover:text-slate-200 text-lg leading-none px-1">✕</button>
+  </div>
+
   <div id="toast" class="hidden fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-800 text-sm px-4 py-2 rounded-lg shadow-lg border border-slate-700 z-40"></div>
 
   <script>
@@ -233,7 +240,19 @@
       if (e.target && e.target.id === 'btn-install' && deferredPrompt) { deferredPrompt.prompt(); deferredPrompt = null; e.target.classList.add('hidden'); }
     });
     window.addEventListener('appinstalled', () => { const b = document.getElementById('btn-install'); if (b) b.classList.add('hidden'); });
+    // iOS (Safari): no install prompt exists — show Add-to-Home-Screen hint.
+    (function () {
+      var ua = navigator.userAgent;
+      var isIOS = /iPhone|iPad|iPod/i.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      var isSafari = /^((?!chrome|android|crios|fxios|edgios).)*safari/i.test(ua);
+      var standalone = navigator.standalone === true || (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
+      var dismissed = false; try { dismissed = localStorage.getItem('arcade:iosHint') === '1'; } catch (e) {}
+      if (isIOS && isSafari && !standalone && !dismissed) window.addEventListener('load', function () { var el = document.getElementById('ios-install'); if (el) el.classList.remove('hidden'); });
+      document.addEventListener('click', function (e) {
+        if (e.target && e.target.id === 'ios-install-close') { document.getElementById('ios-install').classList.add('hidden'); try { localStorage.setItem('arcade:iosHint', '1'); } catch (e2) {} }
+      });
+    })();
   </script>
-  <script type="module" src="js/app.js?v=6"></script>
+  <script type="module" src="js/app.js?v=7"></script>
 </body>
 </html>
