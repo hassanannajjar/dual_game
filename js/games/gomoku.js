@@ -1,4 +1,4 @@
-import { lineWinner } from '../logic.js?v=5';
+import { lineWinner } from '../logic.js?v=6';
 
 const N = 13;
 const M = { board: [], mine: 'B', opp: 'W', cells: [] };
@@ -58,6 +58,36 @@ export default {
     if (lineWinner(M.board, msg.x, msg.y, 5) === M.opp) return ctx.endGame('lose');
     if (full(M.board)) return ctx.endGame('draw');
     ctx.setTurn(true);
+  },
+  botMove(level) {
+    const b = M.board;
+    const runLen = (x, y, color) => {
+      let mx = 1;
+      for (const [dx, dy] of [[1, 0], [0, 1], [1, 1], [1, -1]]) {
+        let c = 1;
+        for (const s of [1, -1]) { let cx = x + dx * s, cy = y + dy * s; while (cy >= 0 && cy < N && cx >= 0 && cx < N && b[cy][cx] === color) { c++; cx += dx * s; cy += dy * s; } }
+        mx = Math.max(mx, c);
+      }
+      return mx;
+    };
+    const w = (n) => (n >= 5 ? 1e6 : n === 4 ? 1e4 : n === 3 ? 200 : n * n);
+    let anyStone = false, cands = [];
+    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (b[y][x]) anyStone = true;
+    if (!anyStone) return { type: 'move', x: (N >> 1), y: (N >> 1) };
+    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+      if (b[y][x]) continue;
+      let near = false;
+      for (let dy = -2; dy <= 2 && !near; dy++) for (let dx = -2; dx <= 2; dx++) { const nx = x + dx, ny = y + dy; if (nx >= 0 && nx < N && ny >= 0 && ny < N && b[ny][nx]) { near = true; break; } }
+      if (near) cands.push([x, y]);
+    }
+    if (!cands.length) return null;
+    if (level === 'easy') { const [x, y] = cands[Math.floor(Math.random() * cands.length)]; return { type: 'move', x, y }; }
+    let best = null, bestScore = -1;
+    for (const [x, y] of cands) {
+      const s = w(runLen(x, y, M.opp)) + 0.85 * w(runLen(x, y, M.mine));
+      if (s > bestScore) { bestScore = s; best = [x, y]; }
+    }
+    return { type: 'move', x: best[0], y: best[1] };
   },
   getState() { return { board: M.board, mine: M.mine, opp: M.opp }; },
   restore(state, ctx) { M.board = state.board; M.mine = state.mine; M.opp = state.opp; build(ctx); },

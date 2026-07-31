@@ -1,4 +1,4 @@
-import { boxClosed } from '../logic.js?v=5';
+import { boxClosed } from '../logic.js?v=6';
 
 const D = 5, B = D - 1; // dots per side, boxes per side
 const M = { H: [], V: [], owner: [], me: 'A', opp: 'B', hEls: [], vEls: [], boxEls: [], scoreEl: null };
@@ -89,6 +89,29 @@ export default {
     ctx.sound(done ? 'capture' : 'drop'); paint();
     if (filled()) return finish(ctx);
     if (done === 0) ctx.setTurn(true);
+  },
+  botMove(level) {
+    const H2 = M.H.map((r) => r.slice()), V2 = M.V.map((r) => r.slice());
+    const undrawn = () => { const e = []; for (let r = 0; r < D; r++) for (let c = 0; c < B; c++) if (!H2[r][c]) e.push(['h', r, c]); for (let r = 0; r < B; r++) for (let c = 0; c < D; c++) if (!V2[r][c]) e.push(['v', r, c]); return e; };
+    const sides = (br, bc) => (H2[br][bc] ? 1 : 0) + (H2[br + 1][bc] ? 1 : 0) + (V2[br][bc] ? 1 : 0) + (V2[br][bc + 1] ? 1 : 0);
+    const adj = (t, r, c) => t === 'h' ? [[r - 1, c], [r, c]] : [[r, c - 1], [r, c]];
+    const set = (t, r, c, v) => { if (t === 'h') H2[r][c] = v; else V2[r][c] = v; };
+    const inb = (br, bc) => br >= 0 && br < B && bc >= 0 && bc < B;
+    const closes = (t, r, c) => { set(t, r, c, true); let n = 0; for (const [br, bc] of adj(t, r, c)) if (inb(br, bc) && sides(br, bc) === 4) n++; set(t, r, c, false); return n; };
+    const givesThree = (t, r, c) => { set(t, r, c, true); let bad = false; for (const [br, bc] of adj(t, r, c)) if (inb(br, bc) && sides(br, bc) === 3) bad = true; set(t, r, c, false); return bad; };
+    const rand = (a) => a[Math.floor(Math.random() * a.length)];
+    if (level === 'easy') { const e = undrawn(); if (!e.length) return null; const [t, r, c] = rand(e); return [{ type: 'move', t, r, c }]; }
+    const moves = [];
+    for (;;) {
+      const e = undrawn(); if (!e.length) break;
+      const comp = e.find(([t, r, c]) => closes(t, r, c) > 0);
+      if (comp) { set(comp[0], comp[1], comp[2], true); moves.push({ type: 'move', t: comp[0], r: comp[1], c: comp[2] }); continue; }
+      const safe = e.filter(([t, r, c]) => !givesThree(t, r, c));
+      const p = rand(safe.length ? safe : e);
+      set(p[0], p[1], p[2], true); moves.push({ type: 'move', t: p[0], r: p[1], c: p[2] });
+      break;
+    }
+    return moves;
   },
   getState() { return { H: M.H, V: M.V, owner: M.owner, me: M.me, opp: M.opp }; },
   restore(state, ctx) { M.H = state.H; M.V = state.V; M.owner = state.owner; M.me = state.me; M.opp = state.opp; build(ctx); },

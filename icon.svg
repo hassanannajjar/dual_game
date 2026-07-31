@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#6366f1"/>
+      <stop offset="1" stop-color="#22d3ee"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="96" fill="#0b1020"/>
+  <g transform="translate(256 256)">
+    <path d="M0 -120 L104 0 L0 120 L-104 0 Z" fill="url(#g)"/>
+    <path d="M0 -60 L52 0 L0 60 L-52 0 Z" fill="#0b1020"/>
+    <circle cx="0" cy="0" r="18" fill="url(#g)"/>
+  </g>
+  <text x="256" y="440" font-family="system-ui, sans-serif" font-size="72" font-weight="800" fill="#e2e8f0" text-anchor="middle">ARCADE</text>
+</svg>

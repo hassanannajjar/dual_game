@@ -1,4 +1,4 @@
-import { evaluate } from '../logic.js?v=5';
+import { evaluate } from '../logic.js?v=6';
 
 // Per-match state (singleton; reset on setup/start/restore).
 const M = { secret: null, guessNo: 0, oppNo: 0, you: [], opp: [], tab: 'you', pad: null, histEl: null, tabEls: {} };
@@ -143,6 +143,32 @@ export default {
       M.opp.push({ no: ++M.oppNo, timeout: true });
       renderHistory(ctx);
       ctx.setTurn(true);
+    }
+  },
+
+  // ---- bot ----
+  botInit(level, ctx) {
+    const n = ctx.config.length;
+    M.botSecret = Array.from({ length: n }, () => Math.floor(Math.random() * 10)).join('');
+    M.botLevel = level; M.botLast = null;
+    M.botCands = level === 'easy' ? null : Array.from({ length: Math.pow(10, n) }, (_, i) => String(i).padStart(n, '0'));
+  },
+  _botGuess() {
+    const n = M.botSecret.length;
+    if (M.botLevel !== 'easy' && M.botCands && M.botCands.length) {
+      M.botLast = M.botLevel === 'hard' ? M.botCands[0] : M.botCands[Math.floor(Math.random() * M.botCands.length)];
+    } else M.botLast = Array.from({ length: n }, () => Math.floor(Math.random() * 10)).join('');
+    return M.botLast;
+  },
+  botOpen(send) { setTimeout(() => send({ type: 'guess', digits: this._botGuess() }), 300); },
+  botOnGame(msg, send) {
+    if (msg.type === 'guess') {
+      const { exact, partial } = evaluate(M.botSecret, msg.digits);
+      const win = exact === M.botSecret.length;
+      send({ type: 'feedback', digits: msg.digits, exact, partial, win });
+      if (!win) setTimeout(() => send({ type: 'guess', digits: this._botGuess() }), 500);   // bot's turn to guess
+    } else if (msg.type === 'feedback') {
+      if (M.botCands && M.botLast) M.botCands = M.botCands.filter((c) => { const e = evaluate(c, M.botLast); return e.exact === msg.exact && e.partial === msg.partial; });
     }
   },
 

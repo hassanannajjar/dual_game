@@ -1,4 +1,4 @@
-import { reversiFlips, reversiLegalMoves, reversiCounts } from '../logic.js?v=5';
+import { reversiFlips, reversiLegalMoves, reversiCounts } from '../logic.js?v=6';
 
 const M = { board: [], mine: 'B', opp: 'B', cells: [], scoreEl: null };
 function start() {
@@ -81,6 +81,22 @@ export default {
     if (msg.type !== 'move') return;
     apply(msg.x, msg.y, M.opp); ctx.sound('flip'); paint(ctx);
     afterMove(ctx, false);
+  },
+  botMove(level) {
+    const legal = reversiLegalMoves(M.board, M.opp);
+    if (!legal.length) return null;
+    if (level === 'easy') { const [x, y] = legal[Math.floor(Math.random() * legal.length)]; return { type: 'move', x, y }; }
+    const corner = (x, y) => (x === 0 || x === 7) && (y === 0 || y === 7);
+    const nearCorner = (x, y) => (x <= 1 || x >= 6) && (y <= 1 || y >= 6) && !corner(x, y);
+    const edge = (x, y) => x === 0 || x === 7 || y === 0 || y === 7;
+    let best = null, bestScore = -1e9;
+    for (const [x, y] of legal) {
+      const flips = reversiFlips(M.board, x, y, M.opp).length;
+      let w = flips;
+      if (level === 'hard') { w = flips; if (corner(x, y)) w += 100; else if (nearCorner(x, y)) w -= 40; else if (edge(x, y)) w += 8; }
+      if (w > bestScore) { bestScore = w; best = [x, y]; }
+    }
+    return { type: 'move', x: best[0], y: best[1] };
   },
   getState() { return { board: M.board, mine: M.mine, opp: M.opp }; },
   restore(state, ctx) { M.board = state.board; M.mine = state.mine; M.opp = state.opp; build(ctx); },

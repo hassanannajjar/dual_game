@@ -2,11 +2,11 @@
 // drives phases: home -> connect -> lobby -> [setup] -> [toss] -> play -> over,
 // and handles pause / disconnect-reconnect / refresh-resume.
 // Depends on the global `Peer` (PeerJS, loaded via CDN).
-import { t, initLang, onLangChange } from './i18n.js?v=5';
-import { sound } from './sound.js?v=5';
-import { initPrefs, getName, setName, haptic } from './prefs.js?v=5';
-import { demo } from './demos.js?v=5';
-import { goOnline as presenceOnline, goOffline as presenceOffline } from './presence.js?v=5';
+import { t, initLang, onLangChange } from './i18n.js?v=6';
+import { sound } from './sound.js?v=6';
+import { initPrefs, getName, setName, haptic } from './prefs.js?v=6';
+import { demo } from './demos.js?v=6';
+import { goOnline as presenceOnline, goOffline as presenceOffline } from './presence.js?v=6';
 
 // ---------- DOM helpers ----------
 const $ = (id) => document.getElementById(id);
@@ -54,7 +54,7 @@ const S = {
 const SESSION_KEY = 'arcade:session';
 const SESSION_TTL = 30 * 60 * 1000;
 function persist() {
-  if (!S.inPlay || !S.game || S.game.realtime) return;
+  if (!S.inPlay || !S.game || S.game.realtime || S.vsBot || S.solo) return;
   try {
     localStorage.setItem(SESSION_KEY, JSON.stringify({
       v: 1, ts: Date.now(), gameId: S.game.id, roomCode: S.roomCode,
@@ -121,7 +121,7 @@ function spawnHostPeer() {                 // host reload: re-register the room-
 }
 
 function createRoom() {
-  S.isHost = true;
+  S.isHost = true; S.vsBot = false; S.solo = false;
   S.working = defaultConfig();
   const code = randomCode();
   S.peer = new Peer(code);
@@ -135,7 +135,7 @@ function createRoom() {
 }
 function joinRoom(code) {
   if (!code) { toast('Enter a room code'); return; }
-  S.isHost = false;
+  S.isHost = false; S.vsBot = false; S.solo = false;
   S.roomCode = code.toUpperCase();
   S.peer = new Peer();
   setStatus('Joining ' + S.roomCode + '…');
@@ -209,7 +209,7 @@ function onData(msg) {
 }
 
 // ---------- home ----------
-const CATS = ['classic', 'strategy', 'arcade', 'luck', 'word'];
+const CATS = ['classic', 'strategy', 'puzzle', 'arcade', 'luck', 'word'];
 const DIFF_COLOR = { easy: 'text-emerald-400', medium: 'text-amber-400', hard: 'text-rose-400' };
 function renderChips() {
   const box = $('cat-chips'); box.innerHTML = '';
@@ -284,6 +284,36 @@ function changeGame(id) {
     sys('changegame', { gameId: id });
     if (S.isHost) enterHostLobby(); else enterGuestLobby();
   } else selectGame(id);
+}
+
+// ---------- solo / bot (loopback opponent) ----------
+function botSend(msg) { if (msg) onData(Object.assign({ scope: 'game' }, msg)); }
+function loopbackSend(obj) {
+  if (S.vsBot && obj && obj.scope === 'game' && S.game && S.game.botOnGame) {
+    setTimeout(() => S.game.botOnGame(obj, botSend, S.botLevel), 350);
+  }
+}
+function loopbackConn(withBot) { return { open: true, send: withBot ? loopbackSend : function () {}, close: function () {} }; }
+function startSolo() {
+  S.solo = true; S.vsBot = false; S.isHost = true; S.roomCode = 'SOLO';
+  S.conn = loopbackConn(false);
+  S.config = Object.assign({}, defaultConfig());
+  proceedAfterConfig();
+}
+function startBot() {
+  S.vsBot = true; S.solo = false; S.isHost = true; S.botLevel = S.botLevelSel || 'medium'; S.roomCode = 'BOT';
+  S.oppName = t('bot');
+  S.conn = loopbackConn(true);
+  S.working = defaultConfig();
+  enterHostLobby();
+}
+function scheduleBotMove() {
+  if (!(S.vsBot && S.inPlay && !S.over && !S.paused && S.game && S.game.botMove)) return;
+  setTimeout(() => {
+    if (!(S.vsBot && S.inPlay && !S.over && !S.myTurn)) return;
+    const m = S.game.botMove(S.botLevel);
+    if (Array.isArray(m)) { for (const x of m) { if (S.over) break; botSend(x); } } else botSend(m);
+  }, 450);
 }
 
 // ---------- online lobby (presence over MQTT) + invites ----------
@@ -371,9 +401,25 @@ function selectGame(id) {
   $('connect-title').textContent = gameTitle(S.game);
   $('howto-text').textContent = gameRules(S.game);
   $('join-code').value = '';
+  renderModes();
   show('connect');
   stopHowto();
   S.demoStop = demo(S.game.id, $('howto-demo'), S.game.emoji);
+}
+const BOT_LEVELS = ['easy', 'medium', 'hard'];
+function renderModes() {
+  $('btn-play-solo').classList.toggle('hidden', !S.game.solo);
+  $('bot-mode').classList.toggle('hidden', !S.game.bot);
+  $('online-modes-sep').classList.toggle('hidden', !(S.game.solo || S.game.bot));
+  if (S.game.bot) {
+    if (!S.botLevelSel) S.botLevelSel = 'medium';
+    const box = $('bot-diff'); box.innerHTML = '';
+    for (const lv of BOT_LEVELS) {
+      const b = el('button', 'py-2 rounded-lg text-sm font-semibold transition ' + (S.botLevelSel === lv ? 'bg-indigo-600' : 'bg-slate-800 text-slate-400'), t('diff_' + lv));
+      b.onclick = () => { S.botLevelSel = lv; renderModes(); };
+      box.appendChild(b);
+    }
+  }
 }
 
 // ---------- lobby / config ----------
@@ -413,6 +459,7 @@ function enterHostLobby() {
   $('lobby-host').classList.remove('hidden');
   $('lobby-wait').classList.add('hidden');     // reset shared elements from any prior guest lobby
   $('btn-start').classList.remove('hidden');
+  $('room-card').classList.toggle('hidden', !!(S.vsBot || S.solo)); // no room code for local games
   $('room-code').textContent = S.roomCode;
   renderOptions();
   const start = $('btn-start');
@@ -423,6 +470,7 @@ function enterHostLobby() {
 function enterGuestLobby() {
   show('lobby');
   $('lobby-host').classList.add('hidden');
+  $('room-card').classList.remove('hidden');
   $('room-code').textContent = S.roomCode;
   $('btn-start').classList.add('hidden');
   $('lobby-wait').classList.remove('hidden');
@@ -430,9 +478,9 @@ function enterGuestLobby() {
 
 // ---------- phase flow ----------
 function proceedAfterConfig() {
-  S.myReady = S.oppReady = false;
-  if (S.game.setup) enterSetup();
-  else { S.myReady = S.oppReady = true; afterReady(); }
+  S.myReady = false; S.oppReady = (S.vsBot || S.solo) ? true : false;
+  if (S.game.setup && !S.solo) enterSetup();
+  else { S.myReady = true; afterReady(); }
 }
 function enterSetup() {
   show('setup');
@@ -484,8 +532,10 @@ function preparePlayScreen() {
 function startGame(iAmFirst) {
   S.inPlay = true; S.paused = false;
   const turnsOn = preparePlayScreen();
+  if (S.vsBot && S.game.botInit) S.game.botInit(S.botLevel, ctx);
   S.game.start(ctx, { iAmFirst });
   if (turnsOn) setTurn(iAmFirst); else persist();
+  if (S.vsBot && !iAmFirst && S.game.botOpen) setTimeout(() => { if (S.vsBot && S.inPlay && !S.over) S.game.botOpen(botSend, S.botLevel); }, 550);
 }
 
 // ---------- turn + timer ----------
@@ -503,6 +553,7 @@ function setTurn(mine) {
   if (became) { sound('turn'); haptic(30); }
   S.game.onTurn && S.game.onTurn(mine, ctx);
   persist();
+  if (!mine) scheduleBotMove();
 }
 function startTimer(authoritative) {
   clearInterval(S.timerId);
@@ -597,7 +648,7 @@ function goHome() {
   S.leaving = true;
   if (S.game && S.game.stop) S.game.stop();
   presenceOffline(); S.inLobby = false;
-  S.inPlay = false; S.paused = false;
+  S.inPlay = false; S.paused = false; S.vsBot = false; S.solo = false;
   clearSession();
   clearInterval(S.reconnectTimer);
   stopHowto();
@@ -665,6 +716,8 @@ export function boot() {
   $('btn-picker-cancel').onclick = closePicker;
   $('btn-picker-cancel2').onclick = closePicker;
   $('picker-panel').addEventListener('click', (e) => { if (e.target === $('picker-panel')) closePicker(); });
+  $('btn-play-solo').onclick = startSolo;
+  $('btn-play-bot').onclick = startBot;
   $('btn-find-players').onclick = openOnlineLobby;
   $('btn-go-online').onclick = toggleOnline;
   $('btn-online-back').onclick = leaveLobby;

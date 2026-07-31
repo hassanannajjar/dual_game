@@ -1,4 +1,4 @@
-import { checkerMoves, checkerHasMove } from '../logic.js?v=5';
+import { checkerMoves, checkerHasMove } from '../logic.js?v=6';
 
 const M = { board: [], mine: 'b', opp: 'r', cells: [], sel: null, dests: [], mustCont: null };
 
@@ -112,6 +112,22 @@ export default {
       if (!count(M.mine) || !hasMove(M.mine)) return ctx.endGame('lose');
       ctx.setTurn(true);
     }
+  },
+  botMove(level) {
+    const jumps = [], steps = [];
+    for (let y = 0; y < 8; y++) for (let x = 0; x < 8; x++) {
+      const p = M.board[y][x];
+      if (p && p.toLowerCase() === M.opp) { const m = checkerMoves(M.board, x, y); for (const j of m.jumps) jumps.push({ from: [x, y], to: j.to, cap: j.cap }); for (const s of m.steps) steps.push({ from: [x, y], to: s }); }
+    }
+    const pool = jumps.length ? jumps : steps;
+    if (!pool.length) return null;
+    const isJump = jumps.length > 0;
+    let mv;
+    if (level === 'easy') mv = pool[Math.floor(Math.random() * pool.length)];
+    else { const kingers = pool.filter((m) => { const p = M.board[m.from[1]][m.from[0]]; return (p === 'r' && m.to[1] === 7) || (p === 'b' && m.to[1] === 0); }); mv = kingers[0] || pool[Math.floor(Math.random() * pool.length)]; }
+    const piece = M.board[mv.from[1]][mv.from[0]];
+    const king = (piece === 'r' && mv.to[1] === 7) || (piece === 'b' && mv.to[1] === 0);
+    return { type: 'move', from: mv.from, to: mv.to, jump: isJump, cap: mv.cap || null, king, done: true };
   },
   getState() { return { board: M.board, mine: M.mine, opp: M.opp }; },
   restore(state, ctx) { M.board = state.board; M.mine = state.mine; M.opp = state.opp; M.sel = null; M.dests = []; M.mustCont = null; build(ctx); },

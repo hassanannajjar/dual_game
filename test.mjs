@@ -214,4 +214,29 @@ const tc = tetrisClear(tg);
 assert.strictEqual(tc.lines, 1, 'tetris clears one full row');
 assert.strictEqual(tc.grid[5][0], 0, 'tetris row above shifted down');
 
-console.log('PASS (all logic incl. 2048/tetris + earlier)');
+// ---- Bot helpers ----
+import { tttBestMove, nimBestMove, msReveal, msCount, sudokuSolve, sudokuGen } from './js/logic.js';
+assert.strictEqual(tttBestMove(['O', 'O', null, null, 'X', null, null, null, null], 'X'), 2, 'ttt blocks win');
+assert.strictEqual(tttBestMove(['X', 'X', null, null, 'O', null, 'O', null, null], 'X'), 2, 'ttt takes win');
+assert.ok(tttBestMove(Array(9).fill(null), 'X') >= 0, 'ttt returns a move');
+const nmv = nimBestMove([1, 2, 4]);
+{ const a = [1, 2, 4]; a[nmv.row] = nmv.keep; assert.strictEqual(a.reduce((x, y) => x ^ y, 0), 0, 'nim leaves XOR 0'); }
+
+// ---- Minesweeper ----
+const msMines = new Set(['4,4']);
+assert.strictEqual(msCount(msMines, 3, 3, 6, 6), 1, 'ms counts adjacent mine');
+assert.strictEqual(msCount(msMines, 0, 0, 6, 6), 0, 'ms no adjacent mine');
+const msOpen = msReveal(msMines, 0, 0, 6, 6);
+assert.ok(msOpen.length > 1 && !msOpen.includes('4,4'), 'ms flood opens region, not the mine');
+
+// ---- Sudoku ----
+let sudo = Array.from({ length: 9 }, () => Array(9).fill(0));
+assert.strictEqual(sudokuSolve(sudo), true, 'sudoku solves empty grid');
+assert.ok(sudo.every((r) => r.every((v) => v >= 1 && v <= 9)), 'sudoku fully filled');
+let sseed = 12345; const srng = () => { sseed = (sseed * 1103515245 + 12345) & 0x7fffffff; return sseed / 0x7fffffff; };
+const gen = sudokuGen(srng, 40);
+const clues = gen.puzzle.flat().filter((v) => v).length;
+assert.ok(clues >= 30 && clues <= 45, 'sudoku ~40 clues');
+assert.strictEqual(sudokuSolve(gen.puzzle.map((r) => r.slice())), true, 'generated puzzle solvable');
+
+console.log('PASS (all logic incl. bots/minesweeper/sudoku + earlier)');

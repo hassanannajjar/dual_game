@@ -1,4 +1,4 @@
-import { lineWinner } from '../logic.js?v=5';
+import { lineWinner } from '../logic.js?v=6';
 
 const N = 6;
 const M = { board: [], role: 'order', sym: 'X', cells: [], symBtns: {}, roleEl: null };
@@ -55,6 +55,21 @@ export default {
     if (lineWinner(M.board, msg.x, msg.y, 5)) return ctx.endGame(M.role === 'order' ? 'win' : 'lose');
     if (full(M.board)) return ctx.endGame(M.role === 'chaos' ? 'win' : 'lose');
     ctx.setTurn(true);
+  },
+  botMove(level) {
+    const botRole = M.role === 'order' ? 'chaos' : 'order';
+    const empties = [];
+    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (!M.board[y][x]) empties.push([x, y]);
+    if (!empties.length) return null;
+    const makes5 = (x, y, s) => { M.board[y][x] = s; const w = !!lineWinner(M.board, x, y, 5); M.board[y][x] = null; return w; };
+    if (level !== 'easy') {
+      if (botRole === 'order') { for (const [x, y] of empties) for (const s of ['X', 'O']) if (makes5(x, y, s)) return { type: 'move', x, y, sym: s }; }
+      else { for (const [x, y] of empties) for (const s of ['X', 'O']) if (makes5(x, y, s)) { const o = s === 'X' ? 'O' : 'X'; if (!makes5(x, y, o)) return { type: 'move', x, y, sym: o }; } }
+    }
+    const [x, y] = empties[Math.floor(Math.random() * empties.length)];
+    let sym = Math.random() < 0.5 ? 'X' : 'O';
+    if (botRole === 'chaos' && makes5(x, y, sym)) sym = sym === 'X' ? 'O' : 'X';
+    return { type: 'move', x, y, sym };
   },
   getState() { return { board: M.board, role: M.role, sym: M.sym }; },
   restore(state, ctx) { M.board = state.board; M.role = state.role; M.sym = state.sym; build(ctx); },

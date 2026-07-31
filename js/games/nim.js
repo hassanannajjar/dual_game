@@ -1,4 +1,4 @@
-import { nimEmpty } from '../logic.js?v=5';
+import { nimEmpty, nimBestMove } from '../logic.js?v=6';
 
 const M = { rows: [], rowEls: [] };
 function paint(ctx) {
@@ -44,6 +44,16 @@ export default {
     M.rows[msg.r] = msg.keep; ctx.sound('place'); paint(ctx);
     if (nimEmpty(M.rows)) return ctx.endGame('win');
     ctx.setTurn(true);
+  },
+  botMove(level) {
+    if (nimEmpty(M.rows)) return null;
+    if (level === 'easy') {
+      const rs = M.rows.map((n, i) => (n ? i : -1)).filter((i) => i >= 0);
+      const r = rs[Math.floor(Math.random() * rs.length)];
+      return { type: 'move', r, keep: Math.floor(Math.random() * M.rows[r]) };
+    }
+    const m = nimBestMove(M.rows);
+    return { type: 'move', r: m.row, keep: m.keep };
   },
   getState() { return { rows: M.rows }; },
   restore(state, ctx) { M.rows = state.rows; build(ctx); },

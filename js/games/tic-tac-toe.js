@@ -1,6 +1,12 @@
-import { ticTacToeWinner } from '../logic.js?v=5';
+import { ticTacToeWinner, tttBestMove } from '../logic.js?v=6';
 
 const M = { cells: [], mine: 'X', opp: 'O', btns: [] };
+const emptyIdx = () => M.cells.map((v, i) => (v ? -1 : i)).filter((i) => i >= 0);
+function winBlock(mark, other) {
+  for (const i of emptyIdx()) { const c = M.cells.slice(); c[i] = mark; if (ticTacToeWinner(c) === mark) return i; }
+  for (const i of emptyIdx()) { const c = M.cells.slice(); c[i] = other; if (ticTacToeWinner(c) === other) return i; }
+  return -1;
+}
 
 function render(ctx) {
   for (let i = 0; i < 9; i++) {
@@ -62,6 +68,15 @@ export default {
     if (!ended) ctx.setTurn(true);
   },
 
+  botMove(level) {
+    const empties = emptyIdx();
+    if (!empties.length) return null;
+    let i;
+    if (level === 'hard') i = tttBestMove(M.cells, M.opp);
+    else if (level === 'medium') { i = winBlock(M.opp, M.mine); if (i < 0) i = M.cells[4] == null ? 4 : empties[Math.floor(Math.random() * empties.length)]; }
+    else i = empties[Math.floor(Math.random() * empties.length)];
+    return { type: 'move', i };
+  },
   getState() { return { cells: M.cells, mine: M.mine, opp: M.opp }; },
   restore(state, ctx) { M.cells = state.cells; M.mine = state.mine; M.opp = state.opp; build(ctx); },
 };

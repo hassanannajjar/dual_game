@@ -9,4 +9,6 @@ cd "$(dirname "$0")"
 for f in index.html js/*.js js/games/*.js; do
   sed -i.bak -E "s/\?v=[0-9]+/?v=$V/g" "$f" && rm -f "$f.bak"
 done
-echo "Bumped all module URLs to ?v=$V"
+# service worker cache name -> forces offline cache refresh on new release
+sed -i.bak -E "s/arcade-v[0-9]+/arcade-v$V/" sw.js && rm -f sw.js.bak
+echo "Bumped module URLs and SW cache to v=$V"

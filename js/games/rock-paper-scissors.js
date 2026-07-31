@@ -42,6 +42,12 @@ export default {
     if (M.myPick) resolve(ctx);
   },
 
+  botOnGame(msg, send) {
+    if (msg.type !== 'pick') return;
+    const c = ['rock', 'paper', 'scissors'][Math.floor(Math.random() * 3)];
+    setTimeout(() => send({ type: 'pick', choice: c }), 250);
+  },
+
   getState() { return { my: M.my, opp: M.opp }; },
   restore(state, ctx) { M.my = state.my; M.opp = state.opp; build(ctx); },
 };

@@ -1,4 +1,4 @@
-import { connectFourWinner } from '../logic.js?v=5';
+import { connectFourWinner } from '../logic.js?v=6';
 
 const COLS = 7, ROWS = 6;
 const M = { grid: [], mine: 'R', opp: 'Y', cellEls: [] };
@@ -45,6 +45,25 @@ export default {
     else ctx.setTurn(true);
   },
 
+  botMove(level) {
+    const valid = [];
+    for (let c = 0; c < COLS; c++) if (M.grid[c].length < ROWS) valid.push(c);
+    if (!valid.length) return null;
+    const winsAt = (c, color) => { const row = M.grid[c].length; if (row >= ROWS) return false; M.grid[c].push(color); const w = connectFourWinner(M.grid, c, row) === color; M.grid[c].pop(); return w; };
+    const center = (cols) => cols.slice().sort((a, b) => Math.abs(a - 3) - Math.abs(b - 3))[0];
+    let c;
+    if (level === 'easy') c = valid[Math.floor(Math.random() * valid.length)];
+    else {
+      c = valid.find((k) => winsAt(k, M.opp));                                  // win now
+      if (c == null) c = valid.find((k) => winsAt(k, M.mine));                  // block human
+      if (c == null && level === 'hard') {                                     // avoid giving human a win
+        const safe = valid.filter((k) => { const row = M.grid[k].length; M.grid[k].push(M.opp); const bad = [...Array(COLS).keys()].some((k2) => M.grid[k2].length < ROWS && winsAt(k2, M.mine)); M.grid[k].pop(); return !bad; });
+        c = center(safe.length ? safe : valid);
+      }
+      if (c == null) c = center(valid);
+    }
+    return { type: 'drop', c };
+  },
   getState() { return { grid: M.grid, mine: M.mine, opp: M.opp }; },
   restore(state, ctx) { M.grid = state.grid; M.mine = state.mine; M.opp = state.opp; build(ctx); },
 };

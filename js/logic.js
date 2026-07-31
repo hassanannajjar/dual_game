@@ -413,6 +413,110 @@ export function ccReachable(adj, occupied, start) {
   return dest;
 }
 
+// ---------- Bot helpers ----------
+// Tic-Tac-Toe perfect move: cells array(9) 'X'|'O'|null; returns best index for `me`.
+export function tttBestMove(cells, me) {
+  const opp = me === 'X' ? 'O' : 'X';
+  function score(b, turn, depth) {
+    const w = ticTacToeWinner(b);
+    if (w === me) return 10 - depth;
+    if (w === opp) return depth - 10;
+    if (w === 'draw') return 0;
+    let best = turn === me ? -99 : 99;
+    for (let i = 0; i < 9; i++) if (!b[i]) { b[i] = turn; const s = score(b, turn === me ? opp : me, depth + 1); b[i] = null; best = turn === me ? Math.max(best, s) : Math.min(best, s); }
+    return best;
+  }
+  let move = -1, best = -99;
+  const b = cells.slice();
+  for (let i = 0; i < 9; i++) if (!b[i]) { b[i] = me; const s = score(b, opp, 1); b[i] = null; if (s > best) { best = s; move = i; } }
+  return move;
+}
+// Nim (misère) perfect: rows of counts. Returns {row, keep} = new count to leave, or null (already lost position -> any move).
+export function nimBestMove(rows) {
+  const nonEmpty = rows.filter((n) => n > 0);
+  const xor = rows.reduce((a, b) => a ^ b, 0);
+  const bigger = rows.filter((n) => n > 1).length;
+  // Endgame: if all remaining rows have <=1, play to leave an odd number of 1-rows for opponent.
+  if (bigger === 0) {
+    const ones = nonEmpty.length;
+    // we want to leave opponent an odd count of ones (so they take the last). Take one whole row.
+    const r = rows.findIndex((n) => n > 0);
+    // if ones is even, leaving ones-1 (odd) is good; taking a full 1-row does that.
+    return { row: r, keep: 0 };
+  }
+  // Normal Nim strategy until endgame nears.
+  if (xor !== 0) {
+    for (let r = 0; r < rows.length; r++) {
+      const target = rows[r] ^ xor;
+      if (target < rows[r]) {
+        // misère adjustment: if this move leaves all rows <=1, adjust to leave odd count of ones
+        const after = rows.slice(); after[r] = target;
+        if (after.every((n) => n <= 1)) {
+          const ones = after.filter((n) => n === 1).length;
+          if (ones % 2 === 0) return { row: r, keep: target === 1 ? 0 : 1 };
+        }
+        return { row: r, keep: target };
+      }
+    }
+  }
+  // losing position: take 1 from the largest row
+  let r = 0; for (let i = 0; i < rows.length; i++) if (rows[i] > rows[r]) r = i;
+  return { row: r, keep: rows[r] - 1 };
+}
+
+// ---------- Minesweeper ---------- board: mines = Set of "x,y"; returns array of cells to reveal from (x,y) via flood.
+export function msNeighbors(x, y, W, H) {
+  const r = [];
+  for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) { if (!dx && !dy) continue; const nx = x + dx, ny = y + dy; if (nx >= 0 && nx < W && ny >= 0 && ny < H) r.push([nx, ny]); }
+  return r;
+}
+export function msCount(mines, x, y, W, H) { let c = 0; for (const [nx, ny] of msNeighbors(x, y, W, H)) if (mines.has(nx + ',' + ny)) c++; return c; }
+export function msReveal(mines, x, y, W, H) {
+  const open = new Set(), stack = [[x, y]];
+  while (stack.length) {
+    const [cx, cy] = stack.pop(), k = cx + ',' + cy;
+    if (open.has(k) || mines.has(k)) continue;
+    open.add(k);
+    if (msCount(mines, cx, cy, W, H) === 0) for (const [nx, ny] of msNeighbors(cx, cy, W, H)) if (!open.has(nx + ',' + ny)) stack.push([nx, ny]);
+  }
+  return [...open];
+}
+
+// ---------- Sudoku ---------- grid = 9x9 of 0..9 (0 empty).
+export function sudokuValid(grid, x, y, v) {
+  for (let i = 0; i < 9; i++) { if (grid[y][i] === v || grid[i][x] === v) return false; }
+  const bx = Math.floor(x / 3) * 3, by = Math.floor(y / 3) * 3;
+  for (let dy = 0; dy < 3; dy++) for (let dx = 0; dx < 3; dx++) if (grid[by + dy][bx + dx] === v) return false;
+  return true;
+}
+export function sudokuSolve(grid) {                 // fills in place with backtracking; returns true if solved
+  for (let y = 0; y < 9; y++) for (let x = 0; x < 9; x++) if (grid[y][x] === 0) {
+    for (let v = 1; v <= 9; v++) if (sudokuValid(grid, x, y, v)) { grid[y][x] = v; if (sudokuSolve(grid)) return true; grid[y][x] = 0; }
+    return false;
+  }
+  return true;
+}
+function shuffled(rng) { const a = [1, 2, 3, 4, 5, 6, 7, 8, 9]; for (let i = 8; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+function fillFull(rng) {
+  const g = Array.from({ length: 9 }, () => Array(9).fill(0));
+  (function go(pos) {
+    if (pos === 81) return true;
+    const x = pos % 9, y = Math.floor(pos / 9);
+    for (const v of shuffled(rng)) if (sudokuValid(g, x, y, v)) { g[y][x] = v; if (go(pos + 1)) return true; g[y][x] = 0; }
+    return false;
+  })(0);
+  return g;
+}
+export function sudokuGen(rng, clues) {              // rng() -> [0,1); returns {puzzle, solution}
+  const solution = fillFull(rng);
+  const puzzle = solution.map((r) => r.slice());
+  const cells = []; for (let i = 0; i < 81; i++) cells.push(i);
+  for (let i = cells.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [cells[i], cells[j]] = [cells[j], cells[i]]; }
+  let removed = 0; const target = 81 - clues;
+  for (const c of cells) { if (removed >= target) break; const x = c % 9, y = Math.floor(c / 9); puzzle[y][x] = 0; removed++; }
+  return { puzzle, solution };
+}
+
 // ---------- 2048 ---------- board = 4x4 [y][x] of number (0 = empty). dir: 'left'|'right'|'up'|'down'.
 function slideRow(row) {                              // collapse one row to the left, return {row, gained}
   const nums = row.filter((n) => n);
