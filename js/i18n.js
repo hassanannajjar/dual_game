@@ -39,6 +39,7 @@ const DICT = {
     // home UI
     all_games: 'All', cat_classic: 'Classic', cat_strategy: 'Strategy', cat_arcade: 'Arcade', cat_luck: 'Luck', cat_word: 'Word',
     search_ph: 'Search games…', how_to_play: 'How to play', players2: '2P',
+    change_game: 'Change game', picker_note: "You'll stay in the room — this ends the current game.", cancel: 'Cancel',
     diff_easy: 'Easy', diff_medium: 'Medium', diff_hard: 'Hard', no_results: 'No games found',
     // short descriptions
     d_number_duel: "Crack your opponent's secret number.", d_ttt: 'Three in a row wins.',
@@ -125,6 +126,7 @@ const DICT = {
     g_go: 'جو', g_order: 'النظام والفوضى', g_nim: 'نيم', g_yahtzee: 'ياتزي',
     all_games: 'الكل', cat_classic: 'كلاسيكي', cat_strategy: 'استراتيجية', cat_arcade: 'أركيد', cat_luck: 'حظ', cat_word: 'كلمات',
     search_ph: 'ابحث عن لعبة…', how_to_play: 'كيف تلعب', players2: 'لاعبان',
+    change_game: 'تغيير اللعبة', picker_note: 'ستبقى في الغرفة — هذا ينهي اللعبة الحالية.', cancel: 'إلغاء',
     diff_easy: 'سهل', diff_medium: 'متوسط', diff_hard: 'صعب', no_results: 'لا توجد ألعاب',
     d_number_duel: 'خمّن رقم خصمك السري.', d_ttt: 'ثلاثة في صف تفوز.',
     d_connect4: 'أسقط الأقراص وصِل أربعة.', d_rps: 'الأفضل من خمس جولات.',

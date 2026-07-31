@@ -2,10 +2,10 @@
 // drives phases: home -> connect -> lobby -> [setup] -> [toss] -> play -> over,
 // and handles pause / disconnect-reconnect / refresh-resume.
 // Depends on the global `Peer` (PeerJS, loaded via CDN).
-import { t, initLang, onLangChange } from './i18n.js?v=3';
-import { sound } from './sound.js?v=3';
-import { initPrefs, getName, haptic } from './prefs.js?v=3';
-import { demo } from './demos.js?v=3';
+import { t, initLang, onLangChange } from './i18n.js?v=4';
+import { sound } from './sound.js?v=4';
+import { initPrefs, getName, haptic } from './prefs.js?v=4';
+import { demo } from './demos.js?v=4';
 
 // ---------- DOM helpers ----------
 const $ = (id) => document.getElementById(id);
@@ -186,6 +186,11 @@ function onData(msg) {
       S.oppName = (msg.name || '').slice(0, 16);
       if (!$('screen-play').classList.contains('hidden')) updateTurnLabel();
       break;
+    case 'changegame':
+      teardownGame();
+      S.game = gameById(msg.gameId) || S.game;
+      if (S.isHost) enterHostLobby(); else enterGuestLobby();
+      break;
   }
 }
 
@@ -202,7 +207,7 @@ function renderChips() {
     box.appendChild(b);
   }
 }
-function gameCard(g) {
+function gameCard(g, onPick) {
   const card = el('button', 'group flex items-center gap-3 p-3 rounded-2xl bg-slate-800/70 border border-slate-700 ' +
     'hover:border-indigo-500 hover:shadow-[0_0_25px_-6px] hover:shadow-indigo-500/60 active:scale-[0.98] transition text-start w-full');
   const diff = g.difficulty || 'medium';
@@ -216,28 +221,55 @@ function gameCard(g) {
         `<span class="px-1.5 py-0.5 rounded bg-slate-700 ${DIFF_COLOR[diff]}">${t('diff_' + diff)}</span>` +
       `</span>` +
     `</span>`;
-  card.onclick = () => selectGame(g.id);
+  card.onclick = () => onPick(g.id);
   return card;
 }
-function renderHome() {
-  renderChips();
-  const container = $('game-sections'); container.innerHTML = '';
-  const q = (S.homeSearch || '').trim().toLowerCase();
+function buildSections(container, onPick, filterCat, q) {
+  container.innerHTML = '';
   const match = (g) => !q || gameName(g).toLowerCase().includes(q) || gameDesc(g).toLowerCase().includes(q) || g.name.toLowerCase().includes(q);
   let any = false;
   for (const cat of CATS) {
-    if (S.homeFilter && S.homeFilter !== 'all' && S.homeFilter !== cat) continue;
+    if (filterCat && filterCat !== 'all' && filterCat !== cat) continue;
     const list = games.filter((g) => (g.category || 'classic') === cat && match(g));
     if (!list.length) continue;
     any = true;
     const sec = el('div', 'mb-5');
     sec.appendChild(el('h2', 'text-xs font-bold uppercase tracking-wider text-slate-500 mb-2', t('cat_' + cat)));
     const grid = el('div', 'grid grid-cols-1 sm:grid-cols-2 gap-3');
-    for (const g of list) grid.appendChild(gameCard(g));
+    for (const g of list) grid.appendChild(gameCard(g, onPick));
     sec.appendChild(grid);
     container.appendChild(sec);
   }
   if (!any) container.appendChild(el('p', 'text-center text-slate-500 py-8', t('no_results')));
+}
+function renderHome() {
+  renderChips();
+  buildSections($('game-sections'), selectGame, S.homeFilter, (S.homeSearch || '').trim().toLowerCase());
+}
+// ---------- in-room game picker ----------
+function openPicker() {
+  if (!(S.conn && S.conn.open)) return;              // only meaningful while in a room
+  buildSections($('picker-list'), changeGame, 'all', '');
+  $('picker-panel').classList.remove('hidden');
+}
+function closePicker() { $('picker-panel').classList.add('hidden'); }
+function teardownGame() {
+  if (S.game && S.game.stop) S.game.stop();
+  clearInterval(S.timerId); clearInterval(S.reconnectTimer);
+  S.inPlay = false; S.over = false; S.paused = false;
+  clearSession();
+  $('pause-overlay').classList.add('hidden');
+  $('result-bar').classList.add('hidden');
+  $('help-panel').classList.add('hidden');
+}
+function changeGame(id) {
+  closePicker();
+  teardownGame();
+  S.game = gameById(id);
+  if (S.conn && S.conn.open) {
+    sys('changegame', { gameId: id });
+    if (S.isHost) enterHostLobby(); else enterGuestLobby();
+  } else selectGame(id);
 }
 function selectGame(id) {
   S.game = gameById(id);
@@ -532,6 +564,11 @@ export function boot() {
   $('btn-help-close').onclick = closeHelp;
   $('btn-help-close2').onclick = closeHelp;
   $('help-panel').addEventListener('click', (e) => { if (e.target === $('help-panel')) closeHelp(); });
+  $('btn-change').onclick = openPicker;
+  $('btn-result-change').onclick = openPicker;
+  $('btn-picker-cancel').onclick = closePicker;
+  $('btn-picker-cancel2').onclick = closePicker;
+  $('picker-panel').addEventListener('click', (e) => { if (e.target === $('picker-panel')) closePicker(); });
   $('btn-pause').onclick = () => { pauseGame('manual'); sys('pause'); };
   $('btn-resume').onclick = () => { resumeGame(); sys('resume-play'); };
   $('btn-pause-leave').onclick = goHome;
