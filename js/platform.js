@@ -2,11 +2,11 @@
 // drives phases: home -> connect -> lobby -> [setup] -> [toss] -> play -> over,
 // and handles pause / disconnect-reconnect / refresh-resume.
 // Depends on the global `Peer` (PeerJS, loaded via CDN).
-import { t, initLang, onLangChange } from './i18n.js?v=8';
-import { sound } from './sound.js?v=8';
-import { initPrefs, getName, setName, haptic } from './prefs.js?v=8';
-import { demo } from './demos.js?v=8';
-import { goOnline as presenceOnline, goOffline as presenceOffline } from './presence.js?v=8';
+import { t, initLang, onLangChange } from './i18n.js?v=9';
+import { sound } from './sound.js?v=9';
+import { initPrefs, getName, setName, haptic } from './prefs.js?v=9';
+import { demo } from './demos.js?v=9';
+import { goOnline as presenceOnline, goOffline as presenceOffline } from './presence.js?v=9';
 
 // ---------- DOM helpers ----------
 const $ = (id) => document.getElementById(id);

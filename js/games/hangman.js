@@ -1,4 +1,4 @@
-import { getLang } from '../i18n.js?v=8';
+import { getLang } from '../i18n.js?v=9';
 
 const EN = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 const AR = 'ابتثجحخدذرزسشصضطظعغفقكلمنهوي'.split('');

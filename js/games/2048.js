@@ -1,22 +1,26 @@
-import { move2048, has2048Move } from '../logic.js?v=8';
+import { move2048, has2048Move } from '../logic.js?v=9';
 
 const COLORS = { 0: 'bg-slate-800', 2: 'bg-slate-600', 4: 'bg-slate-500', 8: 'bg-amber-600', 16: 'bg-amber-500', 32: 'bg-orange-500', 64: 'bg-orange-600', 128: 'bg-yellow-500', 256: 'bg-yellow-400 text-slate-900', 512: 'bg-lime-500 text-slate-900', 1024: 'bg-emerald-500 text-slate-900', 2048: 'bg-indigo-500' };
-const M = { board: [], score: 0, oppMax: 0, oppScore: 0, myDone: false, oppDone: false, cells: [], statusEl: null, keyHandler: null };
+const M = { board: [], best: 0, points: 0, oppBest: 0, oppPoints: 0, myDone: false, oppDone: false, cells: [], statusEl: null, timerEl: null, doneBtn: null, keyHandler: null, timer: null, timeLeft: 0 };
 
 const emptyCells = (b) => { const e = []; for (let y = 0; y < 4; y++) for (let x = 0; x < 4; x++) if (!b[y][x]) e.push([x, y]); return e; };
 const maxTile = () => Math.max(...M.board.flat());
 function spawn() { const e = emptyCells(M.board); if (!e.length) return; const [x, y] = e[Math.floor(Math.random() * e.length)]; M.board[y][x] = Math.random() < 0.9 ? 2 : 4; }
+function freshBoard() { M.board = Array.from({ length: 4 }, () => Array(4).fill(0)); spawn(); spawn(); }
+const fmt = (n) => n >= 1000 ? (n / 1000).toFixed(n >= 10000 ? 0 : 1) + 'k' : String(n);
+
 function paint(ctx) {
   for (let y = 0; y < 4; y++) for (let x = 0; x < 4; x++) {
     const v = M.board[y][x], c = M.cells[y][x];
     c.textContent = v || '';
     c.className = 'aspect-square rounded-lg flex items-center justify-center font-bold text-xl ' + (COLORS[v] || 'bg-indigo-600');
   }
+  M.best = Math.max(M.best, maxTile());
   if (!M.statusEl) return;
-  if (ctx.solo) { M.statusEl.textContent = `Best: ${maxTile()}  ·  Score ${M.score}`; return; }
-  let s = `You: ${maxTile()}   ·   Opponent: ${M.oppMax || 0}`;
+  if (ctx.solo) { M.statusEl.textContent = `Best: ${M.best}  ·  ${fmt(M.points)} pts`; return; }
+  let s = `You: ${M.best} (${fmt(M.points)}) · Opp: ${M.oppBest} (${fmt(M.oppPoints)})`;
   if (M.myDone) s += '  —  ' + ctx.t('waiting_finish');
-  else if (M.oppDone) s += '  —  ' + ctx.t('opp_finished', { n: M.oppMax });
+  else if (M.oppDone) s += '  —  ' + ctx.t('opp_finished', { n: M.oppBest });
   M.statusEl.textContent = s;
 }
 function build(ctx) {
@@ -24,10 +28,23 @@ function build(ctx) {
   const wrap = ctx.el('div', 'max-w-xs mx-auto space-y-3 select-none');
   M.statusEl = ctx.el('p', 'text-center text-slate-400 text-sm');
   wrap.appendChild(M.statusEl);
+  if (!ctx.solo && ctx.config.endMode === 'timed') { M.timerEl = ctx.el('p', 'text-center font-mono text-lg'); wrap.appendChild(M.timerEl); }
   const grid = ctx.el('div', 'grid grid-cols-4 gap-2 p-2 rounded-xl bg-slate-900 touch-none');
   for (let y = 0; y < 4; y++) { M.cells[y] = []; for (let x = 0; x < 4; x++) { const c = ctx.el('div', ''); M.cells[y][x] = c; grid.appendChild(c); } }
   wrap.appendChild(grid);
   wrap.appendChild(ctx.el('p', 'text-center text-slate-600 text-xs', 'Swipe or use arrow keys'));
+  if (!ctx.solo) {
+    const row = ctx.el('div', 'grid grid-cols-2 gap-2');
+    const nb = ctx.el('button', 'py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 font-semibold text-sm', ctx.t('new_board'));
+    nb.onclick = () => { freshBoard(); ctx.sound('drop'); paint(ctx); ctx.save(); };
+    row.appendChild(nb);
+    if (ctx.config.endMode === 'manual') {
+      M.doneBtn = ctx.el('button', 'py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 font-semibold text-sm', ctx.t('im_done'));
+      M.doneBtn.onclick = () => finish(ctx);
+      row.appendChild(M.doneBtn);
+    }
+    wrap.appendChild(row);
+  }
   ctx.root.appendChild(wrap);
   let sx = 0, sy = 0;
   grid.addEventListener('touchstart', (e) => { sx = e.touches[0].clientX; sy = e.touches[0].clientY; }, { passive: true });
@@ -38,49 +55,66 @@ function build(ctx) {
   }, { passive: true });
   paint(ctx);
 }
+function startTimer(ctx) {
+  if (ctx.config.endMode !== 'timed') return;
+  M.timeLeft = ctx.config.time || 120;
+  const render = () => { if (M.timerEl) M.timerEl.textContent = Math.floor(M.timeLeft / 60) + ':' + String(M.timeLeft % 60).padStart(2, '0'); };
+  render();
+  M.timer = setInterval(() => { M.timeLeft--; render(); if (M.timeLeft <= 0) { clearInterval(M.timer); M.timer = null; finish(ctx); } }, 1000);
+}
+function finish(ctx) {
+  if (M.myDone) return;
+  M.myDone = true; if (M.doneBtn) M.doneBtn.disabled = true;
+  ctx.send('done', { best: M.best, points: M.points });
+  paint(ctx); resolveIfBoth(ctx);
+}
 function resolveIfBoth(ctx) {
   if (!(M.myDone && M.oppDone)) return;
-  const my = maxTile(), op = M.oppMax || 0;
-  const outcome = my > op ? 'win' : my < op ? 'lose' : (M.score > M.oppScore ? 'win' : M.score < M.oppScore ? 'lose' : 'draw');
-  ctx.endGame(outcome, `${ctx.t('best_tile')}: ${my} · ${op}`);
+  const outcome = M.best > M.oppBest ? 'win' : M.best < M.oppBest ? 'lose' : (M.points > M.oppPoints ? 'win' : M.points < M.oppPoints ? 'lose' : 'draw');
+  ctx.endGame(outcome, `You ${M.best}·${fmt(M.points)} — Opp ${M.oppBest}·${fmt(M.oppPoints)}`);
 }
 function move(ctx, dir) {
   if (M.myDone) return;
   const r = move2048(M.board, dir);
   if (!r.moved) return;
-  M.board = r.board; M.score += r.score; spawn(); ctx.sound('click'); paint(ctx);
+  M.board = r.board; M.points += r.score; spawn(); ctx.sound('click'); paint(ctx);
   const max = maxTile();
   if (ctx.solo) {
-    if (max >= 2048) { M.myDone = true; return ctx.endGame('win', 'Reached 2048!'); }
-    if (!has2048Move(M.board)) { M.myDone = true; return ctx.endGame('lose', `${ctx.t('best_tile')}: ${max}`); }
+    if (max >= 2048) { M.myDone = true; return ctx.endGame('win', `Reached 2048! · ${fmt(M.points)} pts`); }
+    if (!has2048Move(M.board)) { M.myDone = true; return ctx.endGame('lose', `Best ${M.best} · ${fmt(M.points)} pts`); }
     ctx.save(); return;
   }
-  // duel: play until stuck; highest tile wins
-  ctx.send('max', { max });
-  if (!has2048Move(M.board)) {
-    M.myDone = true; ctx.send('done', { max, score: M.score }); paint(ctx); resolveIfBoth(ctx);
-  } else ctx.save();
+  // duel
+  ctx.send('stat', { best: M.best, points: M.points });
+  if (ctx.config.endMode === 'target' && M.best >= (ctx.config.target || 1024)) { M.myDone = true; ctx.send('win', { best: M.best, points: M.points }); return ctx.endGame('win', `Reached ${ctx.config.target}!`); }
+  if (!has2048Move(M.board)) { freshBoard(); ctx.toast(ctx.t('board_kept')); ctx.sound('drop'); paint(ctx); }   // auto-restart, keep best+points
+  ctx.save();
 }
 
 export default {
   id: '2048', name: '2048 Duel', emoji: '🔢', blurb: 'Highest tile wins', usesTurns: false,
+  options: [
+    { key: 'endMode', label: 'How to end', choices: [{ label: 'Manual', value: 'manual' }, { label: 'Target', value: 'target' }, { label: 'Timed', value: 'timed' }, { label: 'Endless', value: 'endless' }], default: 'manual' },
+    { key: 'target', label: 'Target tile', choices: [{ label: '512', value: 512 }, { label: '1024', value: 1024 }, { label: '2048', value: 2048 }], default: 1024 },
+    { key: 'time', label: 'Time limit', choices: [{ label: '1m', value: 60 }, { label: '2m', value: 120 }, { label: '3m', value: 180 }], default: 120 },
+  ],
   start(ctx) {
-    M.board = Array.from({ length: 4 }, () => Array(4).fill(0));
-    M.score = 0; M.oppMax = 0; M.oppScore = 0; M.myDone = false; M.oppDone = false;
-    spawn(); spawn(); build(ctx);
+    M.best = 0; M.points = 0; M.oppBest = 0; M.oppPoints = 0; M.myDone = false; M.oppDone = false; M.timer = null;
+    freshBoard(); build(ctx); startTimer(ctx);
     M.keyHandler = (e) => { const k = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down' }[e.key]; if (k) { e.preventDefault(); move(ctx, k); } };
     document.addEventListener('keydown', M.keyHandler);
   },
   onMessage(msg, ctx) {
-    if (msg.type === 'max') { M.oppMax = msg.max; paint(ctx); }
-    else if (msg.type === 'done') { M.oppDone = true; M.oppMax = msg.max; M.oppScore = msg.score || 0; paint(ctx); resolveIfBoth(ctx); }
+    if (msg.type === 'stat') { M.oppBest = msg.best; M.oppPoints = msg.points; paint(ctx); }
+    else if (msg.type === 'done') { M.oppDone = true; M.oppBest = msg.best; M.oppPoints = msg.points || 0; paint(ctx); resolveIfBoth(ctx); }
+    else if (msg.type === 'win') { M.oppBest = msg.best; M.oppPoints = msg.points; ctx.endGame('lose', 'Opponent hit the target'); }
   },
-  stop() { if (M.keyHandler) { document.removeEventListener('keydown', M.keyHandler); M.keyHandler = null; } },
-  getState() { return { board: M.board, score: M.score, oppMax: M.oppMax, oppScore: M.oppScore, myDone: M.myDone, oppDone: M.oppDone }; },
+  stop() { clearInterval(M.timer); M.timer = null; if (M.keyHandler) { document.removeEventListener('keydown', M.keyHandler); M.keyHandler = null; } },
+  getState() { return { board: M.board, best: M.best, points: M.points, oppBest: M.oppBest, oppPoints: M.oppPoints, myDone: M.myDone, oppDone: M.oppDone }; },
   restore(state, ctx) {
-    M.board = state.board; M.score = state.score || 0; M.oppMax = state.oppMax || 0; M.oppScore = state.oppScore || 0;
-    M.myDone = !!state.myDone; M.oppDone = !!state.oppDone;
-    build(ctx);
+    M.board = state.board; M.best = state.best || 0; M.points = state.points || 0; M.oppBest = state.oppBest || 0; M.oppPoints = state.oppPoints || 0;
+    M.myDone = !!state.myDone; M.oppDone = !!state.oppDone; M.timer = null;
+    build(ctx); startTimer(ctx);
     M.keyHandler = (e) => { const k = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down' }[e.key]; if (k) { e.preventDefault(); move(ctx, k); } };
     document.addEventListener('keydown', M.keyHandler);
   },
