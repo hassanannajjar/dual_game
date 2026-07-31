@@ -1,4 +1,4 @@
-import { move2048, has2048Move } from '../logic.js?v=10';
+import { move2048, has2048Move } from '../logic.js?v=11';
 
 const COLORS = { 0: 'bg-slate-800', 2: 'bg-slate-600', 4: 'bg-slate-500', 8: 'bg-amber-600', 16: 'bg-amber-500', 32: 'bg-orange-500', 64: 'bg-orange-600', 128: 'bg-yellow-500', 256: 'bg-yellow-400 text-slate-900', 512: 'bg-lime-500 text-slate-900', 1024: 'bg-emerald-500 text-slate-900', 2048: 'bg-indigo-500' };
 const M = { board: [], best: 0, points: 0, oppBest: 0, oppPoints: 0, myDone: false, oppDone: false, cells: [], statusEl: null, timerEl: null, doneBtn: null, keyHandler: null, timer: null, timeLeft: 0 };
@@ -46,6 +46,18 @@ function build(ctx) {
     wrap.appendChild(row);
   }
   ctx.root.appendChild(wrap);
+  // ponytail: dev/test hook — seed the live board/score & push to the pair from the console.
+  // Client is already unrefereed, so this adds no capability beyond normal play.
+  window.duel2048 = {
+    set: (rows, opts = {}) => {
+      M.board = rows.map((r) => r.slice());
+      if (opts.points != null) M.points = opts.points;
+      if (opts.best != null) M.best = opts.best;
+      paint(ctx); ctx.save();
+    },
+    push: () => ctx.send('stat', { best: M.best, points: M.points }),
+    win: () => { M.myDone = true; ctx.send('win', { best: M.best, points: M.points }); ctx.endGame('win', 'test win'); },
+  };
   let sx = 0, sy = 0;
   grid.addEventListener('touchstart', (e) => { sx = e.touches[0].clientX; sy = e.touches[0].clientY; }, { passive: true });
   grid.addEventListener('touchend', (e) => {
