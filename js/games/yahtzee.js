@@ -1,4 +1,4 @@
-import { yahtzeeScore, YAHTZEE_CATS } from '../logic.js?v=9';
+import { yahtzeeScore, YAHTZEE_CATS } from '../logic.js?v=10';
 
 const PIPS = ['', '⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
 const LABEL = { ones: '1s', twos: '2s', threes: '3s', fours: '4s', fives: '5s', sixes: '6s',

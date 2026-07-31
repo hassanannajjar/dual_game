@@ -239,4 +239,24 @@ const clues = gen.puzzle.flat().filter((v) => v).length;
 assert.ok(clues >= 30 && clues <= 45, 'sudoku ~40 clues');
 assert.strictEqual(sudokuSolve(gen.puzzle.map((r) => r.slice())), true, 'generated puzzle solvable');
 
-console.log('PASS (all logic incl. bots/minesweeper/sudoku + earlier)');
+// ---- Rating (Elo) ----
+import { nextRating, evalAchievements } from './js/logic.js';
+assert.ok(nextRating(1000, 1000, 'win') > 1000, 'elo win raises');
+assert.ok(nextRating(1000, 1000, 'lose') < 1000, 'elo loss lowers');
+assert.strictEqual(nextRating(1000, 1000, 'draw'), 1000, 'elo draw vs equal = no change');
+{ const w = nextRating(1000, 1000, 'win') - 1000, l = 1000 - nextRating(1000, 1000, 'lose'); assert.strictEqual(w, l, 'elo symmetric vs equal'); }
+assert.ok(nextRating(1000, 1600, 'win') - 1000 > nextRating(1000, 1000, 'win') - 1000, 'elo upset win rewards more');
+assert.strictEqual(nextRating(100, 2000, 'lose'), 100, 'elo floor at 100');
+assert.strictEqual(nextRating(1000, undefined, 'win') - 1000, nextRating(1000, 1000, 'win') - 1000, 'elo no-opp treated as equal');
+
+// ---- Achievements ----
+assert.deepStrictEqual(evalAchievements({ games: {}, botWins: {}, cats: [] }), [], 'ach none at zero');
+assert.ok(evalAchievements({ games: { ttt: { w: 1, l: 0, d: 0, bestStreak: 1, rating: 1000 } }, botWins: {}, cats: ['classic'] }).includes('first_win'), 'ach first win at 1');
+assert.ok(!evalAchievements({ games: { ttt: { w: 9, l: 0, d: 0, bestStreak: 1, rating: 1000 } }, botWins: {}, cats: [] }).includes('wins_10'), 'ach wins_10 not at 9');
+assert.ok(evalAchievements({ games: { ttt: { w: 10, l: 0, d: 0, bestStreak: 1, rating: 1000 } }, botWins: {}, cats: [] }).includes('wins_10'), 'ach wins_10 at 10');
+assert.ok(evalAchievements({ games: { ttt: { w: 5, l: 0, d: 0, bestStreak: 5, rating: 1000 } }, botWins: {}, cats: [] }).includes('streak_5'), 'ach streak at 5');
+assert.ok(evalAchievements({ games: {}, botWins: { hard: 1 }, cats: [] }).includes('bot_hard'), 'ach beat hard bot');
+assert.ok(evalAchievements({ games: {}, botWins: {}, cats: ['classic', 'strategy', 'puzzle', 'arcade', 'luck', 'word'] }).includes('explorer'), 'ach all categories');
+assert.ok(evalAchievements({ games: { chess: { w: 1, l: 0, d: 0, bestStreak: 1, rating: 1200 } }, botWins: {}, cats: [] }).includes('rated_1200'), 'ach rated 1200');
+
+console.log('PASS (all logic incl. bots/minesweeper/sudoku + rating/achievements + earlier)');

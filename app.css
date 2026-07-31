@@ -18,6 +18,9 @@ html[data-theme="indigo"]  { --acc:#4f46e5; --acc2:#6366f1; --acc-t:#818cf8; }
 html[data-theme="emerald"] { --acc:#059669; --acc2:#10b981; --acc-t:#34d399; }
 html[data-theme="rose"]    { --acc:#e11d48; --acc2:#f43f5e; --acc-t:#fb7185; }
 html[data-theme="amber"]   { --acc:#d97706; --acc2:#f59e0b; --acc-t:#fbbf24; }
+html[data-theme="sky"]     { --acc:#0284c7; --acc2:#0ea5e9; --acc-t:#38bdf8; }
+html[data-theme="violet"]  { --acc:#7c3aed; --acc2:#8b5cf6; --acc-t:#a78bfa; }
+html[data-theme="teal"]    { --acc:#0d9488; --acc2:#14b8a6; --acc-t:#2dd4bf; }
 
 [data-theme] .bg-indigo-600 { background-color: var(--acc, #4f46e5); }
 [data-theme] .hover\:bg-indigo-500:hover { background-color: var(--acc2, #6366f1); }
@@ -49,3 +52,38 @@ html[dir="rtl"] .font-mono { direction: ltr; unicode-bidi: embed; }
 /* Horizontal chip row: hide scrollbar. */
 #cat-chips::-webkit-scrollbar { display: none; }
 #cat-chips { scrollbar-width: none; }
+
+/* ---------- Light mode ---------- remap the core slate surfaces; accent vars still apply.
+   Attribute-scoped so it outranks Tailwind's plain utilities without touching markup.
+   Ceiling: individual game boards that hardcode slate may need spot fixes. */
+html[data-mode="light"] { color-scheme: light; }
+html[data-mode="light"] body,
+html[data-mode="light"] .bg-slate-950 { background-color: #f1f5f9; }
+html[data-mode="light"] .bg-slate-950\/80 { background-color: rgba(241, 245, 249, 0.85); }
+html[data-mode="light"] .bg-slate-900,
+html[data-mode="light"] .bg-slate-900\/80 { background-color: #ffffff; }
+html[data-mode="light"] .bg-slate-800,
+html[data-mode="light"] .bg-slate-800\/70,
+html[data-mode="light"] .bg-slate-800\/60 { background-color: #e2e8f0; }
+html[data-mode="light"] .bg-slate-700 { background-color: #cbd5e1; }
+html[data-mode="light"] .text-slate-100 { color: #0f172a; }
+html[data-mode="light"] .text-slate-300,
+html[data-mode="light"] .text-slate-300\/80 { color: #334155; }
+html[data-mode="light"] .text-slate-400 { color: #475569; }
+html[data-mode="light"] .text-slate-500 { color: #64748b; }
+html[data-mode="light"] .border-slate-800 { border-color: #e2e8f0; }
+html[data-mode="light"] .border-slate-700,
+html[data-mode="light"] .border-slate-600 { border-color: #cbd5e1; }
+
+/* ---------- Floating reaction emote ---------- */
+@keyframes emoteRise {
+  0% { transform: translateY(0) scale(0.6); opacity: 0; }
+  15% { opacity: 1; }
+  100% { transform: translateY(-160px) scale(1.4); opacity: 0; }
+}
+.emote-float {
+  position: absolute; bottom: 20%; z-index: 20;
+  font-size: 2.75rem; pointer-events: none;
+  animation: emoteRise 1.6s ease-out forwards;
+}
+@media (prefers-reduced-motion: reduce) { .emote-float { animation-duration: 0.9s; } }

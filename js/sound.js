@@ -43,6 +43,9 @@ const SFX = {
   win: () => { [523, 659, 784, 1047].forEach((f, i) => note('triangle', f, 0.16, 0.12, i * 0.1)); },
   lose: () => { [392, 330, 262].forEach((f, i) => note('sawtooth', f, 0.2, 0.1, i * 0.12)); },
   draw: () => { note('triangle', 440, 0.15, 0.1); note('triangle', 440, 0.15, 0.1, 0.18); },
+  chat: () => note('sine', 700, 0.06, 0.06, 0, 900),
+  react: () => note('triangle', 620, 0.09, 0.08, 0, 980),
+  badge: () => { [659, 880, 1319].forEach((f, i) => note('triangle', f, 0.14, 0.1, i * 0.08)); },
 };
 
 export function sound(name) { if (enabled && SFX[name]) SFX[name](); }

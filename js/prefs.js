@@ -1,9 +1,9 @@
 // Preferences: display name, theme/accent, haptics + the settings panel.
-import { applyLang, getLang, t, onLangChange } from './i18n.js?v=9';
-import { setSound, soundOn } from './sound.js?v=9';
+import { applyLang, getLang, t, onLangChange } from './i18n.js?v=10';
+import { setSound, soundOn } from './sound.js?v=10';
 
-const THEMES = ['indigo', 'emerald', 'rose', 'amber'];
-const SWATCH = { indigo: '#6366f1', emerald: '#10b981', rose: '#f43f5e', amber: '#f59e0b' };
+const THEMES = ['indigo', 'emerald', 'rose', 'amber', 'sky', 'violet', 'teal'];
+const SWATCH = { indigo: '#6366f1', emerald: '#10b981', rose: '#f43f5e', amber: '#f59e0b', sky: '#0ea5e9', violet: '#8b5cf6', teal: '#14b8a6' };
 
 const get = (k, d) => { try { return localStorage.getItem(k) ?? d; } catch (e) { return d; } };
 const set = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
@@ -17,6 +17,13 @@ export function applyTheme(theme) {
   set('arcade:theme', th);
 }
 export function getTheme() { return get('arcade:theme', 'indigo'); }
+
+export function getMode() { return get('arcade:mode', 'dark') === 'light' ? 'light' : 'dark'; }
+export function applyMode(mode) {
+  const m = mode === 'light' ? 'light' : 'dark';
+  document.documentElement.dataset.mode = m;
+  set('arcade:mode', m);
+}
 
 export function hapticsOn() { return get('arcade:haptics', 'on') !== 'off'; }
 export function setHaptics(on) { set('arcade:haptics', on ? 'on' : 'off'); }
@@ -34,6 +41,9 @@ function refresh() {
   $('btn-lang-ar').className = segCls(!en);
   $('btn-sound-toggle').textContent = t(soundOn() ? 'on' : 'off');
   $('btn-sound-toggle').className = toggleCls(soundOn());
+  const light = getMode() === 'light';
+  $('btn-mode-toggle').textContent = t(light ? 'mode_light' : 'mode_dark');
+  $('btn-mode-toggle').className = toggleCls(!light);
   $('btn-haptics-toggle').textContent = t(hapticsOn() ? 'on' : 'off');
   $('btn-haptics-toggle').className = toggleCls(hapticsOn());
   $('pref-name').value = getName();
@@ -47,6 +57,7 @@ const toggleCls = (on) => 'px-4 py-2 rounded-lg font-semibold transition ' + (on
 
 export function initPrefs() {
   applyTheme(getTheme());
+  applyMode(getMode());
 
   // theme swatches
   const box = $('theme-swatches');
@@ -67,8 +78,18 @@ export function initPrefs() {
   $('btn-lang-en').onclick = () => { applyLang('en'); refresh(); };
   $('btn-lang-ar').onclick = () => { applyLang('ar'); refresh(); };
   $('btn-sound-toggle').onclick = () => { setSound(!soundOn()); refresh(); };
+  $('btn-mode-toggle').onclick = () => { applyMode(getMode() === 'light' ? 'dark' : 'light'); refresh(); };
   $('btn-haptics-toggle').onclick = () => { setHaptics(!hapticsOn()); refresh(); };
   $('pref-name').oninput = (e) => setName(e.target.value.slice(0, 16));
+
+  // First-run onboarding (once).
+  if (get('arcade:onboarded', '') !== '1') {
+    const ob = $('onboarding-panel');
+    if (ob) {
+      ob.classList.remove('hidden');
+      $('btn-onboard-start').onclick = () => { ob.classList.add('hidden'); set('arcade:onboarded', '1'); };
+    }
+  }
 
   onLangChange(refresh);
 }

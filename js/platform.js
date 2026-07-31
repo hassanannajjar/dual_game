@@ -2,11 +2,12 @@
 // drives phases: home -> connect -> lobby -> [setup] -> [toss] -> play -> over,
 // and handles pause / disconnect-reconnect / refresh-resume.
 // Depends on the global `Peer` (PeerJS, loaded via CDN).
-import { t, initLang, onLangChange } from './i18n.js?v=9';
-import { sound } from './sound.js?v=9';
-import { initPrefs, getName, setName, haptic } from './prefs.js?v=9';
-import { demo } from './demos.js?v=9';
-import { goOnline as presenceOnline, goOffline as presenceOffline } from './presence.js?v=9';
+import { t, initLang, onLangChange } from './i18n.js?v=10';
+import { sound } from './sound.js?v=10';
+import { initPrefs, getName, setName, haptic } from './prefs.js?v=10';
+import { demo } from './demos.js?v=10';
+import { goOnline as presenceOnline, goOffline as presenceOffline, onLeaderboard, publishScore } from './presence.js?v=10';
+import { recordResult, getRating, overallRating, openProfile, closeProfile, initProfile } from './profile.js?v=10';
 
 // ---------- DOM helpers ----------
 const $ = (id) => document.getElementById(id);
@@ -48,6 +49,7 @@ const S = {
   myReady: false, oppReady: false, rematchGuard: false,
   inPlay: false, paused: false, over: false, reconnectTimer: null, leaving: false,
   oppName: '', lastLoserIsHost: null, homeFilter: 'all', homeSearch: '',
+  oppRating: null, series: { me: 0, opp: 0, key: null }, unread: 0,
 };
 
 // ---------- persistence (localStorage) ----------
@@ -158,11 +160,19 @@ function onData(msg) {
     case 'config':
       S.game = gameById(msg.gameId) || S.game;
       S.config = msg.config;
+      if (msg.rating != null) S.oppRating = msg.rating;
       proceedAfterConfig();
       break;
     case 'ready':
       S.oppReady = true;
+      if (msg.rating != null) S.oppRating = msg.rating;
       if (S.myReady) afterReady();
+      break;
+    case 'chat':
+      addChatMessage((msg.text || '').slice(0, 140), false);
+      break;
+    case 'emote':
+      floatEmote(msg.emoji);
       break;
     case 'toss':
       runToss(!msg.firstIsHost);
@@ -334,7 +344,7 @@ function ensureLobbyPeer(cb) {
   S.lobbyPeer.on('error', () => { $('online-status').textContent = 'Error'; });
 }
 function toggleOnline() {
-  if (S.inLobby) { presenceOffline(); S.inLobby = false; $('btn-go-online').textContent = t('go_online'); $('online-status').textContent = ''; $('online-list').innerHTML = ''; return; }
+  if (S.inLobby) { presenceOffline(); S.inLobby = false; $('btn-go-online').textContent = t('go_online'); $('online-status').textContent = ''; $('online-list').innerHTML = ''; renderLeaderboard([]); return; }
   const name = ($('online-name').value.trim() || getName());
   if (!name) { toast(t('need_name')); return; }
   setName(name);
@@ -342,7 +352,7 @@ function toggleOnline() {
   try { localStorage.setItem('arcade:circle', circle); } catch (e) {}
   $('online-status').textContent = t('connecting_lobby');
   ensureLobbyPeer((peerId) => {
-    presenceOnline(circle, name, peerId, renderOnlineList);
+    presenceOnline(circle, name, peerId, renderOnlineList, overallRating());
     S.inLobby = true;
     $('online-status').textContent = t('online_now');
     $('btn-go-online').textContent = t('go_offline');
@@ -490,7 +500,7 @@ function enterSetup() {
 }
 function localReady() {
   S.myReady = true;
-  sys('ready');
+  sys('ready', { rating: S.game ? getRating(S.game.id) : 1000 });
   if (S.oppReady) afterReady();
 }
 function afterReady() {
@@ -527,6 +537,8 @@ function preparePlayScreen() {
   $('turn-bar').classList.toggle('hidden', !turnsOn);
   $('result-bar').classList.add('hidden');
   $('pause-overlay').classList.add('hidden');
+  $('btn-chat').classList.toggle('hidden', !chatEnabled());
+  resetChat();
   return turnsOn;
 }
 function startGame(iAmFirst) {
@@ -599,6 +611,61 @@ function resumeGame() {
   persist();
 }
 
+// ---------- chat + reactions (real P2P only) ----------
+const EMOTES = ['👍', '😂', '🔥', '😮', '😢', '🎉', '😎', '🤝'];
+function chatEnabled() { return !(S.vsBot || S.solo); }
+function updateChatBadge() {
+  const b = $('chat-badge'); if (!b) return;
+  b.textContent = S.unread > 9 ? '9+' : String(S.unread);
+  b.classList.toggle('hidden', S.unread === 0);
+}
+function resetChat() {
+  S.unread = 0;
+  const log = $('chat-log'); if (log) log.innerHTML = '';
+  $('chat-panel').classList.add('hidden');
+  updateChatBadge();
+}
+function addChatMessage(text, mine) {
+  if (!text) return;
+  const log = $('chat-log'); if (!log) return;
+  const wrap = el('div', 'flex ' + (mine ? 'justify-end' : 'justify-start'));
+  wrap.appendChild(el('div', 'max-w-[80%] px-3 py-1.5 rounded-2xl text-sm break-words ' + (mine ? 'bg-indigo-600' : 'bg-slate-700'), esc(text)));
+  log.appendChild(wrap);
+  log.scrollTop = log.scrollHeight;
+  if (!mine) { sound('chat'); if ($('chat-panel').classList.contains('hidden')) { S.unread++; updateChatBadge(); } }
+}
+function sendChat() {
+  const inp = $('chat-input'), text = (inp.value || '').trim().slice(0, 140);
+  if (!text) return;
+  inp.value = '';
+  addChatMessage(text, true);
+  sys('chat', { text });
+}
+function floatEmote(emoji) {
+  if (!emoji) return;
+  sound('react');
+  const n = el('div', 'emote-float', esc(emoji));
+  n.style.left = (20 + Math.random() * 60) + '%';
+  $('screen-play').appendChild(n);
+  setTimeout(() => n.remove(), 1600);
+}
+function sendEmote(emoji) { floatEmote(emoji); sys('emote', { emoji }); }
+function openChat() { $('chat-panel').classList.remove('hidden'); S.unread = 0; updateChatBadge(); setTimeout(() => { const i = $('chat-input'); if (i) i.focus(); }, 50); }
+function closeChat() { $('chat-panel').classList.add('hidden'); }
+
+// ---------- leaderboard (experimental, over MQTT) ----------
+function renderLeaderboard(list) {
+  const box = $('leaderboard-list'); if (!box) return;
+  box.innerHTML = '';
+  if (!list || !list.length) { box.appendChild(el('li', 'text-center text-slate-500 text-sm py-3', t('lb_empty'))); return; }
+  list.slice(0, 20).forEach((p, i) => {
+    const li = el('li', 'flex items-center justify-between gap-2 bg-slate-800 rounded-xl px-3 py-2 text-sm');
+    li.appendChild(el('span', 'truncate', `${i + 1}. ${esc(p.name)}`));
+    li.appendChild(el('span', 'font-mono font-semibold text-indigo-400', p.rating));
+    box.appendChild(li);
+  });
+}
+
 // ---------- resume after refresh ----------
 function resumePlay(state) {
   S.inPlay = true;
@@ -619,6 +686,7 @@ function reconnect() {
 
 // ---------- game over / rematch / home ----------
 function endGame(outcome, msg) {
+  const firstEnd = !S.over;
   clearInterval(S.timerId);
   clearInterval(S.reconnectTimer);
   if (S.game && S.game.stop) S.game.stop();
@@ -626,16 +694,33 @@ function endGame(outcome, msg) {
   if (outcome === 'win') S.lastLoserIsHost = !S.isHost;
   else if (outcome === 'lose') S.lastLoserIsHost = S.isHost;
   clearSession();
+  if (firstEnd && S.game) recordAndSeries(outcome);
   // Stay on the play screen so the board/history remain visible; swap the
   // turn bar for a result header carrying the actions.
   $('pause-overlay').classList.add('hidden');
   $('turn-bar').classList.add('hidden');
   const title = { win: t('you_win'), lose: t('you_lose'), draw: t('draw') }[outcome] || t('you_lose');
-  $('result-text').textContent = title + (msg ? ` — ${msg}` : '');
+  const online = !(S.vsBot || S.solo);
+  const series = (online && (S.series.me || S.series.opp)) ? '  ·  ' + t('series', { me: S.series.me, opp: S.series.opp, name: S.oppName || t('opponent') }) : '';
+  $('result-text').textContent = title + (msg ? ` — ${msg}` : '') + series;
   $('result-bar').classList.remove('hidden');
   sound(outcome === 'win' ? 'win' : outcome === 'draw' ? 'draw' : 'lose');
   haptic(outcome === 'win' ? [40, 40, 80] : 60);
   S.game && S.game.onTurn && S.game.onTurn(false, ctx);   // make board/keypad inert
+}
+function recordAndSeries(outcome) {
+  const online = !(S.vsBot || S.solo);
+  if (online) {
+    if (S.series.key !== (S.oppName || '?')) { S.series.me = 0; S.series.opp = 0; S.series.key = S.oppName || '?'; }
+    if (outcome === 'win') S.series.me++;
+    else if (outcome === 'lose') S.series.opp++;
+  }
+  const res = recordResult({
+    gameId: S.game.id, outcome, category: S.game.category,
+    vsBot: S.vsBot, solo: S.solo, botLevel: S.botLevel, oppRating: S.oppRating,
+  });
+  for (const id of res.unlocked) toast(t('new_badge', { name: t('ach_' + id) }));
+  if (online) publishScore(overallRating());
 }
 function restartMatch(initiator) {
   S.rematchGuard = true;
@@ -649,6 +734,8 @@ function goHome() {
   if (S.game && S.game.stop) S.game.stop();
   presenceOffline(); S.inLobby = false;
   S.inPlay = false; S.paused = false; S.vsBot = false; S.solo = false;
+  S.series = { me: 0, opp: 0, key: null }; S.oppRating = null;
+  resetChat();
   clearSession();
   clearInterval(S.reconnectTimer);
   stopHowto();
@@ -696,7 +783,7 @@ export function boot() {
   $('btn-start').onclick = () => {
     if (!(S.conn && S.conn.open)) return;
     S.config = Object.assign({}, S.working);
-    sys('config', { gameId: S.game.id, config: S.config });
+    sys('config', { gameId: S.game.id, config: S.config, rating: getRating(S.game.id) });
     proceedAfterConfig();
   };
   $('btn-rematch').onclick = () => restartMatch(true);
@@ -731,6 +818,24 @@ export function boot() {
   for (const id of ['btn-home', 'btn-home-play', 'btn-result-home', 'btn-back-connect', 'btn-back-lobby']) {
     const b = $(id); if (b) b.onclick = goHome;
   }
+
+  // Profile
+  initProfile();
+  $('btn-profile').onclick = () => openProfile(games);
+  $('btn-profile-close').onclick = closeProfile;
+  $('btn-profile-close2').onclick = closeProfile;
+  $('profile-panel').addEventListener('click', (e) => { if (e.target === $('profile-panel')) closeProfile(); });
+
+  // Chat + reactions
+  $('btn-chat').onclick = openChat;
+  $('btn-chat-close').onclick = closeChat;
+  $('chat-send').onclick = sendChat;
+  $('chat-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') sendChat(); });
+  const eb = $('emote-bar');
+  for (const em of EMOTES) { const b = el('button', 'text-2xl p-1 active:scale-125 transition', em); b.onclick = () => sendEmote(em); eb.appendChild(b); }
+
+  // Leaderboard
+  onLeaderboard(renderLeaderboard);
 
   // Refresh auto-resume: restore an in-progress match and reconnect.
   const sess = loadSession();

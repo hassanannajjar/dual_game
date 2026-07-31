@@ -1,4 +1,4 @@
-import { SNL_MAP } from '../logic.js?v=9';
+import { SNL_MAP } from '../logic.js?v=10';
 
 const PIPS = ['', '⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
 const M = { me: 0, opp: 0, cells: [], dieEl: null, rollBtn: null, msgEl: null };

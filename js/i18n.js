@@ -103,6 +103,22 @@ const DICT = {
     r_tetris: 'Move and rotate falling pieces to clear full lines. Cleared lines send garbage rows to your opponent. If your stack tops out, you lose.',
     r_airhockey: 'Drag your paddle to hit the puck into the opponent’s goal. First to 7 goals wins.',
     r_tron: 'Steer your light cycle; it leaves a solid trail. Force your opponent to crash into a wall or a trail while you survive.',
+    // profile / stats / achievements
+    profile: 'Profile', stats: 'Stats', rating: 'Rating', achievements: 'Achievements',
+    profile_totals: '{w} wins · {p} played · rating {r}', no_stats: 'No games played yet.',
+    ach_first_win: 'First Win', ach_wins_10: '10 Wins', ach_wins_50: '50 Wins',
+    ach_streak_5: '5 Win Streak', ach_bot_hard: 'Beat Hard Bot', ach_explorer: 'All Categories',
+    ach_veteran: '100 Games', ach_rated_1200: 'Rated 1200+', new_badge: '🏅 Unlocked: {name}',
+    appearance: 'Appearance', mode_dark: 'Dark', mode_light: 'Light',
+    // chat / reactions
+    chat: 'Chat', say_something: 'Say something…', send: 'Send',
+    // series scoreboard
+    series: 'You {me} – {opp} {name}',
+    // leaderboard
+    leaderboard: 'Leaderboard', lb_note: 'for fun · scores are not verified', lb_empty: 'No ranked players in this circle yet.',
+    // onboarding
+    ob_title: 'Welcome to Arcade', ob_body: '30+ two-player games, peer-to-peer, no sign-up. Play a friend online, challenge the bot, or go solo. Install it for offline play.',
+    ob_start: "Let's go",
   },
   ar: {
     tagline: 'لاعبان · اتصال مباشر · بدون تسجيل',
@@ -202,6 +218,18 @@ const DICT = {
     r_tetris: 'حرّك وأدر القطع الساقطة لمسح الصفوف الكاملة. الصفوف الممسوحة ترسل صفوف فوضى لخصمك. إذا امتلأ لوحك حتى القمة تخسر.',
     r_airhockey: 'اسحب مضربك لتضرب القرص نحو مرمى الخصم. أول من يسجل 7 أهداف يفوز.',
     r_tron: 'وجّه دراجتك الضوئية؛ تترك أثرًا صلبًا. أجبر خصمك على الاصطدام بجدار أو أثر بينما تنجو أنت.',
+    // الملف / الإحصاءات / الإنجازات
+    profile: 'الملف', stats: 'الإحصاءات', rating: 'التقييم', achievements: 'الإنجازات',
+    profile_totals: '{w} فوز · {p} مباراة · تقييم {r}', no_stats: 'لا مباريات بعد.',
+    ach_first_win: 'أول فوز', ach_wins_10: '10 انتصارات', ach_wins_50: '50 انتصارًا',
+    ach_streak_5: '5 انتصارات متتالية', ach_bot_hard: 'هزمت الحاسوب الصعب', ach_explorer: 'كل الفئات',
+    ach_veteran: '100 مباراة', ach_rated_1200: 'تقييم 1200+', new_badge: '🏅 فتحت: {name}',
+    appearance: 'المظهر', mode_dark: 'داكن', mode_light: 'فاتح',
+    chat: 'الدردشة', say_something: 'اكتب رسالة…', send: 'إرسال',
+    series: 'أنت {me} – {opp} {name}',
+    leaderboard: 'المتصدرون', lb_note: 'للمتعة · النتائج غير موثّقة', lb_empty: 'لا لاعبين مصنّفين في هذه الدائرة بعد.',
+    ob_title: 'أهلًا بك في أركيد', ob_body: 'أكثر من 30 لعبة لاعبين، اتصال مباشر، دون تسجيل. العب مع صديق أونلاين، أو تحدَّ الحاسوب، أو منفردًا. ثبّت التطبيق للعب دون إنترنت.',
+    ob_start: 'هيا بنا',
   },
 };
 

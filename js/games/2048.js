@@ -1,4 +1,4 @@
-import { move2048, has2048Move } from '../logic.js?v=9';
+import { move2048, has2048Move } from '../logic.js?v=10';
 
 const COLORS = { 0: 'bg-slate-800', 2: 'bg-slate-600', 4: 'bg-slate-500', 8: 'bg-amber-600', 16: 'bg-amber-500', 32: 'bg-orange-500', 64: 'bg-orange-600', 128: 'bg-yellow-500', 256: 'bg-yellow-400 text-slate-900', 512: 'bg-lime-500 text-slate-900', 1024: 'bg-emerald-500 text-slate-900', 2048: 'bg-indigo-500' };
 const M = { board: [], best: 0, points: 0, oppBest: 0, oppPoints: 0, myDone: false, oppDone: false, cells: [], statusEl: null, timerEl: null, doneBtn: null, keyHandler: null, timer: null, timeLeft: 0 };

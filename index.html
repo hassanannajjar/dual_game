@@ -25,6 +25,7 @@
     <div class="flex items-center gap-3">
       <span id="status" class="text-xs text-slate-400"></span>
       <button id="btn-install" class="hidden text-sm px-3 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 font-semibold" data-i18n="install">Install</button>
+      <button id="btn-profile" class="text-xl leading-none" title="Profile" aria-label="Profile">🏅</button>
       <button id="btn-prefs" class="text-xl leading-none" title="Settings" aria-label="Settings">⚙</button>
     </div>
   </header>
@@ -59,6 +60,13 @@
       <button id="btn-go-online" class="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 font-semibold transition" data-i18n="go_online">Go online</button>
       <p id="online-status" class="text-center text-xs text-slate-400 h-4"></p>
       <ul id="online-list" class="space-y-2"></ul>
+      <div class="pt-2">
+        <div class="flex items-baseline justify-between">
+          <h3 class="text-sm font-bold" data-i18n="leaderboard">Leaderboard</h3>
+          <span class="text-[10px] text-slate-500" data-i18n="lb_note">for fun · scores are not verified</span>
+        </div>
+        <ul id="leaderboard-list" class="space-y-1.5 mt-2"></ul>
+      </div>
       <button id="btn-online-back" class="w-full py-2 text-sm text-slate-500 hover:text-slate-300" data-i18n="back_games">← Back to games</button>
     </section>
 
@@ -117,6 +125,7 @@
       <div class="flex items-center justify-between">
         <span id="game-title" class="text-sm font-semibold text-slate-300"></span>
         <div class="flex items-center gap-3">
+          <button id="btn-chat" class="hidden relative text-sm text-slate-400 hover:text-slate-200 w-6 h-6 rounded-full border border-slate-600" title="Chat" aria-label="Chat">💬<span id="chat-badge" class="hidden absolute -top-1.5 -end-1.5 min-w-4 h-4 px-1 rounded-full bg-rose-500 text-white text-[10px] leading-4 text-center">0</span></button>
           <button id="btn-change" class="text-sm text-slate-400 hover:text-slate-200 w-6 h-6 rounded-full border border-slate-600" title="Change game" aria-label="Change game">⇄</button>
           <button id="btn-help" class="text-sm text-slate-400 hover:text-slate-200 w-6 h-6 rounded-full border border-slate-600" title="How to play" aria-label="How to play">?</button>
           <button id="btn-home-play" class="text-xs text-slate-500 hover:text-slate-300" data-i18n="quit">Quit</button>
@@ -150,6 +159,22 @@
     </section>
   </main>
 
+  <!-- IN-MATCH CHAT + REACTIONS (real P2P only) -->
+  <div id="chat-panel" class="hidden fixed inset-x-0 bottom-0 z-30 mx-auto max-w-lg bg-slate-900 border-t border-slate-700 rounded-t-2xl p-3 space-y-2 shadow-2xl"
+       style="padding-bottom: max(0.75rem, env(safe-area-inset-bottom));">
+    <div class="flex items-center justify-between">
+      <h3 class="font-bold text-sm" data-i18n="chat">Chat</h3>
+      <button id="btn-chat-close" class="text-slate-400 hover:text-slate-200 text-xl leading-none">✕</button>
+    </div>
+    <div id="emote-bar" class="flex justify-between gap-1 border-b border-slate-800 pb-2"></div>
+    <div id="chat-log" class="h-40 overflow-y-auto space-y-1.5 py-1"></div>
+    <div class="flex gap-2">
+      <input id="chat-input" maxlength="140" data-i18n-ph="say_something" placeholder="Say something…"
+             class="flex-1 py-2 px-3 rounded-lg bg-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+      <button id="chat-send" class="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 font-semibold" data-i18n="send">Send</button>
+    </div>
+  </div>
+
   <!-- SETTINGS PANEL -->
   <div id="prefs-panel" class="hidden fixed inset-0 z-30 flex items-end sm:items-center justify-center bg-slate-950/70 backdrop-blur-sm p-4">
     <div class="w-full max-w-sm bg-slate-900 border border-slate-700 rounded-2xl p-5 space-y-4">
@@ -168,9 +193,13 @@
         <label class="block text-sm text-slate-400 mb-1" data-i18n="display_name">Your name</label>
         <input id="pref-name" maxlength="16" class="w-full py-2 px-3 rounded-lg bg-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
       </div>
+      <div class="flex items-center justify-between gap-3">
+        <label class="text-sm text-slate-400 shrink-0" data-i18n="theme">Theme</label>
+        <div id="theme-swatches" class="flex flex-wrap justify-end gap-2"></div>
+      </div>
       <div class="flex items-center justify-between">
-        <label class="text-sm text-slate-400" data-i18n="theme">Theme</label>
-        <div id="theme-swatches" class="flex gap-2"></div>
+        <label class="text-sm text-slate-400" data-i18n="appearance">Appearance</label>
+        <button id="btn-mode-toggle" class="px-4 py-2 rounded-lg font-semibold bg-emerald-600">Dark</button>
       </div>
       <div class="flex items-center justify-between">
         <label class="text-sm text-slate-400" data-i18n="sound">Sound</label>
@@ -181,6 +210,39 @@
         <button id="btn-haptics-toggle" class="px-4 py-2 rounded-lg font-semibold bg-emerald-600">On</button>
       </div>
       <button id="btn-prefs-close2" class="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 font-semibold" data-i18n="close">Close</button>
+    </div>
+  </div>
+
+  <!-- PROFILE -->
+  <div id="profile-panel" class="hidden fixed inset-0 z-30 flex items-end sm:items-center justify-center bg-slate-950/70 backdrop-blur-sm p-4">
+    <div class="w-full max-w-sm max-h-[88vh] overflow-y-auto bg-slate-900 border border-slate-700 rounded-2xl p-5 space-y-4">
+      <div class="flex items-center justify-between">
+        <h2 class="text-lg font-bold" data-i18n="profile">Profile</h2>
+        <button id="btn-profile-close" class="text-slate-400 hover:text-slate-200 text-xl leading-none">✕</button>
+      </div>
+      <input id="profile-name" maxlength="16" data-i18n-ph="display_name" placeholder="Your name"
+             class="w-full py-2 px-3 rounded-lg bg-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+      <div id="profile-avatars" class="flex flex-wrap gap-1.5"></div>
+      <p id="profile-totals" class="text-sm text-slate-400"></p>
+      <div>
+        <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-1" data-i18n="stats">Stats</h3>
+        <div id="profile-stats"></div>
+      </div>
+      <div>
+        <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2" data-i18n="achievements">Achievements</h3>
+        <div id="profile-ach" class="grid grid-cols-4 gap-2"></div>
+      </div>
+      <button id="btn-profile-close2" class="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 font-semibold" data-i18n="close">Close</button>
+    </div>
+  </div>
+
+  <!-- ONBOARDING (first run) -->
+  <div id="onboarding-panel" class="hidden fixed inset-0 z-40 flex items-center justify-center bg-slate-950/85 backdrop-blur-sm p-4">
+    <div class="w-full max-w-xs bg-slate-900 border border-slate-700 rounded-2xl p-6 text-center space-y-4">
+      <div class="text-5xl">🎮</div>
+      <h2 class="text-xl font-black" data-i18n="ob_title">Welcome to Arcade</h2>
+      <p class="text-sm text-slate-300 leading-relaxed" data-i18n="ob_body"></p>
+      <button id="btn-onboard-start" class="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 font-semibold" data-i18n="ob_start">Let's go</button>
     </div>
   </div>
 
@@ -253,6 +315,6 @@
       });
     })();
   </script>
-  <script type="module" src="js/app.js?v=9"></script>
+  <script type="module" src="js/app.js?v=10"></script>
 </body>
 </html>

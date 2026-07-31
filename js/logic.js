@@ -578,3 +578,36 @@ export function rotateCells(cells) {                  // rotate 90° CW around (
   return cells.map(([x, y]) => [3 - y, x]);
 }
 
+// ---------- Rating (Elo) ---------- pure; opponent rating exchanged at match start.
+// outcome: 'win' | 'lose' | 'draw'. K=24, floor 100. No opp -> caller passes opp=cur.
+export function nextRating(cur, opp, outcome) {
+  const score = outcome === 'win' ? 1 : outcome === 'draw' ? 0.5 : 0;
+  const expected = 1 / (1 + Math.pow(10, ((opp ?? cur) - cur) / 400));
+  return Math.max(100, Math.round(cur + 24 * (score - expected)));
+}
+
+// ---------- Achievements ---------- pure: given a stats object, return earned ids.
+// stats = { games: { [id]: {w,l,d,streak,bestStreak,rating} }, botWins:{easy,medium,hard}, cats:[...] }
+export const ACHIEVEMENTS = [
+  { id: 'first_win', emoji: '🥇', test: (d) => d.wins >= 1 },
+  { id: 'wins_10', emoji: '🎯', test: (d) => d.wins >= 10 },
+  { id: 'wins_50', emoji: '👑', test: (d) => d.wins >= 50 },
+  { id: 'streak_5', emoji: '🔥', test: (d) => d.bestStreak >= 5 },
+  { id: 'bot_hard', emoji: '🤖', test: (d) => d.hardBot >= 1 },
+  { id: 'explorer', emoji: '🧭', test: (d) => d.cats >= 6 },
+  { id: 'veteran', emoji: '🎖️', test: (d) => d.plays >= 100 },
+  { id: 'rated_1200', emoji: '⭐', test: (d) => d.maxRating >= 1200 },
+];
+export function evalAchievements(stats) {
+  const g = Object.values((stats && stats.games) || {});
+  const d = {
+    wins: g.reduce((a, x) => a + (x.w || 0), 0),
+    plays: g.reduce((a, x) => a + (x.w || 0) + (x.l || 0) + (x.d || 0), 0),
+    bestStreak: g.reduce((a, x) => Math.max(a, x.bestStreak || 0), 0),
+    maxRating: g.reduce((a, x) => Math.max(a, x.rating || 0), 0),
+    hardBot: ((stats && stats.botWins) || {}).hard || 0,
+    cats: ((stats && stats.cats) || []).length,
+  };
+  return ACHIEVEMENTS.filter((a) => a.test(d)).map((a) => a.id);
+}
+
