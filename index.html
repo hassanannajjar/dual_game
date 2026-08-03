@@ -62,7 +62,7 @@
       <ul id="online-list" class="space-y-2"></ul>
       <div class="pt-2">
         <div class="flex items-baseline justify-between">
-          <h3 class="text-sm font-bold" data-i18n="leaderboard">Leaderboard</h3>
+          <h3 class="text-sm font-bold" data-i18n="leaderboard_global">🌍 Global leaderboard</h3>
           <span class="text-[10px] text-slate-500" data-i18n="lb_note">for fun · scores are not verified</span>
         </div>
         <ul id="leaderboard-list" class="space-y-1.5 mt-2"></ul>
@@ -220,10 +220,16 @@
         <h2 class="text-lg font-bold" data-i18n="profile">Profile</h2>
         <button id="btn-profile-close" class="text-slate-400 hover:text-slate-200 text-xl leading-none">✕</button>
       </div>
+      <div id="loyalty-header" class="rounded-xl bg-slate-800/60 border border-slate-700 p-3"></div>
       <input id="profile-name" maxlength="16" data-i18n-ph="display_name" placeholder="Your name"
              class="w-full py-2 px-3 rounded-lg bg-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+      <p id="profile-token" class="text-[11px] text-slate-500 font-mono"></p>
       <div id="profile-avatars" class="flex flex-wrap gap-1.5"></div>
       <p id="profile-totals" class="text-sm text-slate-400"></p>
+      <div>
+        <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2" data-i18n="shop">Shop</h3>
+        <div id="shop"></div>
+      </div>
       <div>
         <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-1" data-i18n="stats">Stats</h3>
         <div id="profile-stats"></div>
@@ -315,6 +321,6 @@
       });
     })();
   </script>
-  <script type="module" src="js/app.js?v=11"></script>
+  <script type="module" src="js/app.js?v=12"></script>
 </body>
 </html>

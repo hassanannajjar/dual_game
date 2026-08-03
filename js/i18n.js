@@ -119,6 +119,13 @@ const DICT = {
     // onboarding
     ob_title: 'Welcome to Arcade', ob_body: '30+ two-player games, peer-to-peer, no sign-up. Play a friend online, challenge the bot, or go solo. Install it for offline play.',
     ob_start: "Let's go",
+    // loyalty: levels, coins, shop
+    level: 'Level', lvl: 'Lv', player_id: 'Player ID',
+    tier_bronze: 'Bronze', tier_silver: 'Silver', tier_gold: 'Gold', tier_platinum: 'Platinum', tier_diamond: 'Diamond', tier_legend: 'Legend',
+    shop: 'Shop', shop_avatar: 'Avatars', shop_theme: 'Themes', shop_skin: '2048 tile skins',
+    equip: 'Equip', equipped: 'On', need_coins: 'Not enough coins', need_level: 'Reach level {n} first',
+    level_up: '⭐ Level {n} — {tier}!', earned: '+{xp} XP · +{coins} 🪙', daily_bonus: '🎁 Daily bonus +{coins} 🪙 (day {streak})',
+    leaderboard_global: '🌍 Global leaderboard',
   },
   ar: {
     tagline: 'لاعبان · اتصال مباشر · بدون تسجيل',
@@ -230,6 +237,12 @@ const DICT = {
     leaderboard: 'المتصدرون', lb_note: 'للمتعة · النتائج غير موثّقة', lb_empty: 'لا لاعبين مصنّفين في هذه الدائرة بعد.',
     ob_title: 'أهلًا بك في أركيد', ob_body: 'أكثر من 30 لعبة لاعبين، اتصال مباشر، دون تسجيل. العب مع صديق أونلاين، أو تحدَّ الحاسوب، أو منفردًا. ثبّت التطبيق للعب دون إنترنت.',
     ob_start: 'هيا بنا',
+    level: 'المستوى', lvl: 'مستوى', player_id: 'معرّف اللاعب',
+    tier_bronze: 'برونزي', tier_silver: 'فضي', tier_gold: 'ذهبي', tier_platinum: 'بلاتيني', tier_diamond: 'ماسي', tier_legend: 'أسطوري',
+    shop: 'المتجر', shop_avatar: 'الصور الرمزية', shop_theme: 'السمات', shop_skin: 'أشكال بلاطات 2048',
+    equip: 'تجهيز', equipped: 'مفعّل', need_coins: 'عملات غير كافية', need_level: 'تحتاج المستوى {n}',
+    level_up: '⭐ المستوى {n} — {tier}!', earned: '+{xp} خبرة · +{coins} 🪙', daily_bonus: '🎁 مكافأة يومية +{coins} 🪙 (اليوم {streak})',
+    leaderboard_global: '🌍 المتصدرون عالميًا',
   },
 };
 

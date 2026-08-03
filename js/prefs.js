@@ -1,6 +1,7 @@
 // Preferences: display name, theme/accent, haptics + the settings panel.
-import { applyLang, getLang, t, onLangChange } from './i18n.js?v=11';
-import { setSound, soundOn } from './sound.js?v=11';
+import { applyLang, getLang, t, onLangChange } from './i18n.js?v=12';
+import { setSound, soundOn } from './sound.js?v=12';
+import { owns, buy } from './loyalty.js?v=12';
 
 const THEMES = ['indigo', 'emerald', 'rose', 'amber', 'sky', 'violet', 'teal'];
 const SWATCH = { indigo: '#6366f1', emerald: '#10b981', rose: '#f43f5e', amber: '#f59e0b', sky: '#0ea5e9', violet: '#8b5cf6', teal: '#14b8a6' };
@@ -47,10 +48,27 @@ function refresh() {
   $('btn-haptics-toggle').textContent = t(hapticsOn() ? 'on' : 'off');
   $('btn-haptics-toggle').className = toggleCls(hapticsOn());
   $('pref-name').value = getName();
-  document.querySelectorAll('[data-theme-swatch]').forEach((b) => {
-    b.classList.toggle('ring-2', b.dataset.themeSwatch === getTheme());
-    b.classList.toggle('ring-white', b.dataset.themeSwatch === getTheme());
-  });
+  buildSwatches();
+}
+// Theme swatches, gated by ownership: locked themes show 🔒 and route to a coin purchase.
+function buildSwatches() {
+  const box = $('theme-swatches'); if (!box) return;
+  box.innerHTML = '';
+  for (const th of THEMES) {
+    const has = owns('theme:' + th), active = th === getTheme();
+    const b = document.createElement('button');
+    b.dataset.themeSwatch = th;
+    b.className = 'relative w-9 h-9 rounded-full ring-offset-2 ring-offset-slate-900 ' + (active ? 'ring-2 ring-white' : '');
+    b.style.background = SWATCH[th];
+    if (!has) b.innerHTML = '<span class="absolute inset-0 flex items-center justify-center text-xs">🔒</span>';
+    b.onclick = () => {
+      if (has) { applyTheme(th); refresh(); return; }
+      const res = buy('theme:' + th);
+      if (res.ok) { applyTheme(th); }
+      refresh();
+    };
+    box.appendChild(b);
+  }
 }
 const segCls = (on) => 'flex-1 py-2 rounded-lg font-semibold transition ' + (on ? 'bg-indigo-600' : 'bg-slate-800 text-slate-400');
 const toggleCls = (on) => 'px-4 py-2 rounded-lg font-semibold transition ' + (on ? 'bg-emerald-600' : 'bg-slate-700 text-slate-400');
@@ -59,17 +77,7 @@ export function initPrefs() {
   applyTheme(getTheme());
   applyMode(getMode());
 
-  // theme swatches
-  const box = $('theme-swatches');
-  box.innerHTML = '';
-  for (const th of THEMES) {
-    const b = document.createElement('button');
-    b.dataset.themeSwatch = th;
-    b.className = 'w-9 h-9 rounded-full ring-offset-2 ring-offset-slate-900';
-    b.style.background = SWATCH[th];
-    b.onclick = () => { applyTheme(th); refresh(); };
-    box.appendChild(b);
-  }
+  buildSwatches();
 
   $('btn-prefs').onclick = openPrefs;
   $('btn-prefs-close').onclick = closePrefs;

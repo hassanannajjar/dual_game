@@ -1,6 +1,13 @@
-import { move2048, has2048Move } from '../logic.js?v=11';
+import { move2048, has2048Move } from '../logic.js?v=12';
+import { getSkin } from '../loyalty.js?v=12';
 
-const COLORS = { 0: 'bg-slate-800', 2: 'bg-slate-600', 4: 'bg-slate-500', 8: 'bg-amber-600', 16: 'bg-amber-500', 32: 'bg-orange-500', 64: 'bg-orange-600', 128: 'bg-yellow-500', 256: 'bg-yellow-400 text-slate-900', 512: 'bg-lime-500 text-slate-900', 1024: 'bg-emerald-500 text-slate-900', 2048: 'bg-indigo-500' };
+const SKINS = {
+  classic: { 0: 'bg-slate-800', 2: 'bg-slate-600', 4: 'bg-slate-500', 8: 'bg-amber-600', 16: 'bg-amber-500', 32: 'bg-orange-500', 64: 'bg-orange-600', 128: 'bg-yellow-500', 256: 'bg-yellow-400 text-slate-900', 512: 'bg-lime-500 text-slate-900', 1024: 'bg-emerald-500 text-slate-900', 2048: 'bg-indigo-500' },
+  neon: { 0: 'bg-slate-800', 2: 'bg-fuchsia-700', 4: 'bg-fuchsia-600', 8: 'bg-pink-500', 16: 'bg-rose-500', 32: 'bg-purple-500', 64: 'bg-violet-500', 128: 'bg-indigo-500', 256: 'bg-cyan-400 text-slate-900', 512: 'bg-emerald-400 text-slate-900', 1024: 'bg-lime-400 text-slate-900', 2048: 'bg-yellow-300 text-slate-900' },
+  pastel: { 0: 'bg-slate-800', 2: 'bg-slate-700', 4: 'bg-teal-300 text-slate-900', 8: 'bg-emerald-300 text-slate-900', 16: 'bg-sky-300 text-slate-900', 32: 'bg-indigo-300 text-slate-900', 64: 'bg-violet-300 text-slate-900', 128: 'bg-pink-300 text-slate-900', 256: 'bg-rose-300 text-slate-900', 512: 'bg-amber-300 text-slate-900', 1024: 'bg-lime-300 text-slate-900', 2048: 'bg-fuchsia-300 text-slate-900' },
+  mono: { 0: 'bg-slate-800', 2: 'bg-slate-700', 4: 'bg-slate-600', 8: 'bg-slate-500', 16: 'bg-slate-400 text-slate-900', 32: 'bg-slate-300 text-slate-900', 64: 'bg-slate-200 text-slate-900', 128: 'bg-zinc-400 text-slate-900', 256: 'bg-zinc-300 text-slate-900', 512: 'bg-zinc-200 text-slate-900', 1024: 'bg-neutral-300 text-slate-900', 2048: 'bg-white text-slate-900' },
+};
+const palette = () => SKINS[getSkin()] || SKINS.classic;
 const M = { board: [], best: 0, points: 0, oppBest: 0, oppPoints: 0, myDone: false, oppDone: false, cells: [], statusEl: null, timerEl: null, doneBtn: null, keyHandler: null, timer: null, timeLeft: 0 };
 
 const emptyCells = (b) => { const e = []; for (let y = 0; y < 4; y++) for (let x = 0; x < 4; x++) if (!b[y][x]) e.push([x, y]); return e; };
@@ -10,10 +17,11 @@ function freshBoard() { M.board = Array.from({ length: 4 }, () => Array(4).fill(
 const fmt = (n) => n >= 1000 ? (n / 1000).toFixed(n >= 10000 ? 0 : 1) + 'k' : String(n);
 
 function paint(ctx) {
+  const pal = palette();
   for (let y = 0; y < 4; y++) for (let x = 0; x < 4; x++) {
     const v = M.board[y][x], c = M.cells[y][x];
     c.textContent = v || '';
-    c.className = 'aspect-square rounded-lg flex items-center justify-center font-bold text-xl ' + (COLORS[v] || 'bg-indigo-600');
+    c.className = 'aspect-square rounded-lg flex items-center justify-center font-bold text-xl ' + (pal[v] || 'bg-indigo-600');
   }
   M.best = Math.max(M.best, maxTile());
   if (!M.statusEl) return;

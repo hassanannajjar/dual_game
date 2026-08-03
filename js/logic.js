@@ -611,3 +611,32 @@ export function evalAchievements(stats) {
   return ACHIEVEMENTS.filter((a) => a.test(d)).map((a) => a.id);
 }
 
+// ---------- Loyalty: XP → Levels → Tiers (pure, unit-tested) ----------
+// XP to advance level L -> L+1 = 100 + (L-1)*40. Cumulative via loop (levels stay small).
+export function levelForXp(xp) {
+  xp = Math.max(0, xp || 0);
+  let level = 1, floorXp = 0, need = 100;
+  while (xp >= floorXp + need) { floorXp += need; level++; need = 100 + (level - 1) * 40; }
+  return { level, into: xp - floorXp, need, floorXp };
+}
+export const TIERS = [
+  { key: 'bronze', name: 'Bronze', emoji: '🥉', min: 1 },
+  { key: 'silver', name: 'Silver', emoji: '🥈', min: 5 },
+  { key: 'gold', name: 'Gold', emoji: '🥇', min: 10 },
+  { key: 'platinum', name: 'Platinum', emoji: '💠', min: 15 },
+  { key: 'diamond', name: 'Diamond', emoji: '💎', min: 25 },
+  { key: 'legend', name: 'Legend', emoji: '👑', min: 40 },
+];
+export function tierForLevel(level) {
+  let t = TIERS[0];
+  for (const x of TIERS) if (level >= x.min) t = x;
+  return t;
+}
+// XP + coins awarded for one finished match. outcome: 'win'|'lose'|'draw'; streak = current win streak.
+export function xpCoinsForResult(outcome, streak) {
+  let xp = 10, coins = 5;                                   // finishing a match
+  if (outcome === 'win') { xp += 20; coins += 15; const b = Math.min(streak || 0, 10); xp += b * 3; coins += b * 2; }
+  else if (outcome === 'draw') { xp += 8; coins += 5; }
+  return { xp, coins };
+}
+

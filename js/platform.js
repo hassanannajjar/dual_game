@@ -2,12 +2,14 @@
 // drives phases: home -> connect -> lobby -> [setup] -> [toss] -> play -> over,
 // and handles pause / disconnect-reconnect / refresh-resume.
 // Depends on the global `Peer` (PeerJS, loaded via CDN).
-import { t, initLang, onLangChange } from './i18n.js?v=11';
-import { sound } from './sound.js?v=11';
-import { initPrefs, getName, setName, haptic } from './prefs.js?v=11';
-import { demo } from './demos.js?v=11';
-import { goOnline as presenceOnline, goOffline as presenceOffline, onLeaderboard, publishScore } from './presence.js?v=11';
-import { recordResult, getRating, overallRating, openProfile, closeProfile, initProfile } from './profile.js?v=11';
+import { t, initLang, onLangChange } from './i18n.js?v=12';
+import { sound } from './sound.js?v=12';
+import { initPrefs, getName, setName, haptic } from './prefs.js?v=12';
+import { demo } from './demos.js?v=12';
+import { goOnline as presenceOnline, goOffline as presenceOffline, onLeaderboard, publishScore } from './presence.js?v=12';
+import { recordResult, getRating, overallRating, openProfile, closeProfile, initProfile } from './profile.js?v=12';
+import { claimDaily, getLevel, getCoins, setNotify } from './loyalty.js?v=12';
+import { getUid } from './identity.js?v=12';
 
 // ---------- DOM helpers ----------
 const $ = (id) => document.getElementById(id);
@@ -352,7 +354,7 @@ function toggleOnline() {
   try { localStorage.setItem('arcade:circle', circle); } catch (e) {}
   $('online-status').textContent = t('connecting_lobby');
   ensureLobbyPeer((peerId) => {
-    presenceOnline(circle, name, peerId, renderOnlineList, overallRating());
+    presenceOnline(circle, name, peerId, renderOnlineList, getUid(), { level: getLevel(), rating: overallRating(), coins: getCoins() });
     S.inLobby = true;
     $('online-status').textContent = t('online_now');
     $('btn-go-online').textContent = t('go_offline');
@@ -660,8 +662,8 @@ function renderLeaderboard(list) {
   if (!list || !list.length) { box.appendChild(el('li', 'text-center text-slate-500 text-sm py-3', t('lb_empty'))); return; }
   list.slice(0, 20).forEach((p, i) => {
     const li = el('li', 'flex items-center justify-between gap-2 bg-slate-800 rounded-xl px-3 py-2 text-sm');
-    li.appendChild(el('span', 'truncate', `${i + 1}. ${esc(p.name)}`));
-    li.appendChild(el('span', 'font-mono font-semibold text-indigo-400', p.rating));
+    li.appendChild(el('span', 'truncate', `${i + 1}. <span class="text-slate-400">${t('lvl')}${p.level || 1}</span> ${esc(p.name)}`));
+    li.appendChild(el('span', 'flex items-center gap-2 shrink-0 font-mono', `<span class="text-indigo-400">${p.rating}</span><span class="text-amber-400">🪙${p.coins || 0}</span>`));
     box.appendChild(li);
   });
 }
@@ -720,7 +722,9 @@ function recordAndSeries(outcome) {
     vsBot: S.vsBot, solo: S.solo, botLevel: S.botLevel, oppRating: S.oppRating,
   });
   for (const id of res.unlocked) toast(t('new_badge', { name: t('ach_' + id) }));
-  if (online) publishScore(overallRating());
+  if (res.leveledUp) { toast(t('level_up', { n: res.level, tier: t('tier_' + res.tier.key) })); sound('badge'); haptic([40, 40, 80]); }
+  else if (res.xpGain) toast(t('earned', { xp: res.xpGain, coins: res.coinGain }));
+  publishScore({ level: getLevel(), rating: overallRating(), coins: getCoins() });
 }
 function restartMatch(initiator) {
   S.rematchGuard = true;
@@ -770,9 +774,13 @@ const ctx = {
 // ---------- boot ----------
 export function boot() {
   initLang();
+  setNotify(toast);
   initPrefs();
   onLangChange(() => { renderHome(); if (!$('screen-play').classList.contains('hidden')) updateTurnLabel(); });
   renderHome();
+  // Daily login bonus (once per day).
+  const daily = claimDaily();
+  if (daily.claimed) setTimeout(() => { toast(t('daily_bonus', { coins: daily.coins, streak: daily.streak })); sound('badge'); }, 600);
   $('btn-create').onclick = createRoom;
   $('game-search').oninput = (e) => { S.homeSearch = e.target.value; renderHome(); };
   $('btn-join').onclick = () => joinRoom($('join-code').value.trim().toUpperCase());

@@ -1,8 +1,10 @@
 // Player profile + progression — stats, per-game rating, achievements. All localStorage.
-import { t } from './i18n.js?v=11';
-import { sound } from './sound.js?v=11';
-import { getName, setName } from './prefs.js?v=11';
-import { nextRating, evalAchievements, ACHIEVEMENTS } from './logic.js?v=11';
+import { t } from './i18n.js?v=12';
+import { sound } from './sound.js?v=12';
+import { getName, setName } from './prefs.js?v=12';
+import { nextRating, evalAchievements, ACHIEVEMENTS } from './logic.js?v=12';
+import { earnForResult, renderLevelHeader, renderShop, owns, equip, REWARDS } from './loyalty.js?v=12';
+import { getToken } from './identity.js?v=12';
 
 const $ = (id) => document.getElementById(id);
 const AVATARS = ['🦊', '🐼', '🐸', '🦁', '🐙', '🦄', '🐧', '🐳', '🤖', '👾', '🎲', '⚡'];
@@ -15,7 +17,6 @@ function saveStats(s) { write('arcade:stats', s); }
 function loadAch() { return read('arcade:ach', []); }
 
 export function getAvatar() { return read('arcade:avatar', AVATARS[0]); }
-function setAvatar(a) { write('arcade:avatar', a); }
 
 export function getRating(gid) {
   const g = loadStats().games[gid];
@@ -51,7 +52,9 @@ export function recordResult(info) {
   const now = evalAchievements(s);
   const unlocked = now.filter((id) => !had.includes(id));
   if (unlocked.length) { write('arcade:ach', now); sound('badge'); }
-  return { delta, unlocked };
+
+  const earn = earnForResult(info.outcome, g.streak, unlocked.length);
+  return Object.assign({ delta, unlocked }, earn);
 }
 
 // ---------- profile modal ----------
@@ -68,14 +71,22 @@ export function openProfile(games) {
 export function closeProfile() { const p = $('profile-panel'); if (p) p.classList.add('hidden'); }
 
 function renderProfile(games) {
-  // header: avatar picker + name
+  // level + coins header
+  renderLevelHeader($('loyalty-header'));
+  const tokEl = $('profile-token'); if (tokEl) tokEl.textContent = t('player_id') + ': ' + getToken();
+
+  // avatar quick-equip: only owned avatars (get more in the shop below)
   const av = $('profile-avatars'); av.innerHTML = '';
   for (const a of AVATARS) {
+    if (!owns('avatar:' + a)) continue;
     const b = el('button', 'text-2xl w-10 h-10 rounded-lg ' + (getAvatar() === a ? 'bg-indigo-600' : 'bg-slate-800'), a);
-    b.onclick = () => { setAvatar(a); renderProfile(games); };
+    b.onclick = () => { equip('avatar:' + a); renderProfile(games); };
     av.appendChild(b);
   }
   $('profile-name').value = getName();
+
+  // shop
+  renderShop($('shop'), () => renderProfile(games));
 
   const s = loadStats();
   const played = (games || []).filter((g) => s.games[g.id]);

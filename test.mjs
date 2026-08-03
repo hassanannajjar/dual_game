@@ -259,4 +259,24 @@ assert.ok(evalAchievements({ games: {}, botWins: { hard: 1 }, cats: [] }).includ
 assert.ok(evalAchievements({ games: {}, botWins: {}, cats: ['classic', 'strategy', 'puzzle', 'arcade', 'luck', 'word'] }).includes('explorer'), 'ach all categories');
 assert.ok(evalAchievements({ games: { chess: { w: 1, l: 0, d: 0, bestStreak: 1, rating: 1200 } }, botWins: {}, cats: [] }).includes('rated_1200'), 'ach rated 1200');
 
-console.log('PASS (all logic incl. bots/minesweeper/sudoku + rating/achievements + earlier)');
+// ---- Loyalty: levels / tiers / earning ----
+import { levelForXp, tierForLevel, xpCoinsForResult, TIERS } from './js/logic.js';
+assert.strictEqual(levelForXp(0).level, 1, 'level 1 at 0 xp');
+assert.strictEqual(levelForXp(99).level, 1, 'still level 1 below 100');
+assert.strictEqual(levelForXp(100).level, 2, 'level 2 at 100 xp');
+{ const li = levelForXp(100); assert.strictEqual(li.into, 0, 'into resets at boundary'); assert.strictEqual(li.need, 140, 'need grows: 100+(2-1)*40'); }
+{ let xp = 0; for (let L = 1; L <= 10; L++) xp += 100 + (L - 1) * 40; assert.strictEqual(levelForXp(xp).level, 11, 'cumulative curve reaches level 11'); }
+assert.strictEqual(tierForLevel(1).key, 'bronze', 'tier bronze at 1');
+assert.strictEqual(tierForLevel(4).key, 'bronze', 'tier bronze at 4');
+assert.strictEqual(tierForLevel(5).key, 'silver', 'tier silver at 5');
+assert.strictEqual(tierForLevel(10).key, 'gold', 'tier gold at 10');
+assert.strictEqual(tierForLevel(40).key, 'legend', 'tier legend at 40');
+assert.strictEqual(tierForLevel(999).key, 'legend', 'tier caps at legend');
+{ const w = xpCoinsForResult('win', 0), l = xpCoinsForResult('lose', 0), d = xpCoinsForResult('draw', 0);
+  assert.ok(w.xp > d.xp && d.xp > l.xp, 'win>draw>lose xp'); assert.strictEqual(l.xp, 10, 'lose = finish only'); }
+{ const s0 = xpCoinsForResult('win', 0), s5 = xpCoinsForResult('win', 5);
+  assert.strictEqual(s5.xp - s0.xp, 15, 'streak 5 adds 15 xp (5*3)'); }
+{ const cap = xpCoinsForResult('win', 100), ten = xpCoinsForResult('win', 10);
+  assert.strictEqual(cap.xp, ten.xp, 'streak bonus caps at 10'); }
+
+console.log('PASS (all logic incl. bots/minesweeper/sudoku + rating/achievements + loyalty + earlier)');
