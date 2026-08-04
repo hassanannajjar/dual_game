@@ -110,7 +110,7 @@ const DICT = {
     ach_streak_5: '5 Win Streak', ach_bot_hard: 'Beat Hard Bot', ach_explorer: 'All Categories',
     ach_veteran: '100 Games', ach_rated_1200: 'Rated 1200+', new_badge: '🏅 Unlocked: {name}',
     appearance: 'Appearance', mode_dark: 'Dark', mode_light: 'Light', volume: 'Volume', music: 'Music',
-    music_mood: 'Music mood', mood_auto: 'Auto-mix', mood_tracks: 'My music', mood_interstellar: 'Interstellar', mood_odyssey: 'Odyssey', mood_cinematic: 'Cinematic', mood_calm: 'Calm', mood_arcade: 'Arcade',
+    music_mood: 'Music mood', mood_auto: 'Auto-mix', mood_tracks: 'Interstellar', mood_interstellar: 'Interstellar custom', mood_odyssey: 'Odyssey', mood_cinematic: 'Cinematic', mood_calm: 'Calm', mood_arcade: 'Arcade',
     music_no_files: 'No music files found — add tracks in the audio folder (see audio/README).',
     // chat / reactions
     chat: 'Chat', say_something: 'Say something…', send: 'Send',
