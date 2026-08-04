@@ -1,4 +1,4 @@
-import { mancalaSow, mancalaEnded, mancalaFinalize } from '../logic.js?v=26';
+import { mancalaSow, mancalaEnded, mancalaFinalize } from '../logic.js?v=27';
 
 const M = { board: [], side: 0, pitEls: {}, storeEls: {} };
 const myPits = () => (M.side === 0 ? [0, 1, 2, 3, 4, 5] : [7, 8, 9, 10, 11, 12]);

@@ -206,8 +206,18 @@ function musicTick() {
   mStep++;
   musicTimer = setTimeout(musicTick, m.step);
 }
-export function startMusic() { if (!enabled) return; ac(); ensureMusicBus(); if (musicTimer) return; musicTick(); }
-export function stopMusic() { clearTimeout(musicTimer); musicTimer = null; }
+function startSynth() { ac(); ensureMusicBus(); if (musicTimer) return; musicTick(); }
+export function startMusic() {
+  if (!enabled) return; ac();
+  if (musicMode === 'tracks') {                        // real audio files (user-supplied)
+    if (tracksRunning) return;
+    tracksRunning = true;
+    startTracks().then((ok) => { if (!ok) { tracksRunning = false; if (musicNotify) musicNotify(); startSynth(); } });
+    return;
+  }
+  startSynth();
+}
+export function stopMusic() { clearTimeout(musicTimer); musicTimer = null; stopTracks(); tracksRunning = false; }
 export function setMusic(on) {
   music = !!on;
   try { localStorage.setItem('arcade:music', music ? 'on' : 'off'); } catch (e) {}
@@ -216,14 +226,16 @@ export function setMusic(on) {
 export function musicOn() { return music; }
 export function getMusicMode() { return musicMode; }
 export function setMusicMode(mode) {
-  musicMode = ['auto', 'interstellar', 'odyssey', 'cinematic', 'calm', 'arcade'].includes(mode) ? mode : 'auto';
+  musicMode = ['auto', 'tracks', 'interstellar', 'odyssey', 'cinematic', 'calm', 'arcade'].includes(mode) ? mode : 'auto';
   try { localStorage.setItem('arcade:musicMood', musicMode); } catch (e) {}
-  if (musicMode !== 'auto') { curMood = musicMode; moodUntil = 0; mStep = 0; }
+  if (musicMode !== 'auto' && musicMode !== 'tracks') { curMood = musicMode; moodUntil = 0; mStep = 0; }
+  if (music && enabled) { stopMusic(); startMusic(); }   // switch engine (synth ↔ files) live
 }
-// Adaptive scene: 'menu' = sparse/calm, 'match' = fuller/tenser. Biases mood pool + layer intensity.
+// Adaptive scene: 'menu' = sparse/calm, 'match' = fuller/tenser. Biases synth layers, ducks file volume.
 export function setMusicScene(s) {
   scene = s === 'match' ? 'match' : 'menu';
   if (musicMode === 'auto') moodUntil = 0;   // re-pick a mood suited to the new scene on the next tick
+  if (musicMode === 'tracks' && trackPlayer) { const a = ac(); const ch = trackPlayer.ch[trackPlayer.active]; if (a && ch && ch.g) ch.g.gain.setTargetAtTime(trackVol(), a.currentTime, 2.0); }
 }
 // One-shot warm swell (e.g. on a win): brief lift + a rising shimmer chord.
 export function musicSwell() {
@@ -231,4 +243,70 @@ export function musicSwell() {
   const a = ac(); const m = MOODS[curMood] || MOODS.interstellar;
   for (const n of [0, 4, 7, 12]) choirVoice('shimmer', semi(m.root, n + 12), 2.4, 0.045, 0.35);
   if (mixGain) { mixGain.gain.cancelScheduledValues(a.currentTime); mixGain.gain.setTargetAtTime(1.25, a.currentTime, 0.3); mixGain.gain.setTargetAtTime(1.0, a.currentTime + 2.0, 1.2); }
+}
+
+// ---------- real audio-file playback (user-supplied, rights-cleared tracks) ----------
+// Two <audio> elements routed through the master bus; crossfade near the end of each track.
+// Playlist comes from audio/tracks.json (shipped empty). No audio files are bundled.
+let trackPlayer = null, tracksRunning = false, tracksLoaded = false, trackList = [], musicNotify = null;
+export function setMusicNotify(fn) { musicNotify = fn; }   // called when 'tracks' selected but none found
+function trackVol() { return scene === 'match' ? 1.0 : 0.72; }   // duck a touch on the menu
+async function loadTracks() {
+  if (tracksLoaded) return trackList;
+  tracksLoaded = true;
+  try {
+    const res = await fetch('audio/tracks.json?t=' + Date.now(), { cache: 'no-store' });
+    if (res.ok) { const j = await res.json(); if (Array.isArray(j)) trackList = j.filter((x) => x && x.src); }
+  } catch (e) {}
+  return trackList;
+}
+function ensureTrackPlayer() {
+  const a = ac(); if (!a || !master || trackPlayer) return;
+  const mk = () => {
+    const el = new Audio(); el.crossOrigin = 'anonymous'; el.preload = 'auto';
+    const src = a.createMediaElementSource(el);
+    const g = a.createGain(); g.gain.value = 0.0001; src.connect(g); g.connect(master);
+    return { el, g, fading: false };
+  };
+  trackPlayer = { ch: [mk(), mk()], active: 0, order: [], pos: 0, list: [] };
+}
+function shuf(arr) { const a = arr.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+async function startTracks() {
+  ensureTrackPlayer(); if (!trackPlayer) return false;
+  const list = await loadTracks();
+  if (!list.length) return false;                         // caller falls back to synth
+  trackPlayer.list = list;
+  trackPlayer.order = shuf(list.map((_, i) => i));
+  trackPlayer.pos = 0;
+  playTrack(0);
+  return true;
+}
+function playTrack(chIndex) {
+  const tp = trackPlayer, ch = tp.ch[chIndex], a = ac();
+  const t = tp.list[tp.order[tp.pos]];
+  ch.fading = false;
+  try { ch.el.src = t.src; ch.el.currentTime = 0; ch.el.play().catch(() => {}); } catch (e) { return; }
+  ch.g.gain.cancelScheduledValues(a.currentTime);
+  ch.g.gain.setValueAtTime(0.0001, a.currentTime);
+  ch.g.gain.linearRampToValueAtTime(trackVol(), a.currentTime + 3);
+  tp.active = chIndex;
+  ch.el.ontimeupdate = () => {
+    if (!music || musicMode !== 'tracks') return;
+    if (ch.el.duration && ch.el.currentTime > ch.el.duration - 6 && !ch.fading) { ch.fading = true; nextTrack(); }
+  };
+  ch.el.onended = () => { if (!ch.fading) { ch.fading = true; nextTrack(); } };
+}
+function nextTrack() {
+  const tp = trackPlayer; if (!tp) return;
+  const a = ac(), prev = tp.ch[tp.active], nextCh = 1 - tp.active;
+  tp.pos = (tp.pos + 1) % tp.order.length;
+  prev.g.gain.cancelScheduledValues(a.currentTime);
+  prev.g.gain.setValueAtTime(Math.max(0.0001, prev.g.gain.value), a.currentTime);
+  prev.g.gain.linearRampToValueAtTime(0.0001, a.currentTime + 6);
+  setTimeout(() => { try { prev.el.pause(); } catch (e) {} prev.ontimeupdate = null; }, 6500);
+  playTrack(nextCh);
+}
+function stopTracks() {
+  if (!trackPlayer) return;
+  for (const ch of trackPlayer.ch) { ch.el.ontimeupdate = null; ch.el.onended = null; ch.fading = false; try { ch.el.pause(); } catch (e) {} if (ch.g) { const a = ac(); ch.g.gain.cancelScheduledValues(a.currentTime); ch.g.gain.value = 0.0001; } }
 }

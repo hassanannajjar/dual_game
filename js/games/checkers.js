@@ -1,6 +1,6 @@
-import { checkerMoves, checkerHasMove } from '../logic.js?v=26';
+import { checkerMoves, checkerHasMove } from '../logic.js?v=27';
 
-const M = { board: [], mine: 'b', opp: 'r', cells: [], sel: null, dests: [], mustCont: null };
+const M = { board: [], mine: 'b', opp: 'r', cells: [], sel: null, dests: [], mustCont: null, animateTo: null };
 
 function startBoard() {
   const b = Array.from({ length: 8 }, () => Array(8).fill(null));
@@ -23,14 +23,18 @@ function paint(ctx) {
     const dark = (x + y) % 2 === 1;
     const sel = M.sel && M.sel[0] === x && M.sel[1] === y;
     cell.className = 'aspect-square flex items-center justify-center ' +
-      (dark ? 'bg-amber-950' : 'bg-amber-200/10') + (sel ? ' ring-2 ring-emerald-400' : '');
+      (dark ? 'bg-amber-900' : 'bg-amber-200') + (sel ? ' ring-4 ring-emerald-400 ring-inset' : '');
     const p = M.board[y][x];
     const dot = cell.firstChild;
     dot.textContent = (p === 'R' || p === 'B') ? '♔' : '';
-    dot.className = 'w-[76%] h-[76%] rounded-full flex items-center justify-center text-sm font-bold ' +
-      (!p ? (destSet.has(y * 8 + x) ? 'bg-emerald-400/40' : 'bg-transparent')
-        : p.toLowerCase() === 'r' ? 'bg-rose-500 text-rose-950' : 'bg-sky-400 text-sky-950');
+    let dc = 'w-[78%] h-[78%] rounded-full flex items-center justify-center text-base font-bold ';
+    if (!p) dc += destSet.has(y * 8 + x) ? 'bg-emerald-400/40' : 'bg-transparent';
+    else if (p.toLowerCase() === 'r') dc += 'bg-gradient-to-br from-rose-400 to-rose-600 text-rose-950';
+    else dc += 'bg-gradient-to-br from-sky-300 to-sky-500 text-sky-950';
+    dot.className = dc;
+    if (M.animateTo && M.animateTo[0] === x && M.animateTo[1] === y && p) { dot.classList.add('piece-pop'); setTimeout(() => dot.classList.remove('piece-pop'), 300); }
   }
+  M.animateTo = null;
 }
 function build(ctx) {
   M.cells = [];
@@ -38,8 +42,9 @@ function build(ctx) {
   wrap.style.maxWidth = 'min(92vw, 28rem)';
   wrap.appendChild(ctx.el('p', 'text-center text-slate-400 text-sm mb-2',
     ctx.t('you_are', { x: `<b class="${M.mine === 'r' ? 'text-rose-400' : 'text-sky-400'}">${M.mine === 'r' ? 'Red' : 'Blue'}</b>` })));
-  const grid = ctx.el('div', 'grid rounded-lg overflow-hidden');
+  const grid = ctx.el('div', 'grid board-frame overflow-hidden');
   grid.style.gridTemplateColumns = 'repeat(8, 1fr)';
+  grid.style.background = 'linear-gradient(160deg, #4a3420, #2f2113)';
   for (let y = 0; y < 8; y++) {
     M.cells[y] = [];
     for (let x = 0; x < 8; x++) {
@@ -85,6 +90,7 @@ function doMove(ctx, d) {
   const piece = M.board[fy][fx];
   const king = (piece === 'r' && ty === 7) || (piece === 'b' && ty === 0);
   applyMove([fx, fy], [tx, ty], d.jump, d.cap, king);
+  M.animateTo = [tx, ty];
   ctx.sound(d.jump ? 'capture' : 'place');
   const cont = d.jump && !king && checkerMoves(M.board, tx, ty).jumps.length > 0;
   ctx.send('move', { from: [fx, fy], to: [tx, ty], jump: d.jump, cap: d.cap || null, king, done: !cont });
@@ -107,6 +113,7 @@ export default {
   onMessage(msg, ctx) {
     if (msg.type !== 'move') return;
     applyMove(msg.from, msg.to, msg.jump, msg.cap, msg.king);
+    M.animateTo = msg.to;
     ctx.sound(msg.jump ? 'capture' : 'place'); paint(ctx);
     if (msg.done) {
       if (!count(M.mine) || !hasMove(M.mine)) return ctx.endGame('lose');

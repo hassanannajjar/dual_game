@@ -2,15 +2,15 @@
 // drives phases: home -> connect -> lobby -> [setup] -> [toss] -> play -> over,
 // and handles pause / disconnect-reconnect / refresh-resume.
 // Depends on the global `Peer` (PeerJS, loaded via CDN).
-import { t, initLang, onLangChange } from './i18n.js?v=26';
-import { sound, setMusicScene, musicSwell } from './sound.js?v=26';
-import { initPrefs, getName, setName, haptic } from './prefs.js?v=26';
-import { demo } from './demos.js?v=26';
-import { goOnline as presenceOnline, onBoard as onPresenceBoard, publishScore, setPresence, isOnline } from './presence.js?v=26';
-import { recordResult, getRating, overallRating, openProfile, closeProfile, initProfile, getAvatar } from './profile.js?v=26';
-import { claimDaily, getLevel, getCoins, setNotify } from './loyalty.js?v=26';
-import { getUid, getGuestName } from './identity.js?v=26';
-import { isFav, toggleFav, getFavs } from './favorites.js?v=26';
+import { t, initLang, onLangChange } from './i18n.js?v=27';
+import { sound, setMusicScene, musicSwell, setMusicNotify } from './sound.js?v=27';
+import { initPrefs, getName, setName, haptic } from './prefs.js?v=27';
+import { demo } from './demos.js?v=27';
+import { goOnline as presenceOnline, onBoard as onPresenceBoard, publishScore, setPresence, isOnline } from './presence.js?v=27';
+import { recordResult, getRating, overallRating, openProfile, closeProfile, initProfile, getAvatar } from './profile.js?v=27';
+import { claimDaily, getLevel, getCoins, setNotify } from './loyalty.js?v=27';
+import { getUid, getGuestName } from './identity.js?v=27';
+import { isFav, toggleFav, getFavs } from './favorites.js?v=27';
 
 // ---------- DOM helpers ----------
 const $ = (id) => document.getElementById(id);
@@ -858,6 +858,7 @@ const ctx = {
 export function boot() {
   initLang();
   setNotify(toast);
+  setMusicNotify(() => toast(t('music_no_files')));
   initPrefs();
   onLangChange(() => { renderHome(); if (!$('screen-play').classList.contains('hidden')) updateTurnLabel(); });
   renderHome();

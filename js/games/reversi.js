@@ -1,4 +1,4 @@
-import { reversiFlips, reversiLegalMoves, reversiCounts } from '../logic.js?v=26';
+import { reversiFlips, reversiLegalMoves, reversiCounts } from '../logic.js?v=27';
 
 const M = { board: [], mine: 'B', opp: 'B', cells: [], scoreEl: null };
 function start() {
@@ -7,27 +7,32 @@ function start() {
   return b;
 }
 function discCls(v, hint) {
-  if (v) return 'w-[80%] h-[80%] rounded-full ' + (v === 'B' ? 'bg-slate-950' : 'bg-slate-100');
-  return hint ? 'w-3 h-3 rounded-full bg-white/20' : 'hidden';
+  if (v) return 'game-piece w-[82%] h-[82%] rounded-full ' + (v === 'B' ? 'bg-gradient-to-br from-slate-700 to-slate-950' : 'bg-gradient-to-br from-white to-slate-300');
+  return hint ? 'w-3 h-3 rounded-full bg-white/25' : 'hidden';
 }
-function paint(ctx) {
+function paint(ctx, prev) {
   const legal = ctx.myTurn ? reversiLegalMoves(M.board, M.mine) : [];
   const legalSet = new Set(legal.map(([x, y]) => y * 8 + x));
   for (let y = 0; y < 8; y++) for (let x = 0; x < 8; x++) {
-    M.cells[y][x].firstChild.className = discCls(M.board[y][x], legalSet.has(y * 8 + x));
+    const v = M.board[y][x], old = prev ? prev[y][x] : v, disc = M.cells[y][x].firstChild;
+    disc.className = discCls(v, legalSet.has(y * 8 + x));
+    if (prev && v && old && v !== old) { disc.classList.add('disc-flip'); setTimeout(() => disc.classList.remove('disc-flip'), 520); }
+    else if (prev && v && !old) { disc.classList.add('piece-pop'); setTimeout(() => disc.classList.remove('piece-pop'), 300); }
   }
   const c = reversiCounts(M.board);
   const mineN = M.mine === 'B' ? c.B : c.W, oppN = M.mine === 'B' ? c.W : c.B;
-  M.scoreEl.innerHTML = `<span class="text-emerald-400">${mineN}</span> — <span class="text-amber-400">${oppN}</span>`;
+  M.scoreEl.innerHTML = `<span class="text-emerald-400">${mineN}</span> <span class="text-slate-500 text-lg align-middle">vs</span> <span class="text-amber-400">${oppN}</span>`;
 }
+const cloneBoard = () => M.board.map((r) => r.slice());
 function build(ctx) {
   M.cells = [];
   const wrap = ctx.el('div', 'mx-auto');
   wrap.style.maxWidth = 'min(92vw, 28rem)';
   M.scoreEl = ctx.el('div', 'text-center text-2xl font-black mb-2');
   wrap.appendChild(M.scoreEl);
-  const grid = ctx.el('div', 'grid gap-1 p-2 rounded-xl bg-emerald-900');
+  const grid = ctx.el('div', 'grid gap-1 board-frame');
   grid.style.gridTemplateColumns = 'repeat(8, 1fr)';
+  grid.style.background = 'linear-gradient(160deg, #065f46, #064e3b)';
   for (let y = 0; y < 8; y++) {
     M.cells[y] = [];
     for (let x = 0; x < 8; x++) {
@@ -62,8 +67,10 @@ function afterMove(ctx, moverWasMine) {
   else { if (iCan) ctx.setTurn(true); else { ctx.toast('You pass'); ctx.setTurn(false); } }
 }
 function play(ctx, x, y) {
-  if (!ctx.myTurn || !apply(x, y, M.mine)) return;
-  ctx.sound('flip'); paint(ctx);
+  if (!ctx.myTurn) return;
+  const prev = cloneBoard();
+  if (!apply(x, y, M.mine)) return;
+  ctx.sound('flip'); paint(ctx, prev);
   ctx.send('move', { x, y });
   afterMove(ctx, true);
 }
@@ -79,7 +86,8 @@ export default {
   onTurn(mine, ctx) { paint(ctx); },
   onMessage(msg, ctx) {
     if (msg.type !== 'move') return;
-    apply(msg.x, msg.y, M.opp); ctx.sound('flip'); paint(ctx);
+    const prev = cloneBoard();
+    apply(msg.x, msg.y, M.opp); ctx.sound('flip'); paint(ctx, prev);
     afterMove(ctx, false);
   },
   botMove(level) {

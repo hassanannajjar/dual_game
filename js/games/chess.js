@@ -1,7 +1,7 @@
-import { chessInitial, chessLegalMoves, chessApply, chessStatus, chessInCheck, chessBotMove } from '../logic.js?v=26';
+import { chessInitial, chessLegalMoves, chessApply, chessStatus, chessInCheck, chessBotMove } from '../logic.js?v=27';
 
 const SOLID = { K: '♚', Q: '♛', R: '♜', B: '♝', N: '♞', P: '♟' };
-const M = { state: null, mine: 'w', sel: null, legal: [], promo: null, cells: {}, promoEl: null, msgEl: null };
+const M = { state: null, mine: 'w', sel: null, legal: [], promo: null, cells: {}, promoEl: null, msgEl: null, lastMove: null, animateTo: null };
 const isWhite = (p) => p && p === p.toUpperCase();
 const key = (x, y) => x + ',' + y;
 function kingPos(board, color) { const k = color === 'w' ? 'K' : 'k'; for (let y = 0; y < 8; y++) for (let x = 0; x < 8; x++) if (board[y][x] === k) return [x, y]; return null; }
@@ -10,16 +10,21 @@ function paint(ctx) {
   const st = M.state, chk = chessInCheck(st, st.turn);
   const kp = chk ? kingPos(st.board, st.turn) : null;
   const legalSet = new Set(M.legal.map(([x, y]) => key(x, y)));
+  const lm = M.lastMove;
   for (let y = 0; y < 8; y++) for (let x = 0; x < 8; x++) {
     const cell = M.cells[key(x, y)], p = st.board[y][x], light = (x + y) % 2 === 0;
     cell.textContent = p ? SOLID[p.toUpperCase()] : '';
     let cls = 'aspect-square flex items-center justify-center text-3xl leading-none select-none ' + (light ? 'bg-amber-200' : 'bg-amber-700');
-    cls += p ? (isWhite(p) ? ' text-slate-50' : ' text-slate-900') : '';
-    if (M.sel && M.sel[0] === x && M.sel[1] === y) cls += ' ring-4 ring-emerald-400 ring-inset';
-    else if (legalSet.has(key(x, y))) cls += ' ring-4 ring-emerald-400/50 ring-inset';
-    if (kp && kp[0] === x && kp[1] === y) cls += ' bg-rose-500';
+    cls += p ? (isWhite(p) ? ' text-slate-50 drop-shadow-[0_2px_2px_rgba(0,0,0,0.55)]' : ' text-slate-900 drop-shadow-[0_2px_2px_rgba(255,255,255,0.35)]') : '';
+    const onLast = lm && ((lm.from[0] === x && lm.from[1] === y) || (lm.to[0] === x && lm.to[1] === y));
+    if (onLast) cls += ' ring-2 ring-inset ring-amber-300/70';
+    if (M.sel && M.sel[0] === x && M.sel[1] === y) cls += ' ring-4 ring-emerald-400 ring-inset scale-105 z-10';
+    else if (legalSet.has(key(x, y))) cls += p ? ' ring-4 ring-rose-400/70 ring-inset' : ' ring-4 ring-emerald-300/50 ring-inset';
+    if (kp && kp[0] === x && kp[1] === y) cls += ' bg-rose-500/80';
     cell.className = cls;
+    if (M.animateTo && M.animateTo[0] === x && M.animateTo[1] === y) { cell.classList.add('piece-pop'); setTimeout(() => cell.classList.remove('piece-pop'), 300); }
   }
+  M.animateTo = null;
   M.msgEl.textContent = st.turn === M.mine ? (chk ? 'Check! Your move' : 'Your move') : 'Opponent thinking…';
 }
 function build(ctx) {
@@ -28,8 +33,9 @@ function build(ctx) {
   wrap.style.maxWidth = 'min(94vw, 30rem)';
   M.msgEl = ctx.el('p', 'text-center text-slate-400 text-sm mb-2');
   wrap.appendChild(M.msgEl);
-  const grid = ctx.el('div', 'grid rounded-lg overflow-hidden');
+  const grid = ctx.el('div', 'grid board-frame overflow-hidden');
   grid.style.gridTemplateColumns = 'repeat(8, 1fr)';
+  grid.style.background = 'linear-gradient(160deg, #4a3420, #2f2113)';
   for (let d = 0; d < 64; d++) {
     const dr = Math.floor(d / 8), dc = d % 8;
     const x = M.mine === 'w' ? dc : 7 - dc, y = M.mine === 'w' ? dr : 7 - dr;
@@ -60,7 +66,7 @@ function afterMove(ctx, mineMoved) {
 function doMove(ctx, from, to, promo) {
   const captured = M.state.board[to[1]][to[0]];
   M.state = chessApply(M.state, from, to, promo);
-  M.sel = null; M.legal = [];
+  M.sel = null; M.legal = []; M.lastMove = { from, to }; M.animateTo = to;
   ctx.sound(captured ? 'capture' : 'place');
   ctx.send('move', { from, to, promo: promo || null });
   afterMove(ctx, true);
@@ -90,6 +96,7 @@ export default {
     if (msg.type !== 'move') return;
     const captured = M.state.board[msg.to[1]][msg.to[0]];
     M.state = chessApply(M.state, msg.from, msg.to, msg.promo);
+    M.lastMove = { from: msg.from, to: msg.to }; M.animateTo = msg.to;
     ctx.sound(captured ? 'capture' : 'place');
     afterMove(ctx, false);
   },
