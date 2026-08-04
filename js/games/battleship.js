@@ -95,6 +95,25 @@ export default {
     buildPlay(ctx);
   },
 
+  // ---- bot: keeps its own hidden fleet + hunt/target targeting; reacts to fire/result ----
+  botInit(level, ctx) {
+    const p = placeRandom(); M.botBoard = p.board; M.botShips = p.ships;
+    M.botShots = new Set(); M.botQueue = []; M.botLevel = level;
+  },
+  botOpen(send, level) { M.botLevel = level; if (!M.botBoard) { const p = placeRandom(); M.botBoard = p.board; M.botShips = p.ships; } botFire(send); },
+  botOnGame(msg, send, level) {
+    M.botLevel = level;
+    if (msg.type === 'fire') {                    // human fired at the bot's board
+      const idx = M.botBoard[msg.y][msg.x]; let hit = idx !== null, sunk = false, win = false;
+      if (hit) { const s = M.botShips[idx]; s.hits.add(msg.x + ',' + msg.y); sunk = s.hits.size === s.cells.length; win = M.botShips.every((z) => z.hits.size === z.cells.length); }
+      send({ type: 'result', x: msg.x, y: msg.y, hit, sunk, win });
+      if (!win) botFire(send);                    // then take the bot's own shot
+    } else if (msg.type === 'result') {           // answer to the bot's shot → update targeting
+      if (msg.hit && level !== 'easy') for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) M.botQueue.push([msg.x + dx, msg.y + dy]);
+      if (msg.sunk) M.botQueue = [];
+    }
+  },
+
   onMessage(msg, ctx) {
     if (msg.type === 'fire') {
       const { x, y } = msg;
@@ -155,6 +174,24 @@ function buildPlay(ctx) {
   ctx.root.appendChild(wrap);
   paintMine(ctx);
   paintTarget();
+}
+
+// Bot targeting: drain the target queue (neighbours of a hit), else parity/random hunt.
+function botFire(send) {
+  const shot = (x, y) => M.botShots.has(x + ',' + y);
+  const inb = (x, y) => x >= 0 && x < SIZE && y >= 0 && y < SIZE;
+  let t = null;
+  if (M.botLevel !== 'easy') while (M.botQueue.length) { const [x, y] = M.botQueue.pop(); if (inb(x, y) && !shot(x, y)) { t = [x, y]; break; } }
+  if (!t) {
+    const pool = [];
+    for (let y = 0; y < SIZE; y++) for (let x = 0; x < SIZE; x++) { if (shot(x, y)) continue; if (M.botLevel === 'hard' && (x + y) % 2 !== 0) continue; pool.push([x, y]); }
+    let use = pool;
+    if (!use.length) { use = []; for (let y = 0; y < SIZE; y++) for (let x = 0; x < SIZE; x++) if (!shot(x, y)) use.push([x, y]); }
+    if (!use.length) return;
+    t = use[Math.floor(Math.random() * use.length)];
+  }
+  M.botShots.add(t[0] + ',' + t[1]);
+  send({ type: 'fire', x: t[0], y: t[1] });
 }
 
 function paintTarget() {

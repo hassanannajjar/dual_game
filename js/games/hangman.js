@@ -1,8 +1,18 @@
-import { getLang } from '../i18n.js?v=18';
+import { getLang } from '../i18n.js?v=19';
 
 const EN = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 const AR = 'ابتثجحخدذرزسشصضطظعغفقكلمنهوي'.split('');
 const M = {};
+
+// ---- bot: keeps its own secret word + guesses the human's word by letter frequency ----
+const BOT_WORDS = ['PLANET', 'GARDEN', 'ROCKET', 'SILVER', 'PUZZLE', 'WIZARD', 'JUNGLE', 'MARBLE', 'FALCON', 'ORANGE', 'CASTLE', 'MONKEY', 'PENCIL', 'ISLAND', 'VELVET', 'COPPER', 'THRONE', 'BREEZE', 'CANYON', 'ROBOT'];
+const FREQ = 'ETAOINSHRDLUCMFWYPVBGKJQXZ'.split('');
+function botLazy() {
+  if (M.botSecret) return;
+  M.botSecret = BOT_WORDS[Math.floor(Math.random() * BOT_WORDS.length)];
+  M.botRevealed = new Set(); M.botGuessed = new Set();
+}
+function botNextGuess() { for (const L of FREQ) if (!M.botGuessed.has(L)) { M.botGuessed.add(L); return L; } return null; }
 
 function alphabet() { return getLang() === 'ar' ? AR : EN; }
 function normalize(s) {
@@ -54,7 +64,7 @@ function guess(ctx, L) {
 export default {
   id: 'hangman', name: 'Hangman', emoji: '🔤', blurb: 'Guess the secret word', category: 'word', difficulty: 'easy',
   setup(ctx) {
-    M.secret = null; M.oppLen = 0; M.oppRevealed = null; M.revealedToOpp = new Set();
+    M.secret = null; M.botSecret = null; M.oppLen = 0; M.oppRevealed = null; M.revealedToOpp = new Set();
     M.guessed = new Set(); M.hits = new Set(); M.misses = new Set();
     const root = ctx.setupRoot;
     root.appendChild(ctx.el('p', 'text-sm text-slate-400 mb-2 text-center', 'Set a secret word (3–10 letters). It never leaves your device.'));
@@ -74,6 +84,20 @@ export default {
   },
   start(ctx) { build(ctx); },
   onTurn(mine, ctx) { paint(ctx); },
+  botInit(level, ctx) { botLazy(); },
+  botOpen(send) { botLazy(); const L = botNextGuess(); if (L) send({ type: 'guess', l: L }); },   // bot guesses first
+  botOnGame(msg, send) {
+    botLazy();
+    if (msg.type === 'len') { send({ type: 'len', n: M.botSecret.length }); return; }
+    if (msg.type === 'guess') {                              // human guessed a letter of the bot's word
+      const L = msg.l, pos = [];
+      for (let i = 0; i < M.botSecret.length; i++) if (M.botSecret[i] === L && !M.botRevealed.has(i)) { M.botRevealed.add(i); pos.push(i); }
+      send({ type: 'reveal', l: L, pos });
+      if (M.botRevealed.size === M.botSecret.length) return; // human cracked it → they win (handled human-side)
+      const g = botNextGuess(); if (g) send({ type: 'guess', l: g });   // bot counter-guesses the human's word
+    }
+    // msg.type === 'reveal' (answer to the bot's guess): human detects its own loss; nothing to do
+  },
   onMessage(msg, ctx) {
     if (msg.type === 'len') { M.oppLen = msg.n; M.oppRevealed = Array(msg.n).fill(null); if (M.wordEl) paint(ctx); return; }
     if (msg.type === 'guess') {

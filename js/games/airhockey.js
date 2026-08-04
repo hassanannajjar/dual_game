@@ -72,6 +72,17 @@ export default {
     build(ctx);
     loop(ctx);
   },
+  // Bot controls the top paddle (M.gp, host coords). Tracks the puck's x; advances to clear
+  // it when it's in the top half. easy adds aim jitter; hard is precise.
+  botOnGame(msg, send, level) {
+    if (msg.type !== 'state') return;
+    let tx = msg.px, ty = 0.12;
+    if (msg.py < 0.4) ty = Math.max(R, msg.py - 0.04);          // step onto an incoming puck
+    const jitter = level === 'easy' ? 0.12 : level === 'medium' ? 0.04 : 0;
+    tx += (Math.random() - 0.5) * jitter * 2;
+    tx = Math.max(R, Math.min(1 - R, tx)); ty = Math.max(R, Math.min(0.5, ty));
+    send({ type: 'paddle', x: tx, y: ty });
+  },
   onMessage(msg, ctx) {
     if (msg.type === 'paddle') { if (M.host) M.gp = { x: msg.x, y: msg.y }; }       // host: guest paddle in host coords
     else if (msg.type === 'state') { M.state = msg; }                               // guest: render snapshot

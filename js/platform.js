@@ -2,14 +2,14 @@
 // drives phases: home -> connect -> lobby -> [setup] -> [toss] -> play -> over,
 // and handles pause / disconnect-reconnect / refresh-resume.
 // Depends on the global `Peer` (PeerJS, loaded via CDN).
-import { t, initLang, onLangChange } from './i18n.js?v=18';
-import { sound } from './sound.js?v=18';
-import { initPrefs, getName, setName, haptic } from './prefs.js?v=18';
-import { demo } from './demos.js?v=18';
-import { goOnline as presenceOnline, goOffline as presenceOffline, onLeaderboard, publishScore } from './presence.js?v=18';
-import { recordResult, getRating, overallRating, openProfile, closeProfile, initProfile } from './profile.js?v=18';
-import { claimDaily, getLevel, getCoins, setNotify } from './loyalty.js?v=18';
-import { getUid } from './identity.js?v=18';
+import { t, initLang, onLangChange } from './i18n.js?v=19';
+import { sound } from './sound.js?v=19';
+import { initPrefs, getName, setName, haptic } from './prefs.js?v=19';
+import { demo } from './demos.js?v=19';
+import { goOnline as presenceOnline, goOffline as presenceOffline, onLeaderboard, publishScore } from './presence.js?v=19';
+import { recordResult, getRating, overallRating, openProfile, closeProfile, initProfile } from './profile.js?v=19';
+import { claimDaily, getLevel, getCoins, setNotify } from './loyalty.js?v=19';
+import { getUid } from './identity.js?v=19';
 
 // ---------- DOM helpers ----------
 const $ = (id) => document.getElementById(id);

@@ -63,6 +63,32 @@ export default {
     document.addEventListener('keydown', M.keyHandler);
     if (ctx.isHost) M.loop = setInterval(() => tick(ctx), TICK);
   },
+  // Bot drives side B: on each broadcast tick, steer away from danger (look-ahead ray + flood).
+  // Reaction is a few ticks stale (loopback delay), so it turns early with a wide margin.
+  botOnGame(msg, send, level) {
+    if (msg.type !== 'tick' || !M.headB) return;
+    const head = M.headB, dir = M.dirB;
+    const free = (x, y) => x >= 0 && x < COLS && y >= 0 && y < ROWS && !M.grid[y][x];
+    const ray = (d) => { let n = 0, x = head[0], y = head[1]; for (let k = 0; k < 25; k++) { x += d[0]; y += d[1]; if (!free(x, y)) break; n++; } return n; };
+    const flood = (d) => {
+      const sx = head[0] + d[0], sy = head[1] + d[1]; if (!free(sx, sy)) return 0;
+      const seen = new Set([sy * COLS + sx]), q = [[sx, sy]]; let c = 0;
+      while (q.length && c < 80) { const [x, y] = q.shift(); c++; for (const [ex, ey] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + ex, ny = y + ey, k = ny * COLS + nx; if (free(nx, ny) && !seen.has(k)) { seen.add(k); q.push([nx, ny]); } } }
+      return c;
+    };
+    const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]].filter((d) => !opp(d, dir));
+    const straight = ray(dir), MARGIN = 7;
+    if (level === 'easy') { if (straight >= 2) return; const safe = dirs.filter((d) => ray(d) >= 1); if (safe.length) send({ type: 'dir', d: safe[Math.floor(Math.random() * safe.length)] }); return; }
+    if (straight >= MARGIN) {
+      let best = dir, bs = straight + (level === 'hard' ? flood(dir) * 0.1 : 0) + 0.5;
+      for (const d of dirs) { const s = ray(d) + (level === 'hard' ? flood(d) * 0.1 : 0); if (s > bs) { bs = s; best = d; } }
+      if (!(best[0] === dir[0] && best[1] === dir[1])) send({ type: 'dir', d: best });
+      return;
+    }
+    let best = null, bs = -1;
+    for (const d of dirs) { const s = ray(d) * 2 + (level === 'hard' ? flood(d) : ray(d)); if (s > bs) { bs = s; best = d; } }
+    if (best) send({ type: 'dir', d: best });
+  },
   onMessage(msg, ctx) {
     if (msg.type === 'dir') { if (!opp(msg.d, M.dirB)) M.dirB = msg.d; }      // host receives guest input
     else if (msg.type === 'tick') { M.grid[msg.a[1]][msg.a[0]] = 'a'; M.grid[msg.b[1]][msg.b[0]] = 'b'; M.headA = msg.a; M.headB = msg.b; paint(); } // guest renders
