@@ -955,3 +955,25 @@ export function match3Gravity(board, refill) {
   return board;
 }
 
+// ---------- Phase 3 helpers (pure) ----------
+// Match history: newest-first, capped.
+export function historyPush(arr, entry, cap = 30) { return [entry, ...(arr || [])].slice(0, cap); }
+// Ranked seasons: id by calendar month; soft-reset pulls ratings halfway back to 1000.
+export function seasonId(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); }
+export function softResetRating(r) { return Math.round(1000 + ((r || 1000) - 1000) * 0.5); }
+export const RANK_TIERS = [
+  { key: 'bronze', emoji: '🥉', min: 0 },
+  { key: 'silver', emoji: '🥈', min: 1050 },
+  { key: 'gold', emoji: '🥇', min: 1150 },
+  { key: 'platinum', emoji: '💠', min: 1300 },
+  { key: 'diamond', emoji: '💎', min: 1500 },
+  { key: 'master', emoji: '👑', min: 1750 },
+];
+export function rankTier(rating) { let t = RANK_TIERS[0]; for (const x of RANK_TIERS) if ((rating || 1000) >= x.min) t = x; return t; }
+// Friends / recent players: upsert by stable uid, newest-first, capped.
+export function upsertFriend(list, f, cap = 24) {
+  if (!f || !f.uid) return list || [];
+  const rest = (list || []).filter((x) => x.uid !== f.uid);
+  return [Object.assign({}, f)].concat(rest).slice(0, cap);
+}
+

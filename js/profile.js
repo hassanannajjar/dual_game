@@ -1,11 +1,11 @@
 // Player profile + progression — stats, per-game rating, achievements. All localStorage.
-import { t } from './i18n.js?v=27';
-import { sound } from './sound.js?v=27';
-import { getName, setName } from './prefs.js?v=27';
-import { nextRating, evalAchievements, ACHIEVEMENTS } from './logic.js?v=27';
-import { earnForResult, grantAchievement, questEvent, getLevel, getStreak, renderLevelHeader, renderShop, renderQuests, renderWeekly, renderStreak, renderGifts, owns, equip, REWARDS } from './loyalty.js?v=27';
-import { getToken } from './identity.js?v=27';
-import { getFavs } from './favorites.js?v=27';
+import { t } from './i18n.js?v=28';
+import { sound } from './sound.js?v=28';
+import { getName, setName } from './prefs.js?v=28';
+import { nextRating, evalAchievements, ACHIEVEMENTS, historyPush, seasonId, softResetRating, rankTier } from './logic.js?v=28';
+import { earnForResult, grantAchievement, questEvent, getLevel, getStreak, renderLevelHeader, renderShop, renderQuests, renderWeekly, renderStreak, renderGifts, owns, equip, REWARDS } from './loyalty.js?v=28';
+import { getToken } from './identity.js?v=28';
+import { getFavs } from './favorites.js?v=28';
 
 const $ = (id) => document.getElementById(id);
 const AVATARS = ['🦊', '🐼', '🐸', '🦁', '🐙', '🦄', '🐧', '🐳', '🤖', '👾', '🎲', '⚡'];
@@ -49,6 +49,11 @@ export function recordResult(info) {
   }
   saveStats(s);
 
+  // Match history (newest-first, capped).
+  write('arcade:history', historyPush(read('arcade:history', []), {
+    gameId: info.gameId, outcome: info.outcome, opp: info.oppName || '', vsBot: !!info.vsBot, solo: !!info.solo, ts: Date.now(),
+  }));
+
   // Loyalty earn first (updates xp/level, applies booster + level-up gifts).
   const earn = earnForResult(info.outcome, g.streak);
 
@@ -67,7 +72,36 @@ export function recordResult(info) {
   return Object.assign({ delta, unlocked, questsDone: q.completed, chestFromQuests: q.grantedChest, weeklyDone: q.weeklyDone }, earn);
 }
 
+// ---------- ranked seasons ---------- soft-reset ratings at each new calendar-month season.
+export function applySeason() {
+  const cur = seasonId(new Date());
+  const prev = read('arcade:season', null);
+  if (prev && prev.id === cur) return prev;
+  const s = loadStats();
+  let bestPrev = 0;
+  for (const g of Object.values(s.games)) { bestPrev = Math.max(bestPrev, g.rating || 1000); if (prev) g.rating = softResetRating(g.rating || 1000); }
+  if (prev) saveStats(s);                                   // only reset when carrying over from a prior season
+  const rec = { id: cur, prevBest: prev ? bestPrev : 0 };
+  write('arcade:season', rec);
+  return rec;
+}
+export function currentSeason() { return read('arcade:season', { id: seasonId(new Date()), prevBest: 0 }); }
+export function myRankTier() { return rankTier(overallRating()); }
+
+// ---------- share card ---------- returns true if it fell back to clipboard (caller can toast).
+export function shareStats(games) {
+  const s = loadStats(); const played = Object.values(s.games);
+  const totW = played.reduce((a, g) => a + (g.w || 0), 0);
+  const rt = rankTier(overallRating());
+  const url = location.origin + location.pathname;
+  const text = t('share_text', { tier: rt.emoji, rating: overallRating(), wins: totW, games: played.length, url });
+  if (navigator.share) { navigator.share({ text }).catch(() => {}); return false; }
+  if (navigator.clipboard) { navigator.clipboard.writeText(text).catch(() => {}); return true; }
+  return false;
+}
+
 // ---------- profile modal ----------
+const esc = (s) => String(s == null ? '' : s).replace(/[<>&]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]));
 function achLabel(id) { return t('ach_' + id); }
 function el(tag, cls, html) { const n = document.createElement(tag); if (cls) n.className = cls; if (html != null) n.innerHTML = html; return n; }
 function gName(g) { const k = 'g_' + g.id.replace(/-/g, '_'); const s = t(k); return s === k ? g.name : s; }
@@ -108,7 +142,11 @@ function renderProfile(games) {
   const played = (games || []).filter((g) => s.games[g.id]);
   const totW = played.reduce((a, g) => a + s.games[g.id].w, 0);
   const totP = played.reduce((a, g) => a + s.games[g.id].w + s.games[g.id].l + s.games[g.id].d, 0);
-  $('profile-totals').textContent = t('profile_totals', { w: totW, p: totP, r: overallRating() });
+  const rt = rankTier(overallRating());
+  $('profile-totals').innerHTML = t('profile_totals', { w: totW, p: totP, r: overallRating() }) +
+    ` · <span class="text-indigo-300">${rt.emoji} ${t('rank_' + rt.key)}</span>`;
+
+  if ($('history')) renderHistory($('history'), games);
 
   // per-game table
   const tbl = $('profile-stats'); tbl.innerHTML = '';
@@ -135,6 +173,23 @@ function renderProfile(games) {
   }
 }
 
+function renderHistory(box, games) {
+  box.innerHTML = '';
+  const h = read('arcade:history', []);
+  if (!h.length) { box.appendChild(el('p', 'text-sm text-slate-500 text-center py-2', t('no_history'))); return; }
+  const byId = {}; (games || []).forEach((g) => { byId[g.id] = g; });
+  for (const m of h.slice(0, 12)) {
+    const g = byId[m.gameId];
+    const dot = m.outcome === 'win' ? '🟢' : m.outcome === 'lose' ? '🔴' : '🟡';
+    const who = m.vsBot ? t('bot') : m.solo ? t('play_alone').replace(/^▶ ?/, '') : (m.opp ? esc(m.opp) : t('opponent'));
+    const row = el('div', 'flex items-center justify-between gap-2 text-sm py-1 border-b border-slate-800');
+    row.appendChild(el('span', 'flex-1 truncate', `${dot} ${g ? g.emoji : '🎮'} ${g ? gName(g) : m.gameId}`));
+    row.appendChild(el('span', 'text-xs text-slate-500 truncate max-w-[45%]', who));
+    box.appendChild(row);
+  }
+}
+
 export function initProfile() {
+  applySeason();                                            // roll the ranked season forward (soft reset) if needed
   $('profile-name').oninput = (e) => setName(e.target.value.slice(0, 16));
 }

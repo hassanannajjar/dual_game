@@ -2,15 +2,18 @@
 // drives phases: home -> connect -> lobby -> [setup] -> [toss] -> play -> over,
 // and handles pause / disconnect-reconnect / refresh-resume.
 // Depends on the global `Peer` (PeerJS, loaded via CDN).
-import { t, initLang, onLangChange } from './i18n.js?v=27';
-import { sound, setMusicScene, musicSwell, setMusicNotify } from './sound.js?v=27';
-import { initPrefs, getName, setName, haptic } from './prefs.js?v=27';
-import { demo } from './demos.js?v=27';
-import { goOnline as presenceOnline, onBoard as onPresenceBoard, publishScore, setPresence, isOnline } from './presence.js?v=27';
-import { recordResult, getRating, overallRating, openProfile, closeProfile, initProfile, getAvatar } from './profile.js?v=27';
-import { claimDaily, getLevel, getCoins, setNotify } from './loyalty.js?v=27';
-import { getUid, getGuestName } from './identity.js?v=27';
-import { isFav, toggleFav, getFavs } from './favorites.js?v=27';
+import { t, initLang, onLangChange, getLang } from './i18n.js?v=28';
+import { rankTier } from './logic.js?v=28';
+import { sound, setMusicScene, musicSwell, setMusicNotify } from './sound.js?v=28';
+import { initPrefs, getName, setName, haptic } from './prefs.js?v=28';
+import { demo } from './demos.js?v=28';
+import { goOnline as presenceOnline, onBoard as onPresenceBoard, publishScore, setPresence, isOnline } from './presence.js?v=28';
+import { recordResult, getRating, overallRating, openProfile, closeProfile, initProfile, getAvatar, shareStats, currentSeason } from './profile.js?v=28';
+import { claimDaily, getLevel, getCoins, setNotify } from './loyalty.js?v=28';
+import { getUid, getGuestName } from './identity.js?v=28';
+import { isFav, toggleFav, getFavs } from './favorites.js?v=28';
+import { getFriends, addFriend } from './friends.js?v=28';
+import { hasTutorial, getTutorial } from './tutorials.js?v=28';
 
 // ---------- DOM helpers ----------
 const $ = (id) => document.getElementById(id);
@@ -97,7 +100,7 @@ function wireConn(conn) {
   conn.on('open', () => {
     setStatus(t('connected'));
     sound('join');
-    sys('hello', { name: getName() });
+    sys('hello', { name: getName(), uid: getUid(), avatar: getAvatar() });
     if (S.inPlay) { clearInterval(S.reconnectTimer); sys('resume'); resumeGame(); }
     else if (S.isHost) enterHostLobby();
   });
@@ -201,6 +204,7 @@ function onData(msg) {
       break;
     case 'hello':
       S.oppName = (msg.name || '').slice(0, 16);
+      S.oppUid = msg.uid || null; S.oppAvatar = msg.avatar || '🎮';
       if (!$('screen-play').classList.contains('hidden')) updateTurnLabel();
       break;
     case 'changegame':
@@ -330,11 +334,34 @@ function openPreview(id) {
   favBtn.onclick = () => { toggleFav(id); sound('toggle'); paintFav(); renderHome(); };
   paintFav();
   $('btn-preview-play').onclick = () => { closePreview(); selectGame(id); };
+  const learn = $('btn-preview-learn');
+  if (learn) { const has = hasTutorial(id); learn.classList.toggle('hidden', !has); learn.onclick = has ? () => { closePreview(); openTutorial(id); } : null; }
   if (S.previewDemoStop) S.previewDemoStop();
   S.previewDemoStop = demo(id, $('preview-demo'), g.emoji);
   $('preview-panel').classList.remove('hidden');
 }
 function closePreview() { if (S.previewDemoStop) { S.previewDemoStop(); S.previewDemoStop = null; } $('preview-panel').classList.add('hidden'); }
+// ---------- per-game tutorial (step-by-step) ----------
+function openTutorial(id) {
+  const g = gameById(id); if (!g) return;
+  S.tut = { id, steps: getTutorial(id, getLang()) || [], i: 0 };
+  if (!S.tut.steps.length) return;
+  $('tutorial-title').textContent = gameTitle(g);
+  if (S.tutDemoStop) S.tutDemoStop();
+  S.tutDemoStop = demo(id, $('tutorial-demo'), g.emoji);
+  paintTutorial();
+  $('tutorial-panel').classList.remove('hidden');
+}
+function paintTutorial() {
+  const s = S.tut; if (!s) return;
+  $('tutorial-step').textContent = s.steps[s.i] || '';
+  $('tutorial-progress').textContent = (s.i + 1) + ' / ' + s.steps.length;
+  $('btn-tut-prev').disabled = s.i === 0;
+  $('btn-tut-next').textContent = s.i >= s.steps.length - 1 ? t('tut_done') : t('tut_next');
+}
+function tutNext() { const s = S.tut; if (!s) return; if (s.i >= s.steps.length - 1) return closeTutorial(); s.i++; paintTutorial(); }
+function tutPrev() { const s = S.tut; if (!s || s.i === 0) return; s.i--; paintTutorial(); }
+function closeTutorial() { if (S.tutDemoStop) { S.tutDemoStop(); S.tutDemoStop = null; } $('tutorial-panel').classList.add('hidden'); S.tut = null; }
 // ---------- in-room game picker ----------
 function openPicker() {
   if (!(S.conn && S.conn.open)) return;              // only meaningful while in a room
@@ -431,7 +458,7 @@ function renderBoard(list) {
     left.innerHTML = `${medal}<span class="text-base">${p.avatar || '🎮'}</span>${dot}<span class="truncate font-semibold">${esc(p.name)}</span><span class="text-[10px] text-slate-400 shrink-0">${tierBadge(p.level || 1)}${t('lvl')}${p.level || 1}</span>`;
     li.appendChild(left);
     const right = el('span', 'flex items-center gap-2 shrink-0');
-    right.innerHTML = `<span class="font-mono text-indigo-400">${p.rating}</span><span class="font-mono text-amber-400 text-xs">🪙${p.coins || 0}</span>`;
+    right.innerHTML = `<span title="${t('rank_' + rankTier(p.rating).key)}">${rankTier(p.rating).emoji}</span><span class="font-mono text-indigo-400">${p.rating}</span><span class="font-mono text-amber-400 text-xs">🪙${p.coins || 0}</span>`;
     if (!p.isMe && p.online && p.peerId) {
       const canInvite = !p.dnd && !p.busy && !(S.conn && S.conn.open);
       const b = el('button', 'px-3 py-1 rounded-lg text-xs font-semibold transition active:scale-95 ' + (canInvite ? 'bg-indigo-600 hover:bg-indigo-500' : 'bg-slate-700 text-slate-500'), p.busy ? t('busy') : p.dnd ? t('dnd_short') : t('invite'));
@@ -441,8 +468,34 @@ function renderBoard(list) {
     li.appendChild(right);
     box.appendChild(li);
   });
+  renderFriends();                              // keep the friends list's online status in sync
 }
-function openBoard() { show('online'); renderBoard(S.boardList || []); }
+function renderFriends() {
+  const box = $('friends-list'), sec = $('friends-section'); if (!box) return;
+  const friends = getFriends();
+  if (!friends.length) { if (sec) sec.classList.add('hidden'); return; }
+  if (sec) sec.classList.remove('hidden');
+  box.innerHTML = '';
+  const byUid = {}; (S.boardList || []).forEach((p) => { if (p.uid) byUid[p.uid] = p; });
+  for (const f of friends.slice(0, 12)) {
+    const p = byUid[f.uid], online = !!(p && p.online);
+    const li = el('li', 'flex items-center justify-between gap-2 rounded-xl px-3 py-2 text-sm bg-slate-800');
+    const left = el('span', 'flex items-center gap-1.5 truncate');
+    left.innerHTML = `<span class="text-base">${f.avatar || '🎮'}</span><span class="${online ? 'text-emerald-400' : 'text-slate-600'}">●</span><span class="truncate font-semibold">${esc(f.name)}</span>`;
+    li.appendChild(left);
+    const canInvite = online && p.peerId && !p.dnd && !p.busy && !(S.conn && S.conn.open);
+    const b = el('button', 'px-3 py-1 rounded-lg text-xs font-semibold transition ' + (canInvite ? 'bg-indigo-600 hover:bg-indigo-500' : 'bg-slate-700 text-slate-500'), online ? t('invite') : t('offline'));
+    if (canInvite) b.onclick = () => invitePlayer(p.peerId, f.name); else b.disabled = true;
+    li.appendChild(b);
+    box.appendChild(li);
+  }
+}
+function openBoard() {
+  show('online');
+  const sl = $('season-label'); if (sl) sl.textContent = t('season', { id: currentSeason().id });
+  renderBoard(S.boardList || []);
+  renderFriends();
+}
 function toggleDnd() {
   S.dnd = !S.dnd;
   try { localStorage.setItem('arcade:dnd', S.dnd ? '1' : '0'); } catch (e) {}
@@ -472,6 +525,8 @@ function invitePlayer(peerId, name) {
 function beginInvitedGame(iAmHost) {
   $('invite-panel').classList.add('hidden');
   setPresence({ busy: true });
+  sys('hello', { name: getName(), uid: getUid(), avatar: getAvatar() });   // exchange identity for Friends
+
   S.isHost = iAmHost;
   S.peer = S.lobbyPeer;
   S.roomCode = iAmHost ? S.lobbyPeer.id : (S.pendingInvite ? S.pendingInvite.fromId : S.roomCode);
@@ -792,8 +847,9 @@ function recordAndSeries(outcome) {
     if (outcome === 'win') S.series.me++;
     else if (outcome === 'lose') S.series.opp++;
   }
+  if (online && S.oppUid) addFriend({ uid: S.oppUid, name: S.oppName, avatar: S.oppAvatar });   // remember this player
   const res = recordResult({
-    gameId: S.game.id, outcome, category: S.game.category,
+    gameId: S.game.id, outcome, category: S.game.category, oppName: S.oppName,
     vsBot: S.vsBot, solo: S.solo, botLevel: S.botLevel, oppRating: S.oppRating,
   });
   for (const id of res.unlocked) toast(t('new_badge', { name: t('ach_' + id) }));
@@ -899,6 +955,10 @@ export function boot() {
   $('btn-preview-close').onclick = closePreview;
   $('btn-preview-close2').onclick = closePreview;
   $('preview-panel').addEventListener('click', (e) => { if (e.target === $('preview-panel')) closePreview(); });
+  if ($('btn-tut-next')) $('btn-tut-next').onclick = tutNext;
+  if ($('btn-tut-prev')) $('btn-tut-prev').onclick = tutPrev;
+  if ($('btn-tut-close')) $('btn-tut-close').onclick = closeTutorial;
+  if ($('tutorial-panel')) $('tutorial-panel').addEventListener('click', (e) => { if (e.target === $('tutorial-panel')) closeTutorial(); });
   $('btn-change').onclick = openPicker;
   $('btn-result-change').onclick = openPicker;
   $('btn-picker-cancel').onclick = closePicker;
@@ -922,6 +982,7 @@ export function boot() {
   // Profile
   initProfile();
   $('btn-profile').onclick = () => openProfile(games);
+  if ($('btn-share')) $('btn-share').onclick = () => { if (shareStats(games)) toast(t('copied')); };
   $('btn-profile-close').onclick = closeProfile;
   $('btn-profile-close2').onclick = closeProfile;
   $('profile-panel').addEventListener('click', (e) => { if (e.target === $('profile-panel')) closeProfile(); });

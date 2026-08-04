@@ -364,4 +364,18 @@ assert.ok(evalAchievements({ games: {}, botWins: {}, cats: [] }, { favs: 5 }).in
 { const games = {}; for (let i = 0; i < 10; i++) games['g' + i] = { w: 1, l: 0, d: 0, bestStreak: 1, rating: 1000 };
   assert.ok(evalAchievements({ games, botWins: {}, cats: [] }).includes('games_10'), 'ach games_10 counts distinct played'); }
 
-console.log('PASS (all logic incl. bots/minesweeper/sudoku + rating/achievements + loyalty + quests/chests + hard-bots + new-games incl. mastermind/dominoes/word-race/match3 + weekly + earlier)');
+// ---- Phase 3 helpers: history / seasons / rank / friends ----
+import { historyPush, seasonId, softResetRating, rankTier, upsertFriend } from './js/logic.js';
+{ let h = []; for (let i = 0; i < 40; i++) h = historyPush(h, { i }); assert.strictEqual(h.length, 30, 'history capped at 30'); assert.strictEqual(h[0].i, 39, 'history newest-first'); }
+assert.strictEqual(seasonId(new Date(Date.UTC(2026, 7, 4))), '2026-08', 'seasonId YYYY-MM');
+assert.strictEqual(softResetRating(1400), 1200, 'soft reset pulls halfway to 1000');
+assert.strictEqual(softResetRating(800), 900, 'soft reset raises low ratings halfway too');
+assert.strictEqual(softResetRating(1000), 1000, 'soft reset keeps 1000');
+assert.strictEqual(rankTier(1000).key, 'bronze', 'rank bronze at 1000');
+assert.strictEqual(rankTier(1150).key, 'gold', 'rank gold at 1150');
+assert.strictEqual(rankTier(1800).key, 'master', 'rank master at 1800');
+{ let f = upsertFriend([], { uid: 'a', name: 'Al' }); f = upsertFriend(f, { uid: 'b', name: 'Bo' }); f = upsertFriend(f, { uid: 'a', name: 'Al2' });
+  assert.strictEqual(f.length, 2, 'friends dedup by uid'); assert.strictEqual(f[0].uid, 'a', 'friends re-upsert moves to front'); assert.strictEqual(f[0].name, 'Al2', 'friends upsert updates fields'); }
+assert.deepStrictEqual(upsertFriend([{ uid: 'a' }], { name: 'no-uid' }), [{ uid: 'a' }], 'friends ignore entries without uid');
+
+console.log('PASS (all logic incl. bots/minesweeper/sudoku + rating/achievements + loyalty + quests/chests + hard-bots + new-games incl. mastermind/dominoes/word-race/match3 + weekly + history/seasons/rank/friends + earlier)');

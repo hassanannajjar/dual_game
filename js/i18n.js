@@ -163,6 +163,11 @@ const DICT = {
     favorites: 'Favorites', favorite: 'Favorite', faved: '★ Added {name} to favorites', unfaved: 'Removed {name} from favorites',
     faved_short: 'Favorited', add_fav: 'Add to favorites', no_favs: 'No favorites yet — tap the ★ on a game.',
     preview: 'Preview', preview_play: '▶ Play',
+    recent_matches: 'Recent matches', no_history: 'No matches yet.', share: '🔗 Share my stats', copied: 'Copied to clipboard',
+    share_text: '🎮 Arcade — {tier} {rating} rating · {wins} wins across {games} games. Play me: {url}',
+    friends_recent: 'Friends & recent', offline: 'Offline', season: 'Season {id}',
+    learn: '📘 Learn to play', tut_prev: 'Back', tut_next: 'Next', tut_done: 'Got it',
+    rank_bronze: 'Bronze', rank_silver: 'Silver', rank_gold: 'Gold', rank_platinum: 'Platinum', rank_diamond: 'Diamond', rank_master: 'Master',
   },
   ar: {
     tagline: 'لاعبان · اتصال مباشر · بدون تسجيل',
@@ -316,6 +321,11 @@ const DICT = {
     favorites: 'المفضلة', favorite: 'مفضّلة', faved: '★ أُضيفت {name} إلى المفضلة', unfaved: 'أُزيلت {name} من المفضلة',
     faved_short: 'في المفضلة', add_fav: 'أضف إلى المفضلة', no_favs: 'لا مفضلات بعد — انقر ★ على لعبة.',
     preview: 'معاينة', preview_play: '▶ العب',
+    recent_matches: 'المباريات الأخيرة', no_history: 'لا مباريات بعد.', share: '🔗 شارك إحصاءاتي', copied: 'نُسخ إلى الحافظة',
+    share_text: '🎮 أركيد — {tier} تقييم {rating} · {wins} فوزًا في {games} لعبة. العب معي: {url}',
+    friends_recent: 'الأصدقاء والأخيرون', offline: 'غير متصل', season: 'الموسم {id}',
+    learn: '📘 تعلّم اللعب', tut_prev: 'رجوع', tut_next: 'التالي', tut_done: 'فهمت',
+    rank_bronze: 'برونزي', rank_silver: 'فضي', rank_gold: 'ذهبي', rank_platinum: 'بلاتيني', rank_diamond: 'ماسي', rank_master: 'أسطوري',
   },
 };
 

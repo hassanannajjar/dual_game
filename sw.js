@@ -1,5 +1,5 @@
 // Service worker — offline app shell + runtime cache. Bump CACHE on each release.
-const CACHE = 'arcade-v27';
+const CACHE = 'arcade-v28';
 const SHELL = [
   './', './index.html', './app.css', './manifest.webmanifest',
   './icon.svg', './icon-192.png', './icon-512.png', './apple-touch-icon-180.png',
