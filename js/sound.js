@@ -93,21 +93,67 @@ export function setSound(on) {
 }
 export function soundOn() { return enabled; }
 
-// ---------- background music (opt-in generative loop) ----------
-const MSCALE = [261.63, 293.66, 329.63, 392.0, 440.0, 523.25];   // C major pentatonic
-function musicTick() {
-  if (!enabled || !music) return;
-  const root = MSCALE[mi % MSCALE.length];
-  voice('triangle', root, root, 0.5, 0.03, 0, 0.03);
-  voice('sine', root / 2, root / 2, 0.6, 0.022, 0, 0.03);
-  if (mi % 2 === 0) voice('triangle', MSCALE[(mi + 2) % MSCALE.length], 0, 0.3, 0.02, 0.28);
-  mi++;
+// ---------- background music: multi-mood generative engine (no files) ----------
+// Moods evolve via a chord progression + arpeggiator + pads + bass, through a feedback delay for
+// space. In "auto" it crossfades moods every ~45–75s so it never loops obviously.
+let mStep = 0, musicBus = null, curMood = 'cinematic', moodUntil = 0, musicMode = 'auto';
+try { musicMode = localStorage.getItem('arcade:musicMood') || 'auto'; } catch (e) {}
+const semi = (root, n) => root * Math.pow(2, n / 12);
+const MOODS = {
+  // Interstellar-ish: slow, wide, minor, swelling.
+  cinematic: { root: 220, step: 900, chordSteps: 4, arp: 'triangle', pad: 'sine', bass: 'sine', arpG: 0.05, padG: 0.045, bassG: 0.05, rest: 0.15, prog: [[0, 3, 7, 12], [5, 8, 12, 15], [3, 7, 10, 14], [7, 10, 14, 17]] },
+  // Minecraft-ish: gentle, sparse, major/lydian, lots of space.
+  calm: { root: 261.63, step: 1050, chordSteps: 4, arp: 'sine', pad: 'triangle', bass: 'sine', arpG: 0.05, padG: 0.035, bassG: 0.04, rest: 0.4, prog: [[0, 4, 7, 11], [5, 9, 12, 16], [7, 11, 14, 17], [2, 5, 9, 12]] },
+  // Light upbeat pulse.
+  arcade: { root: 261.63, step: 320, chordSteps: 8, arp: 'square', pad: 'triangle', bass: 'square', arpG: 0.04, padG: 0.025, bassG: 0.045, rest: 0.1, prog: [[0, 4, 7, 12], [0, 4, 7, 12], [5, 9, 12, 17], [7, 11, 14, 19]] },
+};
+function ensureMusicBus() {
+  const a = ac(); if (!a || !master || musicBus) return;
+  musicBus = a.createGain(); musicBus.gain.value = 1; musicBus.connect(master);
+  const d = a.createDelay(1.0); d.delayTime.value = 0.3;
+  const fb = a.createGain(); fb.gain.value = 0.32;
+  const lp = a.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 2200;
+  musicBus.connect(d); d.connect(lp); lp.connect(fb); fb.connect(d); lp.connect(master);   // feedback delay → space
 }
-export function startMusic() { if (musicTimer || !enabled) return; ac(); musicTimer = setInterval(musicTick, 600); musicTick(); }
-export function stopMusic() { clearInterval(musicTimer); musicTimer = null; }
+function mvoice(wave, freq, dur, gain, attack) {
+  const a = ac(); if (!a || !musicBus) return;
+  const t0 = a.currentTime, o = a.createOscillator(), g = a.createGain();
+  o.type = wave; o.frequency.setValueAtTime(freq, t0);
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.exponentialRampToValueAtTime(gain, t0 + (attack || 0.05));
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+  o.connect(g); g.connect(musicBus); o.start(t0); o.stop(t0 + dur + 0.05);
+}
+function musicTick() {
+  if (!enabled || !music || !musicBus) { musicTimer = null; return; }
+  const now = Date.now();
+  if (musicMode === 'auto') { if (now > moodUntil) { const ks = Object.keys(MOODS); let n; do { n = ks[Math.floor(Math.random() * ks.length)]; } while (n === curMood && ks.length > 1); curMood = n; moodUntil = now + 45000 + Math.floor(Math.random() * 30000); } }
+  else curMood = musicMode;
+  const m = MOODS[curMood] || MOODS.cinematic;
+  const chord = m.prog[Math.floor(mStep / m.chordSteps) % m.prog.length];
+  if (mStep % m.chordSteps === 0) {                                   // chord change: pad + bass
+    const dur = (m.step * m.chordSteps) / 1000;
+    for (const n of chord) mvoice(m.pad, semi(m.root, n), dur * 0.95, m.padG, dur * 0.35);
+    mvoice(m.bass, semi(m.root, chord[0] - 12), dur * 0.9, m.bassG, 0.05);
+  }
+  if (Math.random() > m.rest) {                                       // arpeggio note (with rests for space)
+    const n = chord[mStep % chord.length] + (Math.random() < 0.3 ? 12 : 0);
+    mvoice(m.arp, semi(m.root, n), Math.min(m.step / 1000 * 1.5, 0.7), m.arpG, 0.04);
+  }
+  mStep++;
+  musicTimer = setTimeout(musicTick, m.step);
+}
+export function startMusic() { if (!enabled) return; ac(); ensureMusicBus(); if (musicTimer) return; musicTick(); }
+export function stopMusic() { clearTimeout(musicTimer); musicTimer = null; }
 export function setMusic(on) {
   music = !!on;
   try { localStorage.setItem('arcade:music', music ? 'on' : 'off'); } catch (e) {}
   if (music && enabled) startMusic(); else stopMusic();
 }
 export function musicOn() { return music; }
+export function getMusicMode() { return musicMode; }
+export function setMusicMode(mode) {
+  musicMode = ['auto', 'cinematic', 'calm', 'arcade'].includes(mode) ? mode : 'auto';
+  try { localStorage.setItem('arcade:musicMood', musicMode); } catch (e) {}
+  if (musicMode !== 'auto') { curMood = musicMode; moodUntil = 0; }
+}

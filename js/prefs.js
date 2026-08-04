@@ -1,7 +1,7 @@
 // Preferences: display name, theme/accent, haptics + the settings panel.
-import { applyLang, getLang, t, onLangChange } from './i18n.js?v=23';
-import { setSound, soundOn, setVolume, getVolume, setMusic, musicOn } from './sound.js?v=23';
-import { owns, buy } from './loyalty.js?v=23';
+import { applyLang, getLang, t, onLangChange } from './i18n.js?v=24';
+import { setSound, soundOn, setVolume, getVolume, setMusic, musicOn, setMusicMode, getMusicMode } from './sound.js?v=24';
+import { owns, buy } from './loyalty.js?v=24';
 
 const THEMES = ['indigo', 'emerald', 'rose', 'amber', 'sky', 'violet', 'teal'];
 const SWATCH = { indigo: '#6366f1', emerald: '#10b981', rose: '#f43f5e', amber: '#f59e0b', sky: '#0ea5e9', violet: '#8b5cf6', teal: '#14b8a6' };
@@ -44,6 +44,7 @@ function refresh() {
   $('btn-sound-toggle').className = toggleCls(soundOn());
   if ($('pref-volume')) $('pref-volume').value = String(Math.round(getVolume() * 100));
   if ($('btn-music-toggle')) { $('btn-music-toggle').textContent = t(musicOn() ? 'on' : 'off'); $('btn-music-toggle').className = toggleCls(musicOn()); }
+  if ($('pref-music-mood')) { $('pref-music-mood').value = getMusicMode(); $('pref-music-mood').disabled = !musicOn(); }
   const light = getMode() === 'light';
   $('btn-mode-toggle').textContent = t(light ? 'mode_light' : 'mode_dark');
   $('btn-mode-toggle').className = toggleCls(!light);
@@ -90,6 +91,7 @@ export function initPrefs() {
   $('btn-sound-toggle').onclick = () => { setSound(!soundOn()); refresh(); };
   if ($('pref-volume')) $('pref-volume').oninput = (e) => setVolume((+e.target.value || 0) / 100);
   if ($('btn-music-toggle')) $('btn-music-toggle').onclick = () => { setMusic(!musicOn()); refresh(); };
+  if ($('pref-music-mood')) $('pref-music-mood').onchange = (e) => setMusicMode(e.target.value);
   $('btn-mode-toggle').onclick = () => { applyMode(getMode() === 'light' ? 'dark' : 'light'); refresh(); };
   $('btn-haptics-toggle').onclick = () => { setHaptics(!hapticsOn()); refresh(); };
   $('pref-name').oninput = (e) => setName(e.target.value.slice(0, 16));
