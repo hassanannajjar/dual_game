@@ -93,53 +93,116 @@ export function setSound(on) {
 }
 export function soundOn() { return enabled; }
 
-// ---------- background music: multi-mood generative engine (no files) ----------
-// Moods evolve via a chord progression + arpeggiator + pads + bass, through a feedback delay for
-// space. In "auto" it crossfades moods every ~45–75s so it never loops obviously.
-let mStep = 0, musicBus = null, curMood = 'cinematic', moodUntil = 0, musicMode = 'auto';
+// ---------- background music: adaptive layered generative engine (no files) ----------
+// Original ambient music evoking cinematic-space scores. Each mood = chord progression + a set of
+// layers (organ/choir pad, bass, arpeggio, ticking ostinato, high shimmer), each on its own gain
+// node so layers slowly fade in/out. The mix "breathes" (occasional near-silence) and, in "auto",
+// crossfades moods. A scene (menu vs match) biases which moods/layers are active.
+let mStep = 0, musicBus = null, mixGain = null, layerGains = null, curMood = 'interstellar';
+let moodUntil = 0, musicMode = 'auto', scene = 'menu', breatheUntil = 0;
 try { musicMode = localStorage.getItem('arcade:musicMood') || 'auto'; } catch (e) {}
 const semi = (root, n) => root * Math.pow(2, n / 12);
+const LAYERS = ['pad', 'bass', 'arp', 'tick', 'shimmer'];
 const MOODS = {
-  // Interstellar-ish: slow, wide, minor, swelling.
-  cinematic: { root: 220, step: 900, chordSteps: 4, arp: 'triangle', pad: 'sine', bass: 'sine', arpG: 0.05, padG: 0.045, bassG: 0.05, rest: 0.15, prog: [[0, 3, 7, 12], [5, 8, 12, 15], [3, 7, 10, 14], [7, 10, 14, 17]] },
-  // Minecraft-ish: gentle, sparse, major/lydian, lots of space.
-  calm: { root: 261.63, step: 1050, chordSteps: 4, arp: 'sine', pad: 'triangle', bass: 'sine', arpG: 0.05, padG: 0.035, bassG: 0.04, rest: 0.4, prog: [[0, 4, 7, 11], [5, 9, 12, 16], [7, 11, 14, 17], [2, 5, 9, 12]] },
-  // Light upbeat pulse.
-  arcade: { root: 261.63, step: 320, chordSteps: 8, arp: 'square', pad: 'triangle', bass: 'square', arpG: 0.04, padG: 0.025, bassG: 0.045, rest: 0.1, prog: [[0, 4, 7, 12], [0, 4, 7, 12], [5, 9, 12, 17], [7, 11, 14, 19]] },
+  // Epic minor, wide and slow: organ pad + steady ticking ostinato + swelling arpeggio.
+  interstellar: { root: 196, step: 950, chordSteps: 4, padG: 0.05, bassWave: 'sine', bassG: 0.06, arpWave: 'triangle', arpG: 0.045, rest: 0.35, organ: true, tick: true, tickG: 0.028, tickDiv: 1, shimmer: true, shimmerG: 0.03, prog: [[0, 3, 7, 10], [-2, 3, 7, 10], [-4, 0, 3, 7], [-5, 2, 7, 10]] },
+  // Ethereal space-awe: sustained detuned choral drones, very sparse, grand open harmony.
+  odyssey: { root: 174.61, step: 1400, chordSteps: 2, padG: 0.055, bassWave: 'sine', bassG: 0.045, arpWave: 'sine', arpG: 0.03, rest: 0.7, choir: true, shimmer: true, shimmerG: 0.035, prog: [[0, 4, 7, 11], [2, 7, 11, 14], [0, 5, 9, 12], [-3, 4, 9, 12]] },
+  // Original three (kept): swelling / gentle / upbeat.
+  cinematic: { root: 220, step: 900, chordSteps: 4, padWave: 'sine', padG: 0.045, bassWave: 'sine', bassG: 0.05, arpWave: 'triangle', arpG: 0.05, rest: 0.15, prog: [[0, 3, 7, 12], [5, 8, 12, 15], [3, 7, 10, 14], [7, 10, 14, 17]] },
+  calm: { root: 261.63, step: 1050, chordSteps: 4, padWave: 'triangle', padG: 0.035, bassWave: 'sine', bassG: 0.04, arpWave: 'sine', arpG: 0.05, rest: 0.4, prog: [[0, 4, 7, 11], [5, 9, 12, 16], [7, 11, 14, 17], [2, 5, 9, 12]] },
+  arcade: { root: 261.63, step: 320, chordSteps: 8, padWave: 'triangle', padG: 0.025, bassWave: 'square', bassG: 0.045, arpWave: 'square', arpG: 0.04, rest: 0.1, prog: [[0, 4, 7, 12], [0, 4, 7, 12], [5, 9, 12, 17], [7, 11, 14, 19]] },
 };
+// Per-scene layer intensity targets (0..1 multipliers on each layer's gain).
+const SCENE_LAYERS = {
+  menu: { pad: 1.0, bass: 0.65, arp: 0.35, tick: 0.0, shimmer: 0.6 },
+  match: { pad: 1.0, bass: 1.0, arp: 0.9, tick: 0.9, shimmer: 0.85 },
+};
+const AUTO_POOL = { menu: ['odyssey', 'calm', 'interstellar'], match: ['interstellar', 'arcade', 'cinematic'] };
+
 function ensureMusicBus() {
   const a = ac(); if (!a || !master || musicBus) return;
   musicBus = a.createGain(); musicBus.gain.value = 1; musicBus.connect(master);
-  const d = a.createDelay(1.0); d.delayTime.value = 0.3;
-  const fb = a.createGain(); fb.gain.value = 0.32;
+  const d = a.createDelay(1.0); d.delayTime.value = 0.34;
+  const fb = a.createGain(); fb.gain.value = 0.34;
   const lp = a.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 2200;
   musicBus.connect(d); d.connect(lp); lp.connect(fb); fb.connect(d); lp.connect(master);   // feedback delay → space
+  mixGain = a.createGain(); mixGain.gain.value = 1; mixGain.connect(musicBus);              // breathing / crossfade
+  layerGains = {};
+  for (const k of LAYERS) { const g = a.createGain(); g.gain.value = (k === 'pad' || k === 'bass') ? 1 : 0.3; g.connect(mixGain); layerGains[k] = g; }
 }
-function mvoice(wave, freq, dur, gain, attack) {
-  const a = ac(); if (!a || !musicBus) return;
+function layerNode(layer) { return (layerGains && layerGains[layer]) || mixGain || musicBus; }
+function osc(wave, freq, dur, gain, attack, dest, detune) {
+  const a = ac(); if (!a || !dest) return;
   const t0 = a.currentTime, o = a.createOscillator(), g = a.createGain();
-  o.type = wave; o.frequency.setValueAtTime(freq, t0);
+  o.type = wave; o.frequency.setValueAtTime(freq, t0); if (detune) o.detune.setValueAtTime(detune, t0);
   g.gain.setValueAtTime(0.0001, t0);
   g.gain.exponentialRampToValueAtTime(gain, t0 + (attack || 0.05));
   g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-  o.connect(g); g.connect(musicBus); o.start(t0); o.stop(t0 + dur + 0.05);
+  o.connect(g); g.connect(dest); o.start(t0); o.stop(t0 + dur + 0.05);
+}
+function mvoice(layer, wave, freq, dur, gain, attack) { osc(wave, freq, dur, gain, attack, layerNode(layer), 0); }
+function organVoice(layer, freq, dur, gain, attack) {   // additive: fundamental + octave + fifth-octave
+  const dest = layerNode(layer);
+  osc('sine', freq, dur, gain, attack, dest, -4);
+  osc('sine', freq * 2, dur * 0.9, gain * 0.5, attack, dest, 0);
+  osc('triangle', freq * 3, dur * 0.7, gain * 0.28, attack, dest, 6);
+}
+function choirVoice(layer, freq, dur, gain, attack) {   // detuned cluster, slow swell
+  const dest = layerNode(layer);
+  osc('sine', freq, dur, gain, attack, dest, -6);
+  osc('sine', freq, dur, gain * 0.8, attack, dest, 7);
+  osc('triangle', freq * 2, dur * 0.8, gain * 0.22, attack * 1.2, dest, 0);
+}
+function updateLayers() {                                // slowly drift layer gains toward scene targets
+  if (!layerGains) return;
+  const a = ac(); const base = SCENE_LAYERS[scene] || SCENE_LAYERS.menu;
+  const evo = 0.55 + 0.45 * Math.sin(mStep * 0.025);     // slow LFOs so parts breathe in/out
+  const evo2 = 0.55 + 0.45 * Math.sin(mStep * 0.017 + 1.5);
+  const target = { pad: base.pad, bass: base.bass, arp: base.arp * evo, tick: base.tick, shimmer: base.shimmer * evo2 };
+  for (const k of LAYERS) layerGains[k].gain.setTargetAtTime(target[k], a.currentTime, 4.0);
+}
+function maybeBreathe(now) {                              // occasional near-silence between "pieces"
+  if (!mixGain || now < breatheUntil) return;
+  if (Math.random() < 0.012) {
+    const a = ac(); const dip = 3 + Math.random() * 3;
+    mixGain.gain.cancelScheduledValues(a.currentTime);
+    mixGain.gain.setTargetAtTime(0.06, a.currentTime, 1.2);
+    mixGain.gain.setTargetAtTime(1.0, a.currentTime + dip, 2.0);
+    breatheUntil = now + (dip + 9) * 1000;
+  }
+}
+function pickNextMood() {                                 // masked mood swap via a mixGain dip
+  const pool = AUTO_POOL[scene] || AUTO_POOL.menu;
+  let n; do { n = pool[Math.floor(Math.random() * pool.length)]; } while (n === curMood && pool.length > 1);
+  if (mixGain) { const a = ac(); mixGain.gain.cancelScheduledValues(a.currentTime); mixGain.gain.setTargetAtTime(0.05, a.currentTime, 1.0); mixGain.gain.setTargetAtTime(1.0, a.currentTime + 2.2, 1.5); }
+  setTimeout(() => { curMood = n; mStep = 0; }, 1500);
 }
 function musicTick() {
   if (!enabled || !music || !musicBus) { musicTimer = null; return; }
   const now = Date.now();
-  if (musicMode === 'auto') { if (now > moodUntil) { const ks = Object.keys(MOODS); let n; do { n = ks[Math.floor(Math.random() * ks.length)]; } while (n === curMood && ks.length > 1); curMood = n; moodUntil = now + 45000 + Math.floor(Math.random() * 30000); } }
+  if (musicMode === 'auto') { if (now > moodUntil) { pickNextMood(); moodUntil = now + 40000 + Math.floor(Math.random() * 30000); } }
   else curMood = musicMode;
-  const m = MOODS[curMood] || MOODS.cinematic;
+  const m = MOODS[curMood] || MOODS.interstellar;
   const chord = m.prog[Math.floor(mStep / m.chordSteps) % m.prog.length];
   if (mStep % m.chordSteps === 0) {                                   // chord change: pad + bass
     const dur = (m.step * m.chordSteps) / 1000;
-    for (const n of chord) mvoice(m.pad, semi(m.root, n), dur * 0.95, m.padG, dur * 0.35);
-    mvoice(m.bass, semi(m.root, chord[0] - 12), dur * 0.9, m.bassG, 0.05);
+    for (const n of chord) {
+      if (m.organ) organVoice('pad', semi(m.root, n), dur * 0.98, m.padG, dur * 0.3);
+      else if (m.choir) choirVoice('pad', semi(m.root, n), dur * 1.1, m.padG, dur * 0.5);
+      else mvoice('pad', m.padWave, semi(m.root, n), dur * 0.95, m.padG, dur * 0.35);
+    }
+    mvoice('bass', m.bassWave, semi(m.root, chord[0] - 12), dur * 0.9, m.bassG, 0.05);
   }
-  if (Math.random() > m.rest) {                                       // arpeggio note (with rests for space)
+  const rest = scene === 'menu' ? Math.min(0.95, m.rest + 0.25) : m.rest;
+  if (m.arpG && Math.random() > rest) {                               // arpeggio note (with rests for space)
     const n = chord[mStep % chord.length] + (Math.random() < 0.3 ? 12 : 0);
-    mvoice(m.arp, semi(m.root, n), Math.min(m.step / 1000 * 1.5, 0.7), m.arpG, 0.04);
+    mvoice('arp', m.arpWave, semi(m.root, n), Math.min(m.step / 1000 * 1.5, 0.8), m.arpG, 0.04);
   }
+  if (m.tick && mStep % (m.tickDiv || 1) === 0) mvoice('tick', 'sine', 1760, 0.03, m.tickG, 0.002);   // ticking clock
+  if (m.shimmer && Math.random() < 0.12) mvoice('shimmer', 'triangle', semi(m.root, chord[Math.floor(Math.random() * chord.length)] + 24), 0.6, m.shimmerG, 0.12);
+  maybeBreathe(now);
+  updateLayers();
   mStep++;
   musicTimer = setTimeout(musicTick, m.step);
 }
@@ -153,7 +216,19 @@ export function setMusic(on) {
 export function musicOn() { return music; }
 export function getMusicMode() { return musicMode; }
 export function setMusicMode(mode) {
-  musicMode = ['auto', 'cinematic', 'calm', 'arcade'].includes(mode) ? mode : 'auto';
+  musicMode = ['auto', 'interstellar', 'odyssey', 'cinematic', 'calm', 'arcade'].includes(mode) ? mode : 'auto';
   try { localStorage.setItem('arcade:musicMood', musicMode); } catch (e) {}
-  if (musicMode !== 'auto') { curMood = musicMode; moodUntil = 0; }
+  if (musicMode !== 'auto') { curMood = musicMode; moodUntil = 0; mStep = 0; }
+}
+// Adaptive scene: 'menu' = sparse/calm, 'match' = fuller/tenser. Biases mood pool + layer intensity.
+export function setMusicScene(s) {
+  scene = s === 'match' ? 'match' : 'menu';
+  if (musicMode === 'auto') moodUntil = 0;   // re-pick a mood suited to the new scene on the next tick
+}
+// One-shot warm swell (e.g. on a win): brief lift + a rising shimmer chord.
+export function musicSwell() {
+  if (!enabled || !music || !musicBus) return;
+  const a = ac(); const m = MOODS[curMood] || MOODS.interstellar;
+  for (const n of [0, 4, 7, 12]) choirVoice('shimmer', semi(m.root, n + 12), 2.4, 0.045, 0.35);
+  if (mixGain) { mixGain.gain.cancelScheduledValues(a.currentTime); mixGain.gain.setTargetAtTime(1.25, a.currentTime, 0.3); mixGain.gain.setTargetAtTime(1.0, a.currentTime + 2.0, 1.2); }
 }

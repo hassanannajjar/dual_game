@@ -110,7 +110,7 @@ const DICT = {
     ach_streak_5: '5 Win Streak', ach_bot_hard: 'Beat Hard Bot', ach_explorer: 'All Categories',
     ach_veteran: '100 Games', ach_rated_1200: 'Rated 1200+', new_badge: '🏅 Unlocked: {name}',
     appearance: 'Appearance', mode_dark: 'Dark', mode_light: 'Light', volume: 'Volume', music: 'Music',
-    music_mood: 'Music mood', mood_auto: 'Auto-mix', mood_cinematic: 'Cinematic', mood_calm: 'Calm', mood_arcade: 'Arcade',
+    music_mood: 'Music mood', mood_auto: 'Auto-mix', mood_interstellar: 'Interstellar', mood_odyssey: 'Odyssey', mood_cinematic: 'Cinematic', mood_calm: 'Calm', mood_arcade: 'Arcade',
     // chat / reactions
     chat: 'Chat', say_something: 'Say something…', send: 'Send',
     // series scoreboard
@@ -268,7 +268,7 @@ const DICT = {
     ach_streak_5: '5 انتصارات متتالية', ach_bot_hard: 'هزمت الحاسوب الصعب', ach_explorer: 'كل الفئات',
     ach_veteran: '100 مباراة', ach_rated_1200: 'تقييم 1200+', new_badge: '🏅 فتحت: {name}',
     appearance: 'المظهر', mode_dark: 'داكن', mode_light: 'فاتح', volume: 'مستوى الصوت', music: 'الموسيقى',
-    music_mood: 'نمط الموسيقى', mood_auto: 'مزيج تلقائي', mood_cinematic: 'سينمائي', mood_calm: 'هادئ', mood_arcade: 'أركيد',
+    music_mood: 'نمط الموسيقى', mood_auto: 'مزيج تلقائي', mood_interstellar: 'بين النجوم', mood_odyssey: 'أوديسة الفضاء', mood_cinematic: 'سينمائي', mood_calm: 'هادئ', mood_arcade: 'أركيد',
     chat: 'الدردشة', say_something: 'اكتب رسالة…', send: 'إرسال',
     series: 'أنت {me} – {opp} {name}',
     leaderboard: 'المتصدرون', lb_note: 'للمتعة · النتائج غير موثّقة', lb_empty: 'لا لاعبين مصنّفين في هذه الدائرة بعد.',

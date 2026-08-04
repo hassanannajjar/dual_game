@@ -2,15 +2,15 @@
 // drives phases: home -> connect -> lobby -> [setup] -> [toss] -> play -> over,
 // and handles pause / disconnect-reconnect / refresh-resume.
 // Depends on the global `Peer` (PeerJS, loaded via CDN).
-import { t, initLang, onLangChange } from './i18n.js?v=25';
-import { sound } from './sound.js?v=25';
-import { initPrefs, getName, setName, haptic } from './prefs.js?v=25';
-import { demo } from './demos.js?v=25';
-import { goOnline as presenceOnline, onBoard as onPresenceBoard, publishScore, setPresence, isOnline } from './presence.js?v=25';
-import { recordResult, getRating, overallRating, openProfile, closeProfile, initProfile, getAvatar } from './profile.js?v=25';
-import { claimDaily, getLevel, getCoins, setNotify } from './loyalty.js?v=25';
-import { getUid, getGuestName } from './identity.js?v=25';
-import { isFav, toggleFav, getFavs } from './favorites.js?v=25';
+import { t, initLang, onLangChange } from './i18n.js?v=26';
+import { sound, setMusicScene, musicSwell } from './sound.js?v=26';
+import { initPrefs, getName, setName, haptic } from './prefs.js?v=26';
+import { demo } from './demos.js?v=26';
+import { goOnline as presenceOnline, onBoard as onPresenceBoard, publishScore, setPresence, isOnline } from './presence.js?v=26';
+import { recordResult, getRating, overallRating, openProfile, closeProfile, initProfile, getAvatar } from './profile.js?v=26';
+import { claimDaily, getLevel, getCoins, setNotify } from './loyalty.js?v=26';
+import { getUid, getGuestName } from './identity.js?v=26';
+import { isFav, toggleFav, getFavs } from './favorites.js?v=26';
 
 // ---------- DOM helpers ----------
 const $ = (id) => document.getElementById(id);
@@ -628,6 +628,7 @@ function preparePlayScreen() {
 }
 function startGame(iAmFirst) {
   S.inPlay = true; S.paused = false;
+  setMusicScene('match');                        // music fills out / tightens during a live match
   if (S.online) setPresence({ busy: true });   // show "busy" on the board while playing
   const turnsOn = preparePlayScreen();
   if (S.vsBot && S.game.botInit) S.game.botInit(S.botLevel, ctx);
@@ -780,6 +781,7 @@ function endGame(outcome, msg) {
   $('result-text').textContent = title + (msg ? ` — ${msg}` : '') + series;
   $('result-bar').classList.remove('hidden');
   sound(outcome === 'win' ? 'win' : outcome === 'draw' ? 'draw' : 'lose');
+  if (outcome === 'win') musicSwell();                           // warm music lift on a win
   haptic(outcome === 'win' ? [40, 40, 80] : 60);
   S.game && S.game.onTurn && S.game.onTurn(false, ctx);   // make board/keypad inert
 }
@@ -828,6 +830,7 @@ function goHome() {
   S.game = null;
   show('home');
   setStatus('');
+  setMusicScene('menu');                                          // back to calm/sparse ambient
   goOnlinePresence();                                            // stay online: fresh lobby peer + busy off
   setTimeout(() => { S.leaving = false; }, 300);
 }
@@ -858,6 +861,7 @@ export function boot() {
   initPrefs();
   onLangChange(() => { renderHome(); if (!$('screen-play').classList.contains('hidden')) updateTurnLabel(); });
   renderHome();
+  setMusicScene('menu');
   // Daily login bonus (once per day).
   const daily = claimDaily();
   if (daily.claimed) setTimeout(() => {

@@ -1,4 +1,4 @@
-import { SIM_EDGES, SIM_TRIS, simKey, simLoser } from '../logic.js?v=25';
+import { SIM_EDGES, SIM_TRIS, simKey, simLoser } from '../logic.js?v=26';
 
 const M = { edges: {}, mine: 'A', opp: 'B', lines: {}, msgEl: null };
 const NODES = Array.from({ length: 6 }, (_, i) => { const a = (-90 + i * 60) * Math.PI / 180; return [50 + 40 * Math.cos(a), 50 + 40 * Math.sin(a)]; });

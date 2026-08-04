@@ -1,4 +1,4 @@
-import { match3Find, match3Gravity } from '../logic.js?v=25';
+import { match3Find, match3Gravity } from '../logic.js?v=26';
 
 // Match-3 Duel (simultaneous): swap adjacent gems to line up 3+; cascades score more.
 // Own board each, shared countdown, highest score wins. Solo = beat the clock.

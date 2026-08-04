@@ -1,4 +1,4 @@
-import { boxClosed } from '../logic.js?v=25';
+import { boxClosed } from '../logic.js?v=26';
 
 const D = 5, B = D - 1; // dots per side, boxes per side
 const M = { H: [], V: [], owner: [], me: 'A', opp: 'B', hEls: [], vEls: [], boxEls: [], scoreEl: null };
