@@ -1,4 +1,4 @@
-import { ccReachable } from '../logic.js?v=14';
+import { ccReachable } from '../logic.js?v=15';
 
 const ROWW = [1, 2, 3, 4, 13, 12, 11, 10, 9, 10, 11, 12, 13, 4, 3, 2, 1];
 const DIRS = [[2, 0], [-2, 0], [1, -1], [-1, -1], [1, 1], [-1, 1]];

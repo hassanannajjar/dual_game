@@ -1,4 +1,4 @@
-import { reversiFlips, reversiLegalMoves, reversiCounts } from '../logic.js?v=14';
+import { reversiFlips, reversiLegalMoves, reversiCounts } from '../logic.js?v=15';
 
 const M = { board: [], mine: 'B', opp: 'B', cells: [], scoreEl: null };
 function start() {

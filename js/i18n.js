@@ -109,7 +109,7 @@ const DICT = {
     ach_first_win: 'First Win', ach_wins_10: '10 Wins', ach_wins_50: '50 Wins',
     ach_streak_5: '5 Win Streak', ach_bot_hard: 'Beat Hard Bot', ach_explorer: 'All Categories',
     ach_veteran: '100 Games', ach_rated_1200: 'Rated 1200+', new_badge: '🏅 Unlocked: {name}',
-    appearance: 'Appearance', mode_dark: 'Dark', mode_light: 'Light',
+    appearance: 'Appearance', mode_dark: 'Dark', mode_light: 'Light', volume: 'Volume', music: 'Music',
     // chat / reactions
     chat: 'Chat', say_something: 'Say something…', send: 'Send',
     // series scoreboard
@@ -231,7 +231,7 @@ const DICT = {
     ach_first_win: 'أول فوز', ach_wins_10: '10 انتصارات', ach_wins_50: '50 انتصارًا',
     ach_streak_5: '5 انتصارات متتالية', ach_bot_hard: 'هزمت الحاسوب الصعب', ach_explorer: 'كل الفئات',
     ach_veteran: '100 مباراة', ach_rated_1200: 'تقييم 1200+', new_badge: '🏅 فتحت: {name}',
-    appearance: 'المظهر', mode_dark: 'داكن', mode_light: 'فاتح',
+    appearance: 'المظهر', mode_dark: 'داكن', mode_light: 'فاتح', volume: 'مستوى الصوت', music: 'الموسيقى',
     chat: 'الدردشة', say_something: 'اكتب رسالة…', send: 'إرسال',
     series: 'أنت {me} – {opp} {name}',
     leaderboard: 'المتصدرون', lb_note: 'للمتعة · النتائج غير موثّقة', lb_empty: 'لا لاعبين مصنّفين في هذه الدائرة بعد.',

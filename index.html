@@ -205,6 +205,14 @@
         <label class="text-sm text-slate-400" data-i18n="sound">Sound</label>
         <button id="btn-sound-toggle" class="px-4 py-2 rounded-lg font-semibold bg-emerald-600">On</button>
       </div>
+      <div class="flex items-center justify-between gap-3">
+        <label class="text-sm text-slate-400 shrink-0" data-i18n="volume">Volume</label>
+        <input id="pref-volume" type="range" min="0" max="100" value="80" class="flex-1 accent-indigo-500" />
+      </div>
+      <div class="flex items-center justify-between">
+        <label class="text-sm text-slate-400" data-i18n="music">Music</label>
+        <button id="btn-music-toggle" class="px-4 py-2 rounded-lg font-semibold bg-slate-700 text-slate-400">Off</button>
+      </div>
       <div class="flex items-center justify-between">
         <label class="text-sm text-slate-400" data-i18n="haptics">Vibration</label>
         <button id="btn-haptics-toggle" class="px-4 py-2 rounded-lg font-semibold bg-emerald-600">On</button>
@@ -321,6 +329,6 @@
       });
     })();
   </script>
-  <script type="module" src="js/app.js?v=14"></script>
+  <script type="module" src="js/app.js?v=15"></script>
 </body>
 </html>
