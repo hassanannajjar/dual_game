@@ -1,4 +1,4 @@
-import { goPlace, goScore } from '../logic.js?v=17';
+import { goPlace, goScore, goBotMove } from '../logic.js?v=18';
 
 const N = 9;
 const M = { board: [], mine: 'b', opp: 'w', forbidden: null, passes: 0, cells: [], msgEl: null };
@@ -72,6 +72,7 @@ export default {
     build(ctx);
   },
   onTurn(mine, ctx) { paint(ctx); },
+  botMove(level) { return goBotMove(M.board, M.opp, level, M.forbidden); },
   onMessage(msg, ctx) {
     if (msg.type === 'pass') { M.passes++; if (M.passes >= 2) return finish(ctx); M.forbidden = null; ctx.setTurn(true); return; }
     if (msg.type !== 'move') return;

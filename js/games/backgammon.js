@@ -1,4 +1,4 @@
-import { bgInitial, bgLegalMoves, bgApply, bgWon } from '../logic.js?v=17';
+import { bgInitial, bgLegalMoves, bgApply, bgWon, bgBotMoves } from '../logic.js?v=18';
 
 const PIPS = ['', '⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
 const M = { state: null, mine: 'w', opp: 'b', dice: [], sel: null, legalTo: [], ptEls: {}, els: {} };
@@ -97,6 +97,15 @@ export default {
   id: 'backgammon', name: 'Backgammon', emoji: '🎲', blurb: 'Bear off to win',
   start(ctx, { iAmFirst }) { M.state = bgInitial(); M.mine = iAmFirst ? 'w' : 'b'; M.opp = iAmFirst ? 'b' : 'w'; M.dice = []; M.sel = null; M.legalTo = []; build(ctx); },
   onTurn(mine, ctx) { M.sel = null; M.legalTo = []; if (!mine) M.dice = []; paint(ctx); },
+  // Bot: roll, then play out all dice greedily (bgBotMoves), then done.
+  botMove(level) {
+    const a = 1 + Math.floor(Math.random() * 6), b = 1 + Math.floor(Math.random() * 6);
+    const dice = a === b ? [a, a, a, a] : [a, b];
+    const seq = [{ type: 'roll', dice }];
+    for (const mv of bgBotMoves(M.state, M.opp, dice, level)) seq.push({ type: 'move', from: mv.from, to: mv.to, die: mv.die });
+    seq.push({ type: 'done' });
+    return seq;
+  },
   onMessage(msg, ctx) {
     if (msg.type === 'roll') { M.els.dice.textContent = msg.dice.map((d) => PIPS[d]).join(' '); ctx.sound('drop'); }
     else if (msg.type === 'move') {

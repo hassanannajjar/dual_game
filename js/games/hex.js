@@ -1,4 +1,4 @@
-import { hexConnected } from '../logic.js?v=17';
+import { hexConnected, hexBotMove } from '../logic.js?v=18';
 
 const N = 11;
 const M = { board: [], mine: 'r', opp: 'b', cells: [] };
@@ -45,6 +45,7 @@ function play(ctx, x, y) {
 export default {
   id: 'hex', name: 'Hex', emoji: '⬡', blurb: 'Bridge your sides',
   start(ctx, { iAmFirst }) { M.board = empty(); M.mine = iAmFirst ? 'r' : 'b'; M.opp = iAmFirst ? 'b' : 'r'; build(ctx); },
+  botMove(level) { return hexBotMove(M.board, M.opp, level); },
   onMessage(msg, ctx) {
     if (msg.type !== 'move') return;
     M.board[msg.y][msg.x] = M.opp; ctx.sound('place'); paint();

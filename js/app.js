@@ -1,36 +1,36 @@
-import { register, boot } from './platform.js?v=17';
-import numberDuel from './games/number-duel.js?v=17';
-import ticTacToe from './games/tic-tac-toe.js?v=17';
-import connectFour from './games/connect-four.js?v=17';
-import rps from './games/rock-paper-scissors.js?v=17';
-import battleship from './games/battleship.js?v=17';
-import gomoku from './games/gomoku.js?v=17';
-import reversi from './games/reversi.js?v=17';
-import checkers from './games/checkers.js?v=17';
-import dots from './games/dots-boxes.js?v=17';
-import uttt from './games/ultimate-ttt.js?v=17';
-import mancala from './games/mancala.js?v=17';
-import memory from './games/memory.js?v=17';
-import morris from './games/nine-mens-morris.js?v=17';
-import chess from './games/chess.js?v=17';
-import hangman from './games/hangman.js?v=17';
-import snakes from './games/snakes.js?v=17';
-import pig from './games/pig.js?v=17';
-import go from './games/go.js?v=17';
-import order from './games/order-chaos.js?v=17';
-import nim from './games/nim.js?v=17';
-import yahtzee from './games/yahtzee.js?v=17';
-import hex from './games/hex.js?v=17';
-import ludo from './games/ludo.js?v=17';
-import backgammon from './games/backgammon.js?v=17';
-import chinesecheckers from './games/chinese-checkers.js?v=17';
-import g2048 from './games/2048.js?v=17';
-import tetris from './games/tetris.js?v=17';
-import airhockey from './games/airhockey.js?v=17';
-import tron from './games/tron.js?v=17';
-import minesweeper from './games/minesweeper.js?v=17';
-import snake from './games/snake.js?v=17';
-import sudoku from './games/sudoku.js?v=17';
+import { register, boot } from './platform.js?v=18';
+import numberDuel from './games/number-duel.js?v=18';
+import ticTacToe from './games/tic-tac-toe.js?v=18';
+import connectFour from './games/connect-four.js?v=18';
+import rps from './games/rock-paper-scissors.js?v=18';
+import battleship from './games/battleship.js?v=18';
+import gomoku from './games/gomoku.js?v=18';
+import reversi from './games/reversi.js?v=18';
+import checkers from './games/checkers.js?v=18';
+import dots from './games/dots-boxes.js?v=18';
+import uttt from './games/ultimate-ttt.js?v=18';
+import mancala from './games/mancala.js?v=18';
+import memory from './games/memory.js?v=18';
+import morris from './games/nine-mens-morris.js?v=18';
+import chess from './games/chess.js?v=18';
+import hangman from './games/hangman.js?v=18';
+import snakes from './games/snakes.js?v=18';
+import pig from './games/pig.js?v=18';
+import go from './games/go.js?v=18';
+import order from './games/order-chaos.js?v=18';
+import nim from './games/nim.js?v=18';
+import yahtzee from './games/yahtzee.js?v=18';
+import hex from './games/hex.js?v=18';
+import ludo from './games/ludo.js?v=18';
+import backgammon from './games/backgammon.js?v=18';
+import chinesecheckers from './games/chinese-checkers.js?v=18';
+import g2048 from './games/2048.js?v=18';
+import tetris from './games/tetris.js?v=18';
+import airhockey from './games/airhockey.js?v=18';
+import tron from './games/tron.js?v=18';
+import minesweeper from './games/minesweeper.js?v=18';
+import snake from './games/snake.js?v=18';
+import sudoku from './games/sudoku.js?v=18';
 
 // Single source of category / difficulty. category ∈ classic|strategy|puzzle|arcade|luck|word.
 const META = {
@@ -45,7 +45,7 @@ const META = {
   '2048': ['arcade', 'easy'], tetris: ['arcade', 'medium'], airhockey: ['arcade', 'easy'], tron: ['arcade', 'easy'],
   minesweeper: ['puzzle', 'medium'], snake: ['arcade', 'easy'], sudoku: ['puzzle', 'medium'],
 };
-const BOT = new Set(['ttt', 'connect4', 'gomoku', 'reversi', 'checkers', 'order', 'nim', 'dots', 'rps', 'number-duel', 'snakes', 'pig', 'memory', 'ludo', 'mancala', 'uttt', 'yahtzee', 'morris']);
+const BOT = new Set(['ttt', 'connect4', 'gomoku', 'reversi', 'checkers', 'order', 'nim', 'dots', 'rps', 'number-duel', 'snakes', 'pig', 'memory', 'ludo', 'mancala', 'uttt', 'yahtzee', 'morris', 'chess', 'go', 'hex', 'chinesecheckers', 'backgammon']);
 const SOLO = new Set(['2048', 'tetris', 'snake', 'minesweeper', 'sudoku']);
 
 // Add a game: import it above and add it here.

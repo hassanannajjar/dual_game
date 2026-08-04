@@ -1,4 +1,4 @@
-import { ccReachable } from '../logic.js?v=17';
+import { ccReachable } from '../logic.js?v=18';
 
 const ROWW = [1, 2, 3, 4, 13, 12, 11, 10, 9, 10, 11, 12, 13, 4, 3, 2, 1];
 const DIRS = [[2, 0], [-2, 0], [1, -1], [-1, -1], [1, 1], [-1, 1]];
@@ -78,6 +78,25 @@ export default {
     build(ctx);
   },
   onTurn(mine, ctx) { M.sel = null; M.reach = new Set(); paint(ctx); },
+  // Bot ('opp'): advance a peg toward its goal rows; prefers big forward hops and lagging pegs.
+  botMove(level) {
+    const occ = new Set(Object.keys(M.board));
+    const oppKeys = Object.keys(M.board).filter((k) => M.board[k] === 'opp');
+    const rowOf = (k) => +k.split(':')[0];
+    const toTop = M.mineTop, goalDir = toTop ? -1 : 1;
+    const moves = [];
+    for (const from of oppKeys) { const reach = ccReachable(M.adj, occ, from); for (const to of reach) moves.push([from, to]); }
+    if (!moves.length) return null;
+    if (level === 'easy') { const [from, to] = moves[Math.floor(Math.random() * moves.length)]; return { type: 'move', from, to }; }
+    let best = moves[0], bestSc = -1e9;
+    for (const [from, to] of moves) {
+      const prog = (rowOf(to) - rowOf(from)) * goalDir;
+      const lag = toTop ? rowOf(from) : (16 - rowOf(from));
+      const sc = prog * 3 + lag * 0.3 + Math.random() * 1.5;
+      if (sc > bestSc) { bestSc = sc; best = [from, to]; }
+    }
+    return { type: 'move', from: best[0], to: best[1] };
+  },
   onMessage(msg, ctx) {
     if (msg.type !== 'move') return;
     delete M.board[msg.from]; M.board[msg.to] = 'opp'; ctx.sound('place'); paint(ctx);

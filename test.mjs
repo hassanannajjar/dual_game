@@ -300,4 +300,15 @@ assert.ok(evalAchievements({ games: { c: { w: 1, l: 0, d: 0, bestStreak: 1, rati
 assert.ok(evalAchievements({ games: {}, botWins: {}, cats: [] }, { level: 3, streakDays: 7 }).includes('streak_7d'), 'ach 7-day streak via extra');
 assert.ok(!evalAchievements({ games: {}, botWins: {}, cats: [] }).includes('level_10'), 'level ach needs extra (backward compatible)');
 
-console.log('PASS (all logic incl. bots/minesweeper/sudoku + rating/achievements + loyalty + quests/chests + earlier)');
+// ---- Hard-game bots return legal moves ----
+import { chessBotMove, goBotMove, hexBotMove, bgBotMoves, chessAllMoves } from './js/logic.js';
+{ const m = chessBotMove(chessInitial(), 'medium');
+  const ok = m && chessAllMoves(chessInitial()).some((x) => x.from[0] === m.from[0] && x.from[1] === m.from[1] && x.to[0] === m.to[0] && x.to[1] === m.to[1]);
+  assert.ok(ok, 'chess bot returns a legal opening move'); }
+{ const b = Array.from({ length: 9 }, () => Array(9).fill(null)); const m = goBotMove(b, 'b', 'medium', null);
+  assert.ok(m.type === 'move' && m.x >= 0 && m.x < 9 && m.y >= 0 && m.y < 9, 'go bot returns a legal point'); }
+{ const b = Array.from({ length: 11 }, () => Array(11).fill(null)); const m = hexBotMove(b, 'r', 'medium');
+  assert.ok(m.type === 'move' && b[m.y][m.x] === null, 'hex bot returns an empty cell'); }
+{ const mv = bgBotMoves(bgInitial(), 'w', [3, 4], 'medium'); assert.ok(Array.isArray(mv) && mv.length >= 1 && mv.length <= 4, 'bg bot returns 1-4 moves'); }
+
+console.log('PASS (all logic incl. bots/minesweeper/sudoku + rating/achievements + loyalty + quests/chests + hard-bots + earlier)');

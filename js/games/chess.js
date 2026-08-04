@@ -1,4 +1,4 @@
-import { chessInitial, chessLegalMoves, chessApply, chessStatus, chessInCheck } from '../logic.js?v=17';
+import { chessInitial, chessLegalMoves, chessApply, chessStatus, chessInCheck, chessBotMove } from '../logic.js?v=18';
 
 const SOLID = { K: '♚', Q: '♛', R: '♜', B: '♝', N: '♞', P: '♟' };
 const M = { state: null, mine: 'w', sel: null, legal: [], promo: null, cells: {}, promoEl: null, msgEl: null };
@@ -85,6 +85,7 @@ export default {
     build(ctx);
   },
   onTurn(mine, ctx) { M.sel = null; M.legal = []; paint(ctx); },
+  botMove(level) { return chessBotMove(M.state, level); },   // called on the bot's turn (state.turn = bot color)
   onMessage(msg, ctx) {
     if (msg.type !== 'move') return;
     const captured = M.state.board[msg.to[1]][msg.to[0]];

@@ -655,6 +655,125 @@ export function chestRoll(rng) {
   return { coins, booster: rng() < 0.35 };
 }
 
+// ---------- Bot deciders for hard games (decent & fast: heuristic + shallow search) ----------
+// Chess: negamax + alpha-beta over chessAllMoves/chessApply. easy=random, medium=depth2, hard=depth3.
+const PIECE_VAL = { P: 1, N: 3, B: 3, R: 5, Q: 9, K: 0 };
+function chessMaterial(state) { // + favours White
+  let w = 0;
+  for (const row of state.board) for (const p of row) { if (!p) continue; const v = PIECE_VAL[p.toUpperCase()] || 0; w += (p === p.toUpperCase() ? v : -v); }
+  return w;
+}
+function chessNegamax(state, depth, alpha, beta) {
+  const moves = chessAllMoves(state);
+  if (!moves.length) return chessInCheck(state, state.turn) ? -100000 + (10 - depth) : 0;   // mate / stalemate
+  if (depth === 0) { const w = chessMaterial(state); return state.turn === 'w' ? w : -w; }
+  moves.sort((a, b) => (state.board[b.to[1]][b.to[0]] ? 1 : 0) - (state.board[a.to[1]][a.to[0]] ? 1 : 0)); // captures first
+  let best = -Infinity;
+  for (const m of moves) {
+    const v = -chessNegamax(chessApply(state, m.from, m.to, 'Q'), depth - 1, -beta, -alpha);
+    if (v > best) best = v;
+    if (best > alpha) alpha = best;
+    if (alpha >= beta) break;
+  }
+  return best;
+}
+export function chessBotMove(state, level) {
+  const moves = chessAllMoves(state);
+  if (!moves.length) return null;
+  const promoOf = (m) => { const p = state.board[m.from[1]][m.from[0]]; return (p && p.toUpperCase() === 'P' && (m.to[1] === 0 || m.to[1] === 7)) ? 'Q' : null; };
+  if (level === 'easy') { const m = moves[Math.floor(Math.random() * moves.length)]; return { type: 'move', from: m.from, to: m.to, promo: promoOf(m) }; }
+  const depth = level === 'hard' ? 3 : 2;
+  moves.sort((a, b) => (state.board[b.to[1]][b.to[0]] ? 1 : 0) - (state.board[a.to[1]][a.to[0]] ? 1 : 0));
+  let best = moves[0], bestV = -Infinity;
+  for (const m of moves) {
+    const v = -chessNegamax(chessApply(state, m.from, m.to, 'Q'), depth - 1, -Infinity, Infinity);
+    if (v > bestV) { bestV = v; best = m; }
+  }
+  return { type: 'move', from: best.from, to: best.to, promo: promoOf(best) };
+}
+
+// Go: heuristic — capture > contact > avoid filling own eyes; passes only if no legal point.
+export function goBotMove(board, color, level, forbiddenSer) {
+  const N = board.length, ser = (b) => b.map((r) => r.map((c) => c || '.').join('')).join('');
+  const nbrs = (x, y) => { const r = []; if (x > 0) r.push([x - 1, y]); if (x < N - 1) r.push([x + 1, y]); if (y > 0) r.push([x, y - 1]); if (y < N - 1) r.push([x, y + 1]); return r; };
+  const legal = [];
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    if (board[y][x]) continue;
+    const res = goPlace(board, x, y, color); if (!res) continue;
+    if (forbiddenSer && ser(res.board) === forbiddenSer) continue;
+    legal.push({ x, y, captured: res.captured });
+  }
+  if (!legal.length) return { type: 'pass' };
+  if (level === 'easy') { const m = legal[Math.floor(Math.random() * legal.length)]; return { type: 'move', x: m.x, y: m.y }; }
+  let best = legal[0], bestSc = -1e9;
+  for (const m of legal) {
+    const nb = nbrs(m.x, m.y);
+    let sc = m.captured * 20;
+    if (nb.every(([nx, ny]) => board[ny][nx] === color) && !m.captured) sc -= 50;   // don't fill own eye
+    sc += nb.filter(([nx, ny]) => board[ny][nx]).length * 2;                          // contact
+    sc -= (Math.abs(m.x - (N - 1) / 2) + Math.abs(m.y - (N - 1) / 2)) * 0.2;          // slight center pull
+    sc += Math.random() * 2;
+    if (sc > bestSc) { bestSc = sc; best = m; }
+  }
+  return { type: 'move', x: best.x, y: best.y };
+}
+
+// Hex: play the empty cell minimizing our 0-1 connection distance (and blocking theirs).
+export function hexBotMove(board, color, level) {
+  const N = board.length, opp = color === 'r' ? 'b' : 'r';
+  const empties = [];
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (!board[y][x]) empties.push([x, y]);
+  if (!empties.length) return null;
+  if (level === 'easy') { const [x, y] = empties[Math.floor(Math.random() * empties.length)]; return { type: 'move', x, y }; }
+  const dist = (b, who) => {
+    const other = who === 'r' ? 'b' : 'r', INF = 1e9;
+    const d = Array.from({ length: N }, () => Array(N).fill(INF)), dq = [];
+    const nb = (x, y) => [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1], [x + 1, y - 1], [x - 1, y + 1]].filter(([a, c]) => a >= 0 && a < N && c >= 0 && c < N);
+    const push = (x, y, v, front) => { if (v < d[y][x]) { d[y][x] = v; front ? dq.unshift([x, y]) : dq.push([x, y]); } };
+    for (let i = 0; i < N; i++) { const x = who === 'r' ? i : 0, y = who === 'r' ? 0 : i; if (b[y][x] === other) continue; push(x, y, b[y][x] === who ? 0 : 1, b[y][x] === who); }
+    while (dq.length) { const [x, y] = dq.shift(), base = d[y][x]; for (const [nx, ny] of nb(x, y)) { if (b[ny][nx] === other) continue; const w = b[ny][nx] === who ? 0 : 1; push(nx, ny, base + w, w === 0); } }
+    let best = INF; for (let i = 0; i < N; i++) { const x = who === 'r' ? i : N - 1, y = who === 'r' ? N - 1 : i; if (b[y][x] !== other) best = Math.min(best, d[y][x]); }
+    return best;
+  };
+  let best = empties[0], bestSc = -1e9;
+  for (const [x, y] of empties) {
+    board[y][x] = color; const myD = dist(board, color); board[y][x] = opp; const opD = dist(board, opp); board[y][x] = null;
+    const sc = -myD * 10 + opD * 3 + Math.random();
+    if (sc > bestSc) { bestSc = sc; best = [x, y]; }
+  }
+  return { type: 'move', x: best[0], y: best[1] };
+}
+
+// Backgammon: greedily consume the rolled dice on a cloned state (off > hit > stack > progress).
+export function bgBotMoves(state, color, dice, level) {
+  const st = { points: state.points.slice(), bar: { ...state.bar }, off: { ...state.off } };
+  const s = color === 'w' ? 1 : -1, pool = dice.slice(), seq = [];
+  const pick = () => {
+    const cands = [];
+    for (const d of new Set(pool)) for (const m of bgLegalMoves(st, d, color)) cands.push(Object.assign({ die: d }, m));
+    if (!cands.length) return null;
+    if (level === 'easy') return cands[Math.floor(Math.random() * cands.length)];
+    let best = cands[0], bs = -1e9;
+    for (const c of cands) {
+      let sc = Math.random();
+      if (c.to === 'off') sc += 50;
+      else { const cur = st.points[c.to]; if (cur * s === -1) sc += 30; if (cur * s >= 1) sc += 6; }
+      if (c.from === 'bar') sc += 8; else if (c.to !== 'off') sc += (color === 'w' ? (c.from - c.to) : (c.to - c.from));
+      if (sc > bs) { bs = sc; best = c; }
+    }
+    return best;
+  };
+  let guard = 0;
+  while (pool.length && guard++ < 12) {
+    const m = pick(); if (!m) break;
+    const ns = bgApply(st, m.from, m.to, color); st.points = ns.points; st.bar = ns.bar; st.off = ns.off;
+    pool.splice(pool.indexOf(m.die), 1);
+    seq.push({ from: m.from, to: m.to, die: m.die });
+    if (bgWon(st, color)) break;
+  }
+  return seq;
+}
+
 // ---------- Loyalty: XP → Levels → Tiers (pure, unit-tested) ----------
 // XP to advance level L -> L+1 = 100 + (L-1)*40. Cumulative via loop (levels stay small).
 export function levelForXp(xp) {
