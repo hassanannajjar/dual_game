@@ -2,14 +2,14 @@
 // drives phases: home -> connect -> lobby -> [setup] -> [toss] -> play -> over,
 // and handles pause / disconnect-reconnect / refresh-resume.
 // Depends on the global `Peer` (PeerJS, loaded via CDN).
-import { t, initLang, onLangChange } from './i18n.js?v=12';
-import { sound } from './sound.js?v=12';
-import { initPrefs, getName, setName, haptic } from './prefs.js?v=12';
-import { demo } from './demos.js?v=12';
-import { goOnline as presenceOnline, goOffline as presenceOffline, onLeaderboard, publishScore } from './presence.js?v=12';
-import { recordResult, getRating, overallRating, openProfile, closeProfile, initProfile } from './profile.js?v=12';
-import { claimDaily, getLevel, getCoins, setNotify } from './loyalty.js?v=12';
-import { getUid } from './identity.js?v=12';
+import { t, initLang, onLangChange } from './i18n.js?v=13';
+import { sound } from './sound.js?v=13';
+import { initPrefs, getName, setName, haptic } from './prefs.js?v=13';
+import { demo } from './demos.js?v=13';
+import { goOnline as presenceOnline, goOffline as presenceOffline, onLeaderboard, publishScore } from './presence.js?v=13';
+import { recordResult, getRating, overallRating, openProfile, closeProfile, initProfile } from './profile.js?v=13';
+import { claimDaily, getLevel, getCoins, setNotify } from './loyalty.js?v=13';
+import { getUid } from './identity.js?v=13';
 
 // ---------- DOM helpers ----------
 const $ = (id) => document.getElementById(id);
@@ -660,9 +660,10 @@ function renderLeaderboard(list) {
   const box = $('leaderboard-list'); if (!box) return;
   box.innerHTML = '';
   if (!list || !list.length) { box.appendChild(el('li', 'text-center text-slate-500 text-sm py-3', t('lb_empty'))); return; }
-  list.slice(0, 20).forEach((p, i) => {
+  list.slice(0, 30).forEach((p, i) => {
     const li = el('li', 'flex items-center justify-between gap-2 bg-slate-800 rounded-xl px-3 py-2 text-sm');
-    li.appendChild(el('span', 'truncate', `${i + 1}. <span class="text-slate-400">${t('lvl')}${p.level || 1}</span> ${esc(p.name)}`));
+    const dot = p.online ? '<span class="text-emerald-400" title="online">🟢</span>' : '<span class="text-slate-600" title="offline">⚫</span>';
+    li.appendChild(el('span', 'flex items-center gap-1.5 truncate', `${dot}<span class="text-slate-500">${i + 1}.</span> <span class="text-slate-400">${t('lvl')}${p.level || 1}</span> ${esc(p.name)}`));
     li.appendChild(el('span', 'flex items-center gap-2 shrink-0 font-mono', `<span class="text-indigo-400">${p.rating}</span><span class="text-amber-400">🪙${p.coins || 0}</span>`));
     box.appendChild(li);
   });

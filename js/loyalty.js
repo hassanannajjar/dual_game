@@ -1,7 +1,7 @@
 // Loyalty economy — XP/levels, spendable coins, a cosmetics shop, daily bonus. All localStorage.
-import { levelForXp, tierForLevel, xpCoinsForResult } from './logic.js?v=12';
-import { t } from './i18n.js?v=12';
-import { sound } from './sound.js?v=12';
+import { levelForXp, tierForLevel, xpCoinsForResult } from './logic.js?v=13';
+import { t } from './i18n.js?v=13';
+import { sound } from './sound.js?v=13';
 
 const read = (k, d) => { try { const s = localStorage.getItem(k); return s ? JSON.parse(s) : d; } catch (e) { return d; } };
 const write = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };

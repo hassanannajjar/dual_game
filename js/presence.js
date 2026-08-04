@@ -4,8 +4,9 @@
 const BROKERS = ['wss://broker.emqx.io:8084/mqtt', 'wss://broker.hivemq.com:8884/mqtt'];
 const PREFIX = 'dualarcade/v1';
 const HEARTBEAT = 15000, STALE = 45000, LB_STALE = 30 * 24 * 3600 * 1000;   // hide leaderboard entries older than 30d
+const LB_BEAT = 20000, ONLINE_FRESH = 45000;                               // republish score every 20s; "online" = seen within 45s
 
-const P = { client: null, circle: 'public', name: '', peerId: '', uid: '', players: new Map(), onList: null, hb: null, prune: null, scores: new Map(), onLb: null, score: { level: 1, rating: 1000, coins: 0 } };
+const P = { client: null, circle: 'public', name: '', peerId: '', uid: '', players: new Map(), onList: null, hb: null, prune: null, lbHb: null, scores: new Map(), onLb: null, score: { level: 1, rating: 1000, coins: 0 } };
 
 function topicSelf() { return `${PREFIX}/${P.circle}/p/${P.peerId}`; }
 // Leaderboard is GLOBAL and keyed by the stable player uid (one durable entry per person),
@@ -16,7 +17,8 @@ function emitLb() {
   const now = Date.now();
   const list = [...P.scores.values()]
     .filter((v) => !v.ts || now - v.ts < LB_STALE)
-    .sort((a, b) => (b.level - a.level) || (b.rating - a.rating) || (b.coins - a.coins));
+    .map((v) => Object.assign({}, v, { online: !!v.ts && now - v.ts < ONLINE_FRESH }))
+    .sort((a, b) => (b.online - a.online) || (b.level - a.level) || (b.rating - a.rating) || (b.coins - a.coins));
   if (P.onLb) P.onLb(list);
 }
 // Publish our profile to the shared GLOBAL (unverified) leaderboard. score = {level, rating, coins}.
@@ -61,6 +63,7 @@ export function goOnline(circle, name, peerId, onList, uid, score) {
     publishPresence();
     publishScore();
     clearInterval(P.hb); P.hb = setInterval(publishPresence, HEARTBEAT);
+    clearInterval(P.lbHb); P.lbHb = setInterval(() => publishScore(), LB_BEAT);   // keep our global entry "online"
     clearInterval(P.prune); P.prune = setInterval(() => { emit(); emitLb(); }, 10000);
     emit();
   });
@@ -80,7 +83,7 @@ export function goOnline(circle, name, peerId, onList, uid, score) {
 }
 
 export function goOffline() {
-  clearInterval(P.hb); clearInterval(P.prune); P.hb = P.prune = null;
+  clearInterval(P.hb); clearInterval(P.prune); clearInterval(P.lbHb); P.hb = P.prune = P.lbHb = null;
   if (P.client) {
     // Clear only presence (topicSelf); leave the retained global leaderboard entry so the ranking persists.
     try { P.client.publish(topicSelf(), '', { retain: true, qos: 0 }); P.client.end(true); } catch (e) {}
