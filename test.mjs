@@ -311,4 +311,18 @@ import { chessBotMove, goBotMove, hexBotMove, bgBotMoves, chessAllMoves } from '
   assert.ok(m.type === 'move' && b[m.y][m.x] === null, 'hex bot returns an empty cell'); }
 { const mv = bgBotMoves(bgInitial(), 'w', [3, 4], 'medium'); assert.ok(Array.isArray(mv) && mv.length >= 1 && mv.length <= 4, 'bg bot returns 1-4 moves'); }
 
-console.log('PASS (all logic incl. bots/minesweeper/sudoku + rating/achievements + loyalty + quests/chests + hard-bots + earlier)');
+// ---- New games: Sim, Quarto, Farkle, Wordle ----
+import { simLoser, simKey, quartoWinner, farkleScore, wordleScore, wordleConsistent } from './js/logic.js';
+{ const e = {}; e[simKey(0, 1)] = 'A'; e[simKey(0, 2)] = 'A'; e[simKey(1, 2)] = 'A'; assert.strictEqual(simLoser(e), 'A', 'sim mono triangle loses'); }
+assert.strictEqual(simLoser({ [simKey(0, 1)]: 'A', [simKey(0, 2)]: 'B', [simKey(1, 2)]: 'A' }), null, 'sim mixed triangle safe');
+{ const b = Array(16).fill(null); b[0] = 0b0000; b[1] = 0b0010; b[2] = 0b0100; b[3] = 0b0110; assert.strictEqual(quartoWinner(b), true, 'quarto line shares "small" bit'); }
+assert.strictEqual(quartoWinner(Array(16).fill(null)), false, 'quarto empty no win');
+assert.strictEqual(farkleScore([1, 1, 1, 2, 3, 4]).score, 1000, 'farkle three 1s = 1000');
+assert.strictEqual(farkleScore([5, 5, 2, 3, 4, 6]).score, 100, 'farkle two 5s = 100');
+assert.strictEqual(farkleScore([2, 2, 3, 3, 4, 6]).score, 0, 'farkle no scoring dice');
+assert.strictEqual(farkleScore([1, 2, 3, 4, 5, 6]).score, 1500, 'farkle straight = 1500');
+assert.strictEqual(wordleScore('CRANE', 'CRANE'), 'ggggg', 'wordle exact');
+assert.strictEqual(wordleScore('SLATE', 'CRANE'), 'bbgbg', 'wordle mixed feedback');
+{ const cands = wordleConsistent(['CRANE', 'SLATE', 'PLANT'], [{ guess: 'SLATE', fb: wordleScore('SLATE', 'CRANE') }]); assert.ok(cands.includes('CRANE') && !cands.includes('SLATE'), 'wordle constraint filter'); }
+
+console.log('PASS (all logic incl. bots/minesweeper/sudoku + rating/achievements + loyalty + quests/chests + hard-bots + new-games + earlier)');

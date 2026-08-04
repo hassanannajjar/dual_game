@@ -136,6 +136,10 @@ const DICT = {
     quest_online1: 'Play an online match', quest_newgame: 'Try a new game', quest_coins150: 'Earn 150 coins',
     ach_wins_25: '25 Wins', ach_wins_100: '100 Wins', ach_bot_master: 'Beat Hard ×10',
     ach_plays_50: '50 Games', ach_plays_250: '250 Games', ach_level_10: 'Level 10', ach_level_25: 'Level 25', ach_streak_7d: '7-Day Streak',
+    g_sim: 'Sim', d_sim: 'Avoid the triangle.', r_sim: 'Take turns colouring edges between 6 dots. Whoever first completes a triangle in their own colour loses — there are no draws.',
+    g_wordle: 'Wordle Duel', d_wordle: 'Crack their word first.', r_wordle: 'Each player sets a secret 5-letter word. Take turns guessing the opponent’s word; tiles show green (right spot), amber (wrong spot), grey (absent). First to crack it wins.',
+    g_farkle: 'Farkle', d_farkle: 'Press your luck with dice.', r_farkle: 'Roll six dice; 1s, 5s and triples score. Bank your points or roll the rest for more — but a roll that scores nothing (a Farkle) wipes the turn. First to 4000 wins.',
+    g_quarto: 'Quarto', d_quarto: 'Shared pieces, sneaky wins.', r_quarto: 'Pieces vary by size, colour, shape and fill. You place the piece your opponent hands you, then hand one back. Complete a line of four sharing any one attribute to win.',
   },
   ar: {
     tagline: 'لاعبان · اتصال مباشر · بدون تسجيل',
@@ -262,6 +266,10 @@ const DICT = {
     quest_online1: 'العب مباراة أونلاين', quest_newgame: 'جرّب لعبة جديدة', quest_coins150: 'اكسب 150 عملة',
     ach_wins_25: '25 فوزًا', ach_wins_100: '100 فوز', ach_bot_master: 'اهزم الصعب ×10',
     ach_plays_50: '50 مباراة', ach_plays_250: '250 مباراة', ach_level_10: 'المستوى 10', ach_level_25: 'المستوى 25', ach_streak_7d: 'سلسلة 7 أيام',
+    g_sim: 'سيم', d_sim: 'تجنّب المثلث.', r_sim: 'لوّنوا الحواف بين 6 نقاط بالتناوب. من يكوّن مثلثًا بلونه أولًا يخسر — لا تعادل.',
+    g_wordle: 'تحدي الكلمات', d_wordle: 'اكسر كلمته أولًا.', r_wordle: 'يختار كل لاعب كلمة سرية من 5 أحرف. خمّنوا كلمة الخصم بالتناوب؛ أخضر (مكان صحيح)، كهرماني (مكان خاطئ)، رمادي (غير موجود). أول من يكسرها يفوز.',
+    g_farkle: 'فاركل', d_farkle: 'غامر بحظك مع النرد.', r_farkle: 'ارمِ ستة نرد؛ الآحاد والخمسات والثلاثيات تسجّل. ثبّت نقاطك أو أعد الرمي للمزيد — لكن رمية بلا نقاط (فاركل) تمحو الدور. أول من يصل 4000 يفوز.',
+    g_quarto: 'كوارتو', d_quarto: 'قطع مشتركة وفوز ماكر.', r_quarto: 'تختلف القطع في الحجم واللون والشكل والتعبئة. تضع القطعة التي يناولك إياها خصمك ثم تناوله واحدة. أكمل خطًا من أربعة تتشارك صفة واحدة لتفوز.',
   },
 };
 

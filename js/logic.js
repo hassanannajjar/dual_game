@@ -744,6 +744,56 @@ export function hexBotMove(board, color, level) {
   return { type: 'move', x: best[0], y: best[1] };
 }
 
+// ---------- Sim (avoid the mono-colour triangle) ---------- edges keyed "a-b" (a<b) -> 'A'|'B'.
+export const SIM_EDGES = (() => { const e = []; for (let i = 0; i < 6; i++) for (let j = i + 1; j < 6; j++) e.push([i, j]); return e; })();
+export const SIM_TRIS = (() => { const t = []; for (let i = 0; i < 6; i++) for (let j = i + 1; j < 6; j++) for (let k = j + 1; k < 6; k++) t.push([i, j, k]); return t; })();
+export const simKey = (a, b) => (a < b ? a + '-' + b : b + '-' + a);
+export function simLoser(edges) {   // whoever completes a same-colour triangle loses
+  for (const [i, j, k] of SIM_TRIS) { const c = edges[simKey(i, j)]; if (c && edges[simKey(i, k)] === c && edges[simKey(j, k)] === c) return c; }
+  return null;
+}
+
+// ---------- Quarto ---------- 16 pieces = 4 attribute bits (0..15). board = array(16) of piece|null.
+const QLINES = [[0, 1, 2, 3], [4, 5, 6, 7], [8, 9, 10, 11], [12, 13, 14, 15], [0, 4, 8, 12], [1, 5, 9, 13], [2, 6, 10, 14], [3, 7, 11, 15], [0, 5, 10, 15], [3, 6, 9, 12]];
+export const QUARTO_LINES = QLINES;
+export function quartoWinner(board) {   // true if any line of 4 shares an attribute bit
+  for (const line of QLINES) {
+    if (line.some((i) => board[i] == null)) continue;
+    let and = 15, or = 0;
+    for (const i of line) { and &= board[i]; or |= board[i]; }
+    if (and !== 0 || or !== 15) return true;   // all share a 1-bit (and) or all share a 0-bit (or has a 0)
+  }
+  return false;
+}
+
+// ---------- Farkle ---------- score a set of dice (best selection); returns {score, scoring:[dice], counts}.
+export function farkleScore(dice) {
+  const c = [0, 0, 0, 0, 0, 0, 0]; for (const d of dice) c[d]++;
+  let score = 0; const used = [0, 0, 0, 0, 0, 0, 0];
+  if ([1, 2, 3, 4, 5, 6].every((n) => c[n] === 1)) return { score: 1500, scoring: [1, 2, 3, 4, 5, 6], all: true };  // straight
+  let pairs = 0; for (let n = 1; n <= 6; n++) if (c[n] === 2) pairs++;
+  if (pairs === 3) return { score: 1500, scoring: dice.slice(), all: true };                                       // three pairs
+  for (let n = 1; n <= 6; n++) {
+    if (c[n] >= 3) { let base = n === 1 ? 1000 : n * 100; base *= (1 << (c[n] - 3)); score += base; used[n] = c[n]; }
+  }
+  for (let n = 1; n <= 6; n++) if (c[n] < 3) { if (n === 1) { score += c[n] * 100; used[1] = c[n]; } else if (n === 5) { score += c[n] * 50; used[5] = c[n]; } }
+  const scoring = []; for (let n = 1; n <= 6; n++) for (let k = 0; k < used[n]; k++) scoring.push(n);
+  return { score, scoring, all: scoring.length === dice.length && dice.length > 0 };
+}
+
+// ---------- Wordle ---------- feedback for a guess vs answer: 'g' hit, 'y' present, 'b' absent.
+export function wordleScore(guess, answer) {
+  const n = guess.length, res = Array(n).fill('b'), rest = {};
+  for (let i = 0; i < n; i++) { if (guess[i] === answer[i]) res[i] = 'g'; else rest[answer[i]] = (rest[answer[i]] || 0) + 1; }
+  for (let i = 0; i < n; i++) { if (res[i] === 'g') continue; const ch = guess[i]; if (rest[ch] > 0) { res[i] = 'y'; rest[ch]--; } }
+  return res.join('');
+}
+export const WORDLE_WORDS = ['APPLE', 'BRAVE', 'CRANE', 'DELTA', 'EAGLE', 'FLAME', 'GRAPE', 'HOUSE', 'IVORY', 'JOLLY', 'KNEEL', 'LEMON', 'MANGO', 'NIGHT', 'OCEAN', 'PIANO', 'QUERY', 'RIVER', 'STONE', 'TIGER', 'UNITY', 'VIVID', 'WHALE', 'YACHT', 'ZEBRA', 'PLANT', 'CHAIR', 'BREAD', 'CLOUD', 'DREAM', 'FROST', 'GLOVE', 'HONEY', 'LIGHT', 'MUSIC', 'PEARL', 'ROBOT', 'SUGAR', 'TRAIN', 'WATER'];
+// Filter candidates consistent with all (guess,feedback) history — for a constraint bot.
+export function wordleConsistent(words, history) {
+  return words.filter((w) => history.every((h) => wordleScore(h.guess, w) === h.fb));
+}
+
 // Backgammon: greedily consume the rolled dice on a cloned state (off > hit > stack > progress).
 export function bgBotMoves(state, color, dice, level) {
   const st = { points: state.points.slice(), bar: { ...state.bar }, off: { ...state.off } };

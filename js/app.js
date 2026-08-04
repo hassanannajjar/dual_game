@@ -1,36 +1,40 @@
-import { register, boot } from './platform.js?v=19';
-import numberDuel from './games/number-duel.js?v=19';
-import ticTacToe from './games/tic-tac-toe.js?v=19';
-import connectFour from './games/connect-four.js?v=19';
-import rps from './games/rock-paper-scissors.js?v=19';
-import battleship from './games/battleship.js?v=19';
-import gomoku from './games/gomoku.js?v=19';
-import reversi from './games/reversi.js?v=19';
-import checkers from './games/checkers.js?v=19';
-import dots from './games/dots-boxes.js?v=19';
-import uttt from './games/ultimate-ttt.js?v=19';
-import mancala from './games/mancala.js?v=19';
-import memory from './games/memory.js?v=19';
-import morris from './games/nine-mens-morris.js?v=19';
-import chess from './games/chess.js?v=19';
-import hangman from './games/hangman.js?v=19';
-import snakes from './games/snakes.js?v=19';
-import pig from './games/pig.js?v=19';
-import go from './games/go.js?v=19';
-import order from './games/order-chaos.js?v=19';
-import nim from './games/nim.js?v=19';
-import yahtzee from './games/yahtzee.js?v=19';
-import hex from './games/hex.js?v=19';
-import ludo from './games/ludo.js?v=19';
-import backgammon from './games/backgammon.js?v=19';
-import chinesecheckers from './games/chinese-checkers.js?v=19';
-import g2048 from './games/2048.js?v=19';
-import tetris from './games/tetris.js?v=19';
-import airhockey from './games/airhockey.js?v=19';
-import tron from './games/tron.js?v=19';
-import minesweeper from './games/minesweeper.js?v=19';
-import snake from './games/snake.js?v=19';
-import sudoku from './games/sudoku.js?v=19';
+import { register, boot } from './platform.js?v=20';
+import numberDuel from './games/number-duel.js?v=20';
+import ticTacToe from './games/tic-tac-toe.js?v=20';
+import connectFour from './games/connect-four.js?v=20';
+import rps from './games/rock-paper-scissors.js?v=20';
+import battleship from './games/battleship.js?v=20';
+import gomoku from './games/gomoku.js?v=20';
+import reversi from './games/reversi.js?v=20';
+import checkers from './games/checkers.js?v=20';
+import dots from './games/dots-boxes.js?v=20';
+import uttt from './games/ultimate-ttt.js?v=20';
+import mancala from './games/mancala.js?v=20';
+import memory from './games/memory.js?v=20';
+import morris from './games/nine-mens-morris.js?v=20';
+import chess from './games/chess.js?v=20';
+import hangman from './games/hangman.js?v=20';
+import snakes from './games/snakes.js?v=20';
+import pig from './games/pig.js?v=20';
+import go from './games/go.js?v=20';
+import order from './games/order-chaos.js?v=20';
+import nim from './games/nim.js?v=20';
+import yahtzee from './games/yahtzee.js?v=20';
+import hex from './games/hex.js?v=20';
+import ludo from './games/ludo.js?v=20';
+import backgammon from './games/backgammon.js?v=20';
+import chinesecheckers from './games/chinese-checkers.js?v=20';
+import g2048 from './games/2048.js?v=20';
+import tetris from './games/tetris.js?v=20';
+import airhockey from './games/airhockey.js?v=20';
+import tron from './games/tron.js?v=20';
+import minesweeper from './games/minesweeper.js?v=20';
+import snake from './games/snake.js?v=20';
+import sudoku from './games/sudoku.js?v=20';
+import sim from './games/sim.js?v=20';
+import wordleDuel from './games/wordle-duel.js?v=20';
+import farkle from './games/farkle.js?v=20';
+import quarto from './games/quarto.js?v=20';
 
 // Single source of category / difficulty. category ∈ classic|strategy|puzzle|arcade|luck|word.
 const META = {
@@ -44,15 +48,16 @@ const META = {
   hex: ['strategy', 'medium'], ludo: ['luck', 'easy'], backgammon: ['strategy', 'hard'], chinesecheckers: ['strategy', 'hard'],
   '2048': ['arcade', 'easy'], tetris: ['arcade', 'medium'], airhockey: ['arcade', 'easy'], tron: ['arcade', 'easy'],
   minesweeper: ['puzzle', 'medium'], snake: ['arcade', 'easy'], sudoku: ['puzzle', 'medium'],
+  sim: ['strategy', 'medium'], wordle: ['word', 'medium'], farkle: ['luck', 'easy'], quarto: ['strategy', 'hard'],
 };
-const BOT = new Set(['ttt', 'connect4', 'gomoku', 'reversi', 'checkers', 'order', 'nim', 'dots', 'rps', 'number-duel', 'snakes', 'pig', 'memory', 'ludo', 'mancala', 'uttt', 'yahtzee', 'morris', 'chess', 'go', 'hex', 'chinesecheckers', 'backgammon', 'battleship', 'hangman', 'tron', 'airhockey']);
+const BOT = new Set(['ttt', 'connect4', 'gomoku', 'reversi', 'checkers', 'order', 'nim', 'dots', 'rps', 'number-duel', 'snakes', 'pig', 'memory', 'ludo', 'mancala', 'uttt', 'yahtzee', 'morris', 'chess', 'go', 'hex', 'chinesecheckers', 'backgammon', 'battleship', 'hangman', 'tron', 'airhockey', 'sim', 'wordle', 'farkle', 'quarto']);
 const SOLO = new Set(['2048', 'tetris', 'snake', 'minesweeper', 'sudoku']);
 
 // Add a game: import it above and add it here.
 [numberDuel, ticTacToe, connectFour, rps, battleship, gomoku, reversi, checkers, dots, uttt,
   mancala, memory, morris, chess, hangman, snakes, pig, go, order, nim, yahtzee,
   hex, ludo, backgammon, chinesecheckers, g2048, tetris, airhockey, tron,
-  minesweeper, snake, sudoku].forEach((g) => {
+  minesweeper, snake, sudoku, sim, wordleDuel, farkle, quarto].forEach((g) => {
   const m = META[g.id]; if (m) { g.category = m[0]; g.difficulty = m[1]; }
   if (BOT.has(g.id)) g.bot = true;
   if (SOLO.has(g.id)) g.solo = true;
