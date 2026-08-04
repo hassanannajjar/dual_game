@@ -14,25 +14,39 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
   <script src="https://unpkg.com/mqtt@5.7.0/dist/mqtt.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Sora:wght@600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="app.css" />
 </head>
 <body class="min-h-[100dvh] bg-slate-950 text-slate-100 flex flex-col">
 
+  <!-- SVG icon sprite (referenced via <use href="#i-name">) -->
+  <svg width="0" height="0" class="absolute" aria-hidden="true" style="position:absolute">
+    <symbol id="i-star" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></symbol>
+    <symbol id="i-info" viewBox="0 0 24 24"><path d="M11 7h2v2h-2zm0 4h2v6h-2zm1-9C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/></symbol>
+    <symbol id="i-gear" viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></symbol>
+    <symbol id="i-trophy" viewBox="0 0 24 24"><path d="M19 5h-2V3H7v2H5c-1.1 0-2 .9-2 2v1c0 2.55 1.92 4.63 4.39 4.94.63 1.5 1.98 2.63 3.61 2.96V19H7v2h10v-2h-4v-3.1c1.63-.33 2.98-1.46 3.61-2.96C19.08 12.63 21 10.55 21 8V7c0-1.1-.9-2-2-2zM5 8V7h2v3.82C5.84 10.4 5 9.3 5 8zm14 0c0 1.3-.84 2.4-2 2.82V7h2v1z"/></symbol>
+    <symbol id="i-bell" viewBox="0 0 24 24"><path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5S10.5 3.17 10.5 4v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/></symbol>
+    <symbol id="i-bell-off" viewBox="0 0 24 24"><path d="M20 18.69L7.84 6.14 5.27 3.49 4 4.76l2.8 2.8v.01c-.52.99-.8 2.16-.8 3.42v5l-2 2v1h13.73l2 2L21 19.72l-1-1.03zM12 22c1.11 0 2-.89 2-2h-4c0 1.11.89 2 2 2zm6-7.32V11c0-3.08-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68c-.15.03-.29.08-.42.12L18 14.68z"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></symbol>
+  </svg>
+
   <!-- header -->
   <header class="sticky top-0 z-10 backdrop-blur bg-slate-950/80 border-b border-slate-800 px-4 py-3 flex items-center justify-between"
           style="padding-top: max(0.75rem, env(safe-area-inset-top));">
-    <button id="btn-home" class="font-black text-lg tracking-tight text-indigo-400">◆ ARCADE</button>
-    <div class="flex items-center gap-3">
+    <button id="btn-home" class="font-display font-extrabold text-lg tracking-tight text-indigo-400 flex items-center gap-1.5"><span class="inline-block w-4 h-4 rotate-45 rounded-[3px] bg-gradient-to-br from-indigo-400 to-cyan-400"></span>ARCADE</button>
+    <div class="flex items-center gap-2">
       <span id="status" class="text-xs text-slate-400 hidden sm:inline"></span>
       <button id="btn-install" class="hidden text-sm px-3 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 font-semibold" data-i18n="install">Install</button>
-      <button id="btn-presence" class="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-slate-800/70 hover:bg-slate-700 text-xs transition active:scale-95" title="Players online" aria-label="Players online">
+      <button id="btn-presence" class="flex items-center gap-1.5 px-2 py-1.5 rounded-lg bg-slate-800/70 hover:bg-slate-700 text-xs transition active:scale-95" title="Players online" aria-label="Players online">
         <span id="hdr-avatar" class="text-sm leading-none">🦊</span>
         <span class="relative flex h-2 w-2"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60"></span><span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-400"></span></span>
         <span id="hdr-count" class="font-semibold tabular-nums">0</span>
       </button>
-      <button id="btn-dnd" class="text-lg leading-none" title="Availability" aria-label="Availability">🔔</button>
-      <button id="btn-profile" class="text-xl leading-none" title="Profile" aria-label="Profile">🏅</button>
-      <button id="btn-prefs" class="text-xl leading-none" title="Settings" aria-label="Settings">⚙</button>
+      <button id="btn-dnd" class="p-2 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-slate-100 transition" title="Availability" aria-label="Availability"><svg class="w-5 h-5 fill-current"><use href="#i-bell"></use></svg></button>
+      <button id="btn-profile" class="p-2 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-slate-100 transition" title="Profile" aria-label="Profile"><svg class="w-5 h-5 fill-current"><use href="#i-trophy"></use></svg></button>
+      <button id="btn-prefs" class="p-2 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-slate-100 transition" title="Settings" aria-label="Settings"><svg class="w-5 h-5 fill-current"><use href="#i-gear"></use></svg></button>
     </div>
   </header>
 
@@ -42,7 +56,7 @@
     <!-- HOME -->
     <section id="screen-home" class="space-y-4">
       <div class="hero-card rounded-2xl p-5 border border-slate-800">
-        <h1 class="text-2xl font-black mb-1" data-i18n="pick_game">Pick a game</h1>
+        <h1 class="text-2xl font-display font-extrabold mb-1" data-i18n="pick_game">Pick a game</h1>
         <p class="text-slate-300/80 text-sm" data-i18n="tagline">2 players · peer-to-peer · no sign-up</p>
       </div>
       <button id="btn-find-players" class="w-full py-3 rounded-xl bg-emerald-600/90 hover:bg-emerald-500 font-semibold transition active:scale-[0.99] flex items-center justify-center gap-2">
@@ -50,8 +64,11 @@
         <span data-i18n="find_players">Find players online</span>
         <span id="find-count" class="text-xs font-normal opacity-90"></span>
       </button>
-      <input id="game-search" data-i18n-ph="search_ph" placeholder="Search games…"
-             class="w-full py-2.5 px-4 rounded-xl bg-slate-800 border border-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 placeholder:text-slate-500" />
+      <div class="relative">
+        <svg class="w-4 h-4 fill-current text-slate-500 absolute top-1/2 -translate-y-1/2 start-3 pointer-events-none"><use href="#i-search"></use></svg>
+        <input id="game-search" data-i18n-ph="search_ph" placeholder="Search games…"
+               class="w-full py-2.5 ps-9 pe-4 rounded-xl bg-slate-800 border border-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 placeholder:text-slate-500" />
+      </div>
       <div id="cat-chips" class="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1"></div>
       <div id="game-sections"></div>
     </section>
@@ -241,6 +258,10 @@
       <div id="profile-avatars" class="flex flex-wrap gap-1.5"></div>
       <p id="profile-totals" class="text-sm text-slate-400"></p>
       <div>
+        <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2" data-i18n="weekly_challenge">Weekly challenge</h3>
+        <div id="weekly"></div>
+      </div>
+      <div>
         <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2" data-i18n="daily_quests">Daily quests</h3>
         <div id="quests"></div>
       </div>
@@ -288,6 +309,24 @@
       <p id="help-rules" class="text-sm text-slate-300 leading-relaxed"></p>
       <div id="help-demo" class="min-h-[4.5rem] flex items-center justify-center"></div>
       <button id="btn-help-close2" class="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 font-semibold" data-i18n="close">Close</button>
+    </div>
+  </div>
+
+  <!-- GAME PREVIEW (before committing to play) -->
+  <div id="preview-panel" class="hidden fixed inset-0 z-30 flex items-end sm:items-center justify-center bg-slate-950/70 backdrop-blur-sm p-4">
+    <div class="w-full max-w-sm bg-slate-900 border border-slate-700 rounded-2xl p-5 space-y-3">
+      <div class="flex items-center justify-between">
+        <h2 id="preview-title" class="text-lg font-display font-bold"></h2>
+        <button id="btn-preview-close" class="text-slate-400 hover:text-slate-200 text-xl leading-none">✕</button>
+      </div>
+      <div id="preview-meta" class="flex items-center gap-2"></div>
+      <div id="preview-demo" class="min-h-[4.5rem] flex items-center justify-center rounded-xl bg-slate-800/50 border border-slate-700/60 py-3"></div>
+      <p id="preview-rules" class="text-sm text-slate-300 leading-relaxed"></p>
+      <div class="grid grid-cols-2 gap-2 pt-1">
+        <button id="btn-preview-fav" class="flex items-center justify-center gap-1 px-3 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 font-semibold text-sm"></button>
+        <button id="btn-preview-play" class="flex items-center justify-center px-3 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 font-semibold text-sm" data-i18n="preview_play">▶ Play</button>
+      </div>
+      <button id="btn-preview-close2" class="w-full py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-sm transition" data-i18n="close">Close</button>
     </div>
   </div>
 
@@ -348,6 +387,6 @@
       });
     })();
   </script>
-  <script type="module" src="js/app.js?v=24"></script>
+  <script type="module" src="js/app.js?v=25"></script>
 </body>
 </html>

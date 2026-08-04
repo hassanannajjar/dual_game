@@ -126,6 +126,35 @@ function trailDemo(el) { // tron
   const frames = [0, 1, 2, 3].map((n) => () => { c.forEach((x) => x.className = 'w-4 h-4 bg-slate-800'); for (let i = 6; i <= 6 + n; i++) c[i].className = 'w-4 h-4 bg-emerald-500'; for (let i = 17; i >= 17 - n; i--) c[i].className = 'w-4 h-4 bg-amber-500'; });
   return play(el, 420, frames);
 }
+function dominoDemo(el) {
+  el.innerHTML = ''; const row = div('flex gap-1 justify-center items-center'); el.appendChild(row);
+  const tile = (a, b) => `<span class="inline-flex items-center gap-0.5 px-1.5 py-1 rounded bg-slate-100 text-slate-900 font-bold text-xs">${a}<span class="text-slate-400">·</span>${b}</span>`;
+  const frames = [
+    () => row.innerHTML = tile(3, 5),
+    () => row.innerHTML = tile(3, 5) + tile(5, 2),
+    () => row.innerHTML = tile(3, 5) + tile(5, 2) + tile(2, 6),
+  ];
+  return play(el, 620, frames);
+}
+function wordDemo(el) {
+  el.innerHTML = ''; const w = div('flex gap-1 justify-center'); const letters = 'GAME'.split(''); el.appendChild(w);
+  const tile = (c) => `<span class="inline-flex w-6 h-6 rounded bg-slate-100 text-slate-900 font-bold text-sm items-center justify-center">${c}</span>`;
+  const frames = [() => w.innerHTML = '']; letters.forEach((_, i) => frames.push(() => w.innerHTML = letters.slice(0, i + 1).map(tile).join('')));
+  frames.push(() => w.innerHTML = letters.map(tile).join('') + '<span class="self-center text-emerald-400 text-xs ms-1">+2</span>');
+  return play(el, 420, frames);
+}
+function gemDemo(el) {
+  el.innerHTML = ''; const g = div('grid grid-cols-4 gap-1 w-max mx-auto'); const c = [];
+  const cols = ['bg-rose-500', 'bg-amber-400', 'bg-emerald-500', 'bg-sky-500'];
+  for (let i = 0; i < 8; i++) { const x = div('w-5 h-5 rounded'); c.push(x); g.appendChild(x); } el.appendChild(g);
+  const set = (arr) => c.forEach((x, i) => x.className = 'w-5 h-5 rounded ' + cols[arr[i]]);
+  const frames = [
+    () => set([0, 0, 1, 2, 3, 0, 2, 1]),
+    () => set([0, 0, 0, 2, 3, 1, 2, 1]),                 // line them up
+    () => { set([3, 1, 2, 2, 3, 1, 2, 1]); [0, 1, 2].forEach((i) => c[i].classList.add('ring-2', 'ring-white')); },
+  ];
+  return play(el, 560, frames);
+}
 function generic(el, emoji) {
   el.innerHTML = ''; const s = div('text-5xl text-center transition-transform', emoji || '🎮'); el.appendChild(s);
   let big = false;
@@ -136,7 +165,8 @@ const MAP = {
   ttt: place3, uttt: place3, gomoku: place3, order: place3, morris: place3, go: place3, hex: place3, chess: place3, battleship: place3,
   connect4: drop4, reversi: flip,
   pig: dice, snakes: dice, yahtzee: dice, ludo: dice, backgammon: dice,
-  'number-duel': guessing, hangman: guessing,
+  'number-duel': guessing, hangman: guessing, mastermind: guessing,
+  dominoes: dominoDemo, 'word-race': wordDemo, match3: gemDemo,
   memory: cards, nim: sticks,
   checkers: moveDemo, chinesecheckers: moveDemo, mancala: moveDemo, dots: moveDemo,
   rps: rpsDemo,

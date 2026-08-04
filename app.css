@@ -1,5 +1,21 @@
 /* Neon arcade extras on top of Tailwind CDN. */
 
+/* ---------- Type system ---------- Inter for body, Sora for display headings. */
+body { font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; -webkit-font-smoothing: antialiased; }
+.font-display { font-family: 'Sora', 'Inter', system-ui, sans-serif; letter-spacing: -0.015em; }
+
+/* ---------- Glass surfaces ---------- layered cards/panels with depth. */
+.glass-card {
+  background: linear-gradient(180deg, rgba(30, 41, 59, 0.72), rgba(15, 23, 42, 0.72));
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+html[data-mode="light"] .glass-card {
+  background: linear-gradient(180deg, #ffffff, #eef2f7);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 1px 2px rgba(15, 23, 42, 0.06);
+}
+
 /* Hide number-input spinners so digit fields look clean. */
 .digit-input::-webkit-outer-spin-button,
 .digit-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }

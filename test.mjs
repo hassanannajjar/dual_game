@@ -325,4 +325,43 @@ assert.strictEqual(wordleScore('CRANE', 'CRANE'), 'ggggg', 'wordle exact');
 assert.strictEqual(wordleScore('SLATE', 'CRANE'), 'bbgbg', 'wordle mixed feedback');
 { const cands = wordleConsistent(['CRANE', 'SLATE', 'PLANT'], [{ guess: 'SLATE', fb: wordleScore('SLATE', 'CRANE') }]); assert.ok(cands.includes('CRANE') && !cands.includes('SLATE'), 'wordle constraint filter'); }
 
-console.log('PASS (all logic incl. bots/minesweeper/sudoku + rating/achievements + loyalty + quests/chests + hard-bots + new-games + earlier)');
+// ---- New games: Mastermind, Dominoes, Word Race, Match-3 ----
+import { mastermindCodes, mastermindConsistent, dominoDeck, dominoPips, dominoPlayable, dominoCanPlay,
+  isWord, canBuild, wordScore, RACK_SEEDS, match3Find, match3Gravity, isoWeekKey, pickWeekly, WEEKLY_POOL } from './js/logic.js';
+assert.strictEqual(mastermindCodes(6, 4).length, 1296, 'mastermind 6^4 = 1296 codes');
+{ const secret = '0123', g1 = '4501', fb = evaluate(secret, g1);
+  const cons = mastermindConsistent(mastermindCodes(6, 4), [{ guess: g1, exact: fb.exact, partial: fb.partial }]);
+  assert.ok(cons.includes(secret), 'mastermind keeps the true secret consistent');
+  assert.ok(cons.every((c) => { const r = evaluate(c, g1); return r.exact === fb.exact && r.partial === fb.partial; }), 'mastermind survivors all match feedback'); }
+assert.strictEqual(dominoDeck().length, 28, 'domino double-six set = 28 tiles');
+assert.strictEqual(dominoPips([[6, 6], [0, 1]]), 13, 'domino pip sum');
+assert.strictEqual(dominoPlayable([3, 5], [5, 2]), true, 'domino playable on matching end');
+assert.strictEqual(dominoPlayable([3, 4], [5, 2]), false, 'domino not playable');
+assert.strictEqual(dominoPlayable([0, 0], null), true, 'domino first tile always playable');
+assert.strictEqual(dominoCanPlay([[1, 1], [3, 4]], [5, 2]), false, 'domino no legal move → pass');
+assert.strictEqual(dominoCanPlay([[1, 1], [2, 4]], [5, 2]), true, 'domino has a legal move');
+assert.ok(isWord('crane') && isWord('planet') && !isWord('qwxyz'), 'word-list membership');
+assert.strictEqual(canBuild('cat', ['a', 'c', 't', 'x']), true, 'canBuild from rack');
+assert.strictEqual(canBuild('cat', ['c', 'a']), false, 'canBuild missing letter');
+assert.strictEqual(canBuild('aa', ['a', 'b']), false, 'canBuild respects letter multiplicity');
+assert.ok(wordScore('cat') === 1 && wordScore('crane') === 4 && wordScore('ab') === 0, 'word score by length');
+assert.ok(RACK_SEEDS.length >= 100 && RACK_SEEDS.every((w) => w.length >= 6 && w.length <= 8), 'rack seeds present and sized');
+{ const b = [[0, 0, 0, 1], [2, 3, 4, 1], [2, 3, 4, 1]]; const hit = match3Find(b);
+  assert.ok(hit.has('0,0') && hit.has('0,1') && hit.has('0,2'), 'match3 finds a row run');
+  assert.ok(hit.has('0,3') && hit.has('1,3') && hit.has('2,3'), 'match3 finds a column run'); }
+assert.strictEqual(match3Find([[0, 1, 0], [1, 0, 1], [0, 1, 0]]).size, 0, 'match3 no runs on a checker board');
+{ const b = [[null, 1, 2], [0, 1, 2], [0, 1, 2]]; match3Gravity(b, () => 9);
+  assert.strictEqual(b[2][0], 0, 'match3 gravity keeps bottom cell'); assert.strictEqual(b[0][0], 9, 'match3 gravity refills the top'); }
+
+// ---- Weekly challenge + new achievements ----
+assert.ok(/^\d{4}-W\d{2}$/.test(isoWeekKey(new Date(Date.UTC(2026, 0, 15)))), 'isoWeekKey format YYYY-Www');
+{ const a = pickWeekly('2026-W05'), b = pickWeekly('2026-W05'); assert.deepStrictEqual(a, b, 'weekly deterministic per week'); assert.ok(WEEKLY_POOL.some((w) => w.id === a.id), 'weekly comes from the pool'); }
+assert.ok(evalAchievements({ games: { a: { w: 250, l: 0, d: 0, bestStreak: 1, rating: 1000 } }, botWins: {}, cats: [] }).includes('wins_250'), 'ach wins_250');
+assert.ok(evalAchievements({ games: { a: { w: 1, l: 0, d: 0, bestStreak: 10, rating: 1000 } }, botWins: {}, cats: [] }).includes('streak_10'), 'ach streak_10');
+assert.ok(evalAchievements({ games: { a: { w: 1, l: 0, d: 0, bestStreak: 1, rating: 1600 } }, botWins: {}, cats: [] }).includes('rated_1600'), 'ach rated_1600');
+assert.ok(evalAchievements({ games: {}, botWins: {}, cats: [] }, { level: 40 }).includes('level_40'), 'ach level_40 via extra');
+assert.ok(evalAchievements({ games: {}, botWins: {}, cats: [] }, { favs: 5 }).includes('favs_5'), 'ach favs_5 via extra');
+{ const games = {}; for (let i = 0; i < 10; i++) games['g' + i] = { w: 1, l: 0, d: 0, bestStreak: 1, rating: 1000 };
+  assert.ok(evalAchievements({ games, botWins: {}, cats: [] }).includes('games_10'), 'ach games_10 counts distinct played'); }
+
+console.log('PASS (all logic incl. bots/minesweeper/sudoku + rating/achievements + loyalty + quests/chests + hard-bots + new-games incl. mastermind/dominoes/word-race/match3 + weekly + earlier)');

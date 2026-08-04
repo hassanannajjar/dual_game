@@ -1,10 +1,11 @@
 // Player profile + progression — stats, per-game rating, achievements. All localStorage.
-import { t } from './i18n.js?v=24';
-import { sound } from './sound.js?v=24';
-import { getName, setName } from './prefs.js?v=24';
-import { nextRating, evalAchievements, ACHIEVEMENTS } from './logic.js?v=24';
-import { earnForResult, grantAchievement, questEvent, getLevel, getStreak, renderLevelHeader, renderShop, renderQuests, renderStreak, renderGifts, owns, equip, REWARDS } from './loyalty.js?v=24';
-import { getToken } from './identity.js?v=24';
+import { t } from './i18n.js?v=25';
+import { sound } from './sound.js?v=25';
+import { getName, setName } from './prefs.js?v=25';
+import { nextRating, evalAchievements, ACHIEVEMENTS } from './logic.js?v=25';
+import { earnForResult, grantAchievement, questEvent, getLevel, getStreak, renderLevelHeader, renderShop, renderQuests, renderWeekly, renderStreak, renderGifts, owns, equip, REWARDS } from './loyalty.js?v=25';
+import { getToken } from './identity.js?v=25';
+import { getFavs } from './favorites.js?v=25';
 
 const $ = (id) => document.getElementById(id);
 const AVATARS = ['🦊', '🐼', '🐸', '🦁', '🐙', '🦄', '🐧', '🐳', '🤖', '👾', '🎲', '⚡'];
@@ -53,7 +54,7 @@ export function recordResult(info) {
 
   // Achievements — evaluated with the post-earn level + login streak; each new one pays out.
   const had = loadAch();
-  const now = evalAchievements(s, { level: getLevel(), streakDays: getStreak() });
+  const now = evalAchievements(s, { level: getLevel(), streakDays: getStreak(), favs: getFavs().length });
   const unlocked = now.filter((id) => !had.includes(id));
   if (unlocked.length) { write('arcade:ach', now); sound('badge'); const ar = grantAchievement(unlocked.length); earn.coinGain += ar.coins; }
 
@@ -63,7 +64,7 @@ export function recordResult(info) {
     beatBot: info.vsBot && info.outcome === 'win', gameId: info.gameId, coins: earn.coinGain, winStreak: g.streak,
   });
 
-  return Object.assign({ delta, unlocked, questsDone: q.completed, chestFromQuests: q.grantedChest }, earn);
+  return Object.assign({ delta, unlocked, questsDone: q.completed, chestFromQuests: q.grantedChest, weeklyDone: q.weeklyDone }, earn);
 }
 
 // ---------- profile modal ----------
@@ -94,7 +95,8 @@ function renderProfile(games) {
   }
   $('profile-name').value = getName();
 
-  // daily quests, streak calendar, gifts
+  // weekly challenge, daily quests, streak calendar, gifts
+  if ($('weekly')) renderWeekly($('weekly'), () => renderProfile(games));
   if ($('quests')) renderQuests($('quests'), () => renderProfile(games));
   if ($('streak-cal')) renderStreak($('streak-cal'));
   if ($('gifts')) renderGifts($('gifts'), () => renderProfile(games));

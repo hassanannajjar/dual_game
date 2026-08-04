@@ -2,14 +2,15 @@
 // drives phases: home -> connect -> lobby -> [setup] -> [toss] -> play -> over,
 // and handles pause / disconnect-reconnect / refresh-resume.
 // Depends on the global `Peer` (PeerJS, loaded via CDN).
-import { t, initLang, onLangChange } from './i18n.js?v=24';
-import { sound } from './sound.js?v=24';
-import { initPrefs, getName, setName, haptic } from './prefs.js?v=24';
-import { demo } from './demos.js?v=24';
-import { goOnline as presenceOnline, onBoard as onPresenceBoard, publishScore, setPresence, isOnline } from './presence.js?v=24';
-import { recordResult, getRating, overallRating, openProfile, closeProfile, initProfile, getAvatar } from './profile.js?v=24';
-import { claimDaily, getLevel, getCoins, setNotify } from './loyalty.js?v=24';
-import { getUid, getGuestName } from './identity.js?v=24';
+import { t, initLang, onLangChange } from './i18n.js?v=25';
+import { sound } from './sound.js?v=25';
+import { initPrefs, getName, setName, haptic } from './prefs.js?v=25';
+import { demo } from './demos.js?v=25';
+import { goOnline as presenceOnline, onBoard as onPresenceBoard, publishScore, setPresence, isOnline } from './presence.js?v=25';
+import { recordResult, getRating, overallRating, openProfile, closeProfile, initProfile, getAvatar } from './profile.js?v=25';
+import { claimDaily, getLevel, getCoins, setNotify } from './loyalty.js?v=25';
+import { getUid, getGuestName } from './identity.js?v=25';
+import { isFav, toggleFav, getFavs } from './favorites.js?v=25';
 
 // ---------- DOM helpers ----------
 const $ = (id) => document.getElementById(id);
@@ -19,6 +20,8 @@ export function el(tag, cls, html) {
   if (html != null) n.innerHTML = html;
   return n;
 }
+// Inline SVG icon by id from the sprite in index.html. cls sets size/colour (fill: currentColor).
+export function icon(name, cls) { return `<svg class="${cls || 'w-5 h-5'} fill-current" aria-hidden="true"><use href="#i-${name}"></use></svg>`; }
 const SCREENS = ['home', 'online', 'connect', 'lobby', 'setup', 'toss', 'play'];
 function stopHowto() { if (S.demoStop) { S.demoStop(); S.demoStop = null; } }
 function show(name) {
@@ -224,37 +227,79 @@ function onData(msg) {
 // ---------- home ----------
 const CATS = ['classic', 'strategy', 'puzzle', 'arcade', 'luck', 'word'];
 const DIFF_COLOR = { easy: 'text-emerald-400', medium: 'text-amber-400', hard: 'text-rose-400' };
+const DIFF_BAR = { easy: 'bg-emerald-400', medium: 'bg-amber-400', hard: 'bg-rose-400' };
+const DIFF_LVL = { easy: 1, medium: 2, hard: 3 };
 function renderChips() {
   const box = $('cat-chips'); box.innerHTML = '';
-  for (const key of ['all', ...CATS]) {
+  const chip = (key, label) => {
     const active = (S.homeFilter || 'all') === key;
     const b = el('button', 'shrink-0 px-3 py-1.5 rounded-full text-sm font-semibold transition ' +
-      (active ? 'bg-indigo-600' : 'bg-slate-800 text-slate-400 hover:text-slate-200'), t(key === 'all' ? 'all_games' : 'cat_' + key));
+      (active ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/30' : 'bg-slate-800/70 text-slate-400 hover:text-slate-200'), label);
     b.onclick = () => { S.homeFilter = key; renderHome(); };
-    box.appendChild(b);
-  }
+    return b;
+  };
+  if (getFavs().length) box.appendChild(chip('fav', '★ ' + t('favorites')));
+  for (const key of ['all', ...CATS]) box.appendChild(chip(key, t(key === 'all' ? 'all_games' : 'cat_' + key)));
+}
+function diffMeter(diff) {
+  const lvl = DIFF_LVL[diff] || 2;
+  let bars = '';
+  for (let i = 1; i <= 3; i++) bars += `<span class="w-3 h-1 rounded-full ${i <= lvl ? DIFF_BAR[diff] : 'bg-slate-700'}"></span>`;
+  return `<span class="inline-flex items-center gap-0.5">${bars}<span class="ms-1 text-[10px] ${DIFF_COLOR[diff]}">${t('diff_' + diff)}</span></span>`;
 }
 function gameCard(g, onPick) {
-  const card = el('button', 'group flex items-center gap-3 p-3 rounded-2xl bg-slate-800/70 border border-slate-700 ' +
-    'hover:border-indigo-500 hover:shadow-[0_0_25px_-6px] hover:shadow-indigo-500/60 active:scale-[0.98] transition text-start w-full');
   const diff = g.difficulty || 'medium';
-  card.innerHTML =
-    `<span class="text-3xl w-10 text-center shrink-0">${g.emoji}</span>` +
+  const card = el('div', 'group flex items-stretch rounded-2xl glass-card border border-slate-700/70 hover:border-indigo-500/80 hover:shadow-[0_10px_34px_-14px] hover:shadow-indigo-500/60 transition');
+  const main = el('button', 'flex items-center gap-3 p-3 flex-1 min-w-0 text-start rounded-2xl active:scale-[0.98] transition');
+  main.innerHTML =
+    `<span class="text-2xl w-11 h-11 rounded-xl bg-slate-900/60 border border-slate-700/70 flex items-center justify-center shrink-0 group-hover:scale-105 transition">${g.emoji}</span>` +
     `<span class="flex-1 min-w-0">` +
-      `<span class="block font-bold truncate">${gameName(g)}</span>` +
+      `<span class="block font-display font-bold truncate">${gameName(g)}</span>` +
       `<span class="block text-xs text-slate-400 truncate">${gameDesc(g)}</span>` +
-      `<span class="mt-1 inline-flex gap-1.5 text-[10px]">` +
-        `<span class="px-1.5 py-0.5 rounded bg-slate-700 text-slate-300">${t('players2')}</span>` +
-        `<span class="px-1.5 py-0.5 rounded bg-slate-700 ${DIFF_COLOR[diff]}">${t('diff_' + diff)}</span>` +
+      `<span class="mt-1 flex items-center gap-2 text-[10px]">` +
+        `<span class="px-1.5 py-0.5 rounded bg-slate-700/70 text-slate-300">${t('players2')}</span>` +
+        diffMeter(diff) +
       `</span>` +
     `</span>`;
-  card.onclick = () => onPick(g.id);
+  main.onclick = () => onPick(g.id);
+  const controls = el('div', 'flex flex-col items-center justify-center gap-1 pe-2');
+  const star = el('button', 'p-1.5 rounded-lg hover:bg-slate-700/60 transition ' + (isFav(g.id) ? 'text-amber-400' : 'text-slate-600 hover:text-slate-400'), icon('star'));
+  star.title = t('favorite'); star.setAttribute('aria-label', t('favorite'));
+  star.onclick = (e) => { e.stopPropagation(); const now = toggleFav(g.id); sound('toggle'); toast(t(now ? 'faved' : 'unfaved', { name: gameName(g) })); renderHome(); };
+  const prev = el('button', 'p-1.5 rounded-lg text-slate-500 hover:text-slate-300 hover:bg-slate-700/60 transition', icon('info'));
+  prev.title = t('preview'); prev.setAttribute('aria-label', t('preview'));
+  prev.onclick = (e) => { e.stopPropagation(); openPreview(g.id); };
+  controls.append(star, prev);
+  card.append(main, controls);
   return card;
+}
+function sectionGrid(list, onPick) {
+  const grid = el('div', 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3');
+  for (const g of list) grid.appendChild(gameCard(g, onPick));
+  return grid;
 }
 function buildSections(container, onPick, filterCat, q) {
   container.innerHTML = '';
   const match = (g) => !q || gameName(g).toLowerCase().includes(q) || gameDesc(g).toLowerCase().includes(q) || g.name.toLowerCase().includes(q);
+  // dedicated favorites view
+  if (filterCat === 'fav') {
+    const favs = getFavs().map(gameById).filter(Boolean).filter(match);
+    if (favs.length) container.appendChild(sectionGrid(favs, onPick));
+    else container.appendChild(el('p', 'text-center text-slate-500 py-8', t('no_favs')));
+    return;
+  }
   let any = false;
+  // pinned favorites strip on the default "all" view (not while searching or filtering a category)
+  if ((!filterCat || filterCat === 'all') && !q && getFavs().length) {
+    const favs = getFavs().map(gameById).filter(Boolean);
+    if (favs.length) {
+      any = true;
+      const sec = el('div', 'mb-5');
+      sec.appendChild(el('h2', 'text-xs font-bold uppercase tracking-wider text-amber-400/80 mb-2', '★ ' + t('favorites')));
+      sec.appendChild(sectionGrid(favs, onPick));
+      container.appendChild(sec);
+    }
+  }
   for (const cat of CATS) {
     if (filterCat && filterCat !== 'all' && filterCat !== cat) continue;
     const list = games.filter((g) => (g.category || 'classic') === cat && match(g));
@@ -262,9 +307,7 @@ function buildSections(container, onPick, filterCat, q) {
     any = true;
     const sec = el('div', 'mb-5');
     sec.appendChild(el('h2', 'text-xs font-bold uppercase tracking-wider text-slate-500 mb-2', t('cat_' + cat)));
-    const grid = el('div', 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3');
-    for (const g of list) grid.appendChild(gameCard(g, onPick));
-    sec.appendChild(grid);
+    sec.appendChild(sectionGrid(list, onPick));
     container.appendChild(sec);
   }
   if (!any) container.appendChild(el('p', 'text-center text-slate-500 py-8', t('no_results')));
@@ -273,6 +316,25 @@ function renderHome() {
   renderChips();
   buildSections($('game-sections'), selectGame, S.homeFilter, (S.homeSearch || '').trim().toLowerCase());
 }
+// ---------- game preview (before committing to play) ----------
+function openPreview(id) {
+  const g = gameById(id); if (!g) return;
+  $('preview-title').textContent = gameTitle(g);
+  $('preview-rules').textContent = gameRules(g);
+  $('preview-meta').innerHTML = `<span class="px-1.5 py-0.5 rounded bg-slate-700/70 text-slate-300 text-[10px]">${t('players2')}</span>` + diffMeter(g.difficulty || 'medium');
+  const favBtn = $('btn-preview-fav');
+  const paintFav = () => {
+    favBtn.className = 'flex items-center justify-center gap-1 px-3 py-2.5 rounded-xl font-semibold text-sm transition ' + (isFav(id) ? 'bg-amber-500 text-slate-900 hover:bg-amber-400' : 'bg-slate-800 hover:bg-slate-700');
+    favBtn.innerHTML = icon('star', 'w-4 h-4') + `<span>${t(isFav(id) ? 'faved_short' : 'add_fav')}</span>`;
+  };
+  favBtn.onclick = () => { toggleFav(id); sound('toggle'); paintFav(); renderHome(); };
+  paintFav();
+  $('btn-preview-play').onclick = () => { closePreview(); selectGame(id); };
+  if (S.previewDemoStop) S.previewDemoStop();
+  S.previewDemoStop = demo(id, $('preview-demo'), g.emoji);
+  $('preview-panel').classList.remove('hidden');
+}
+function closePreview() { if (S.previewDemoStop) { S.previewDemoStop(); S.previewDemoStop = null; } $('preview-panel').classList.add('hidden'); }
 // ---------- in-room game picker ----------
 function openPicker() {
   if (!(S.conn && S.conn.open)) return;              // only meaningful while in a room
@@ -351,7 +413,7 @@ function goOnlinePresence() {
 function updatePresenceHeader(onlineCount) {
   const c = $('hdr-count'); if (c) c.textContent = onlineCount;
   const av = $('hdr-avatar'); if (av) av.textContent = getAvatar();
-  const d = $('btn-dnd'); if (d) { d.textContent = S.dnd ? '🔕' : '🔔'; d.title = t(S.dnd ? 'dnd_on' : 'dnd_off'); }
+  const d = $('btn-dnd'); if (d) { d.innerHTML = icon(S.dnd ? 'bell-off' : 'bell'); d.title = t(S.dnd ? 'dnd_on' : 'dnd_off'); }
   const fc = $('find-count'); if (fc) fc.textContent = onlineCount ? `· ${onlineCount} ${t('online_now_short')}` : '';
 }
 function tierBadge(level) { return level >= 40 ? '👑' : level >= 25 ? '💎' : level >= 15 ? '💠' : level >= 10 ? '🥇' : level >= 5 ? '🥈' : '🥉'; }
@@ -735,6 +797,7 @@ function recordAndSeries(outcome) {
   for (const id of res.unlocked) toast(t('new_badge', { name: t('ach_' + id) }));
   for (const q of (res.questsDone || [])) toast(t('quest_done', { name: t('quest_' + q.id) }));
   if ((res.questsDone || []).length) sound('quest');
+  if (res.weeklyDone) { toast(t('weekly_done')); sound('quest'); }
   if (res.chestFromQuests || res.chestsGranted) { toast(t('chest_earned')); sound('chest'); }
   if (res.leveledUp) { toast(t('level_up', { n: res.level, tier: t('tier_' + res.tier.key) })); sound('levelup'); haptic([40, 40, 80]); }
   else if (res.xpGain) { toast(t('earned', { xp: res.xpGain, coins: res.coinGain })); sound('coin'); }
@@ -828,6 +891,9 @@ export function boot() {
   $('btn-help-close').onclick = closeHelp;
   $('btn-help-close2').onclick = closeHelp;
   $('help-panel').addEventListener('click', (e) => { if (e.target === $('help-panel')) closeHelp(); });
+  $('btn-preview-close').onclick = closePreview;
+  $('btn-preview-close2').onclick = closePreview;
+  $('preview-panel').addEventListener('click', (e) => { if (e.target === $('preview-panel')) closePreview(); });
   $('btn-change').onclick = openPicker;
   $('btn-result-change').onclick = openPicker;
   $('btn-picker-cancel').onclick = closePicker;

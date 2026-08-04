@@ -1,7 +1,7 @@
 // Loyalty economy — XP/levels, spendable coins, a cosmetics shop, daily bonus. All localStorage.
-import { levelForXp, tierForLevel, xpCoinsForResult, levelRewardCoins, dailyReward, pickDailyQuests, chestRoll } from './logic.js?v=24';
-import { t } from './i18n.js?v=24';
-import { sound } from './sound.js?v=24';
+import { levelForXp, tierForLevel, xpCoinsForResult, levelRewardCoins, dailyReward, pickDailyQuests, chestRoll, isoWeekKey, pickWeekly } from './logic.js?v=25';
+import { t } from './i18n.js?v=25';
+import { sound } from './sound.js?v=25';
 
 const read = (k, d) => { try { const s = localStorage.getItem(k); return s ? JSON.parse(s) : d; } catch (e) { return d; } };
 const write = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
@@ -138,7 +138,9 @@ export function questEvent(ev) {
       case 'winstreak': if (ev.win && (ev.winStreak || 0) >= quest.target) quest.prog = quest.target; break;
       case 'beatbot': inc = ev.beatBot ? 1 : 0; break;
       case 'online': inc = ev.online ? 1 : 0; break;
+      case 'winonline': inc = (ev.win && ev.online) ? 1 : 0; break;
       case 'trynew': inc = isNew ? 1 : 0; break;
+      case 'variety': quest.prog = Math.min(quest.target, q.games.length); break;
       case 'earncoins': inc = ev.coins || 0; break;
     }
     if (inc) quest.prog = Math.min(quest.target, quest.prog + inc);
@@ -147,7 +149,46 @@ export function questEvent(ev) {
   let grantedChest = false;
   if (q.list.every((x) => x.done) && !q.chestGiven) { q.chestGiven = true; const s = load(); s.chests = (s.chests || 0) + 1; save(s); grantedChest = true; }
   write(QKEY, q);
-  return { completed, grantedChest };
+  const weeklyDone = advanceWeekly(ev);
+  return { completed, grantedChest, weeklyDone };
+}
+
+// ---------- weekly challenge ---------- one bigger rotating goal per ISO week; completing it drops a chest.
+const WKEY = 'arcade:weekly';
+function loadWeekly() {
+  const week = isoWeekKey(new Date());
+  let w = read(WKEY, null);
+  if (!w || w.week !== week) {
+    w = { week, q: Object.assign({}, pickWeekly(week), { prog: 0, done: false, claimed: false }), games: [] };
+    write(WKEY, w);
+  }
+  return w;
+}
+export function getWeekly() { return loadWeekly().q; }
+function advanceWeekly(ev) {
+  const w = loadWeekly(); const q = w.q; if (q.done) return false;
+  if (ev.gameId && !w.games.includes(ev.gameId)) w.games.push(ev.gameId);
+  let inc = 0;
+  switch (q.type) {
+    case 'play': inc = ev.played ? 1 : 0; break;
+    case 'win': inc = ev.win ? 1 : 0; break;
+    case 'winstreak': if (ev.win && (ev.winStreak || 0) >= q.target) q.prog = q.target; break;
+    case 'beatbot': inc = ev.beatBot ? 1 : 0; break;
+    case 'online': inc = ev.online ? 1 : 0; break;
+    case 'variety': q.prog = Math.min(q.target, w.games.length); break;
+  }
+  if (inc) q.prog = Math.min(q.target, q.prog + inc);
+  const justDone = !q.done && q.prog >= q.target;
+  if (justDone) q.done = true;
+  write(WKEY, w);
+  return justDone;
+}
+export function claimWeekly() {
+  const w = loadWeekly(); const q = w.q;
+  if (!q.done || q.claimed) return null;
+  q.claimed = true; write(WKEY, w);
+  const s = load(); s.coins += q.coins; s.xp += q.xp; s.chests = (s.chests || 0) + 1; save(s); sound('chest');
+  return { coins: q.coins, xp: q.xp };
 }
 export function claimQuest(i) {
   const q = loadQuests(); const quest = q.list[i];
@@ -246,6 +287,23 @@ export function renderQuests(box, onChange) {
     row.appendChild(el('p', 'mt-0.5 text-[10px] text-slate-500 text-end', q.prog + ' / ' + q.target));
     box.appendChild(row);
   }
+}
+
+export function renderWeekly(box, onChange) {
+  box.innerHTML = '';
+  const q = getWeekly();
+  const row = el('div', 'rounded-xl bg-indigo-600/15 border border-indigo-500/40 p-2.5');
+  const top = el('div', 'flex items-center justify-between gap-2 text-sm');
+  top.appendChild(el('span', 'flex-1 font-semibold', '🏆 ' + t('weekly_' + q.id)));
+  if (q.claimed) top.appendChild(el('span', 'text-[11px] text-emerald-400 font-semibold', '✓ ' + t('claimed')));
+  else if (q.done) { const b = el('button', 'text-[11px] px-2 py-1 rounded-lg bg-amber-500 text-slate-900 hover:bg-amber-400 font-semibold', t('claim') + ' +' + q.coins + ' 🪙 🎁'); b.onclick = () => { claimWeekly(); onChange && onChange(); }; top.appendChild(b); }
+  else top.appendChild(el('span', 'text-[11px] text-amber-400', '+' + q.coins + ' 🪙 · 🎁'));
+  row.appendChild(top);
+  const bar = el('div', 'mt-1.5 h-1.5 rounded-full bg-slate-900 overflow-hidden');
+  const fill = el('div', 'h-full bg-indigo-400 rounded-full'); fill.style.width = Math.round(Math.min(1, q.prog / q.target) * 100) + '%'; bar.appendChild(fill);
+  row.appendChild(bar);
+  row.appendChild(el('p', 'mt-0.5 text-[10px] text-slate-400 text-end', q.prog + ' / ' + q.target));
+  box.appendChild(row);
 }
 
 export function renderStreak(box) {

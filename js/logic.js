@@ -601,23 +601,33 @@ export const ACHIEVEMENTS = [
   { id: 'plays_50', emoji: '🎮', test: (d) => d.plays >= 50 },
   { id: 'veteran', emoji: '🎖️', test: (d) => d.plays >= 100 },
   { id: 'plays_250', emoji: '🏅', test: (d) => d.plays >= 250 },
+  { id: 'wins_250', emoji: '💠', test: (d) => d.wins >= 250 },
+  { id: 'streak_10', emoji: '⚡', test: (d) => d.bestStreak >= 10 },
   { id: 'rated_1200', emoji: '⭐', test: (d) => d.maxRating >= 1200 },
+  { id: 'rated_1400', emoji: '🌠', test: (d) => d.maxRating >= 1400 },
+  { id: 'rated_1600', emoji: '🔱', test: (d) => d.maxRating >= 1600 },
   { id: 'level_10', emoji: '🌟', test: (d) => d.level >= 10 },
   { id: 'level_25', emoji: '💫', test: (d) => d.level >= 25 },
+  { id: 'level_40', emoji: '🦅', test: (d) => d.level >= 40 },
   { id: 'streak_7d', emoji: '📅', test: (d) => d.streakDays >= 7 },
+  { id: 'streak_14d', emoji: '🗓️', test: (d) => d.streakDays >= 14 },
+  { id: 'games_10', emoji: '🕹️', test: (d) => d.distinctGames >= 10 },
+  { id: 'games_20', emoji: '👾', test: (d) => d.distinctGames >= 20 },
+  { id: 'favs_5', emoji: '⭐', test: (d) => d.favs >= 5 },
 ];
-// extra (optional) = { level, streakDays } from the loyalty layer; absent → those tests are false.
+// extra (optional) = { level, streakDays, favs } from the loyalty/favorites layers; absent → those tests are false.
 export function evalAchievements(stats, extra) {
   const g = Object.values((stats && stats.games) || {});
   const e = extra || {};
   const d = {
     wins: g.reduce((a, x) => a + (x.w || 0), 0),
     plays: g.reduce((a, x) => a + (x.w || 0) + (x.l || 0) + (x.d || 0), 0),
+    distinctGames: g.filter((x) => (x.w || 0) + (x.l || 0) + (x.d || 0) > 0).length,
     bestStreak: g.reduce((a, x) => Math.max(a, x.bestStreak || 0), 0),
     maxRating: g.reduce((a, x) => Math.max(a, x.rating || 0), 0),
     hardBot: ((stats && stats.botWins) || {}).hard || 0,
     cats: ((stats && stats.cats) || []).length,
-    level: e.level || 0, streakDays: e.streakDays || 0,
+    level: e.level || 0, streakDays: e.streakDays || 0, favs: e.favs || 0,
   };
   return ACHIEVEMENTS.filter((a) => a.test(d)).map((a) => a.id);
 }
@@ -638,7 +648,9 @@ export const QUEST_POOL = [
   { id: 'streak2', type: 'winstreak', target: 2, coins: 70, xp: 35 },
   { id: 'bot1', type: 'beatbot', target: 1, coins: 50, xp: 25 },
   { id: 'online1', type: 'online', target: 1, coins: 60, xp: 30 },
+  { id: 'winonline2', type: 'winonline', target: 2, coins: 90, xp: 45 },
   { id: 'newgame', type: 'trynew', target: 1, coins: 50, xp: 25 },
+  { id: 'newgame2', type: 'variety', target: 2, coins: 80, xp: 40 },
   { id: 'coins150', type: 'earncoins', target: 150, coins: 50, xp: 25 },
 ];
 export function pickDailyQuests(dateStr) {
@@ -648,6 +660,28 @@ export function pickDailyQuests(dateStr) {
   const out = [], types = new Set();
   for (const q of pool) { if (types.has(q.type)) continue; types.add(q.type); out.push(Object.assign({}, q)); if (out.length === 3) break; }
   return out;
+}
+// ---------- Weekly challenge (pure) ---------- one bigger rotating goal, deterministic per ISO week.
+export const WEEKLY_POOL = [
+  { id: 'w_win10', type: 'win', target: 10, coins: 300, xp: 150 },
+  { id: 'w_play20', type: 'play', target: 20, coins: 260, xp: 130 },
+  { id: 'w_bot5', type: 'beatbot', target: 5, coins: 280, xp: 140 },
+  { id: 'w_online5', type: 'online', target: 5, coins: 320, xp: 160 },
+  { id: 'w_variety5', type: 'variety', target: 5, coins: 300, xp: 150 },
+  { id: 'w_streak4', type: 'winstreak', target: 4, coins: 340, xp: 170 },
+];
+// isoWeekKey(date) -> "YYYY-Www" — Thursday-of-week ISO rule, stable within a calendar week.
+export function isoWeekKey(d) {
+  const dt = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  const day = dt.getUTCDay() || 7;
+  dt.setUTCDate(dt.getUTCDate() + 4 - day);
+  const yearStart = new Date(Date.UTC(dt.getUTCFullYear(), 0, 1));
+  const week = Math.ceil(((dt - yearStart) / 86400000 + 1) / 7);
+  return dt.getUTCFullYear() + '-W' + String(week).padStart(2, '0');
+}
+export function pickWeekly(weekKey) {
+  const rng = mulberry(hashStr('w' + weekKey));
+  return Object.assign({}, WEEKLY_POOL[Math.floor(rng() * WEEKLY_POOL.length)]);
 }
 // gift chest contents; rng() -> [0,1). Coins 120..390 (rounded to 10), 35% chance of a 2x booster.
 export function chestRoll(rng) {
@@ -851,5 +885,73 @@ export function xpCoinsForResult(outcome, streak) {
   if (outcome === 'win') { xp += 20; coins += 15; const b = Math.min(streak || 0, 10); xp += b * 3; coins += b * 2; }
   else if (outcome === 'draw') { xp += 8; coins += 5; }
   return { xp, coins };
+}
+
+// ---------- Mastermind (colour-code duel) ---------- codes are strings of colour-digits '0'..'k-1'.
+// Feedback reuses evaluate(): exact = right colour+slot, partial = right colour wrong slot. Repeats allowed.
+export function mastermindCodes(colors, len) {
+  let out = [''];
+  for (let i = 0; i < len; i++) { const nx = []; for (const c of out) for (let k = 0; k < colors; k++) nx.push(c + k); out = nx; }
+  return out;                                              // colors^len code strings
+}
+export function mastermindConsistent(codes, history) {    // history: [{guess, exact, partial}]
+  return codes.filter((code) => history.every((h) => {
+    const r = evaluate(code, h.guess); return r.exact === h.exact && r.partial === h.partial;
+  }));
+}
+
+// ---------- Dominoes ---------- double-six set, hidden hands, match an open end of the line.
+export function dominoDeck() { const d = []; for (let i = 0; i <= 6; i++) for (let j = i; j <= 6; j++) d.push([i, j]); return d; } // 28 tiles
+export function dominoPips(hand) { return hand.reduce((a, t) => a + t[0] + t[1], 0); }
+export function dominoPlayable(tile, ends) {              // ends = [left, right] pip values, or null for the empty line
+  if (ends == null) return true;
+  return tile[0] === ends[0] || tile[1] === ends[0] || tile[0] === ends[1] || tile[1] === ends[1];
+}
+export function dominoCanPlay(hand, ends) { return hand.some((t) => dominoPlayable(t, ends)); }
+
+// ---------- Word Race ---------- shared letter rack; build valid words from the available letters.
+export const WORD_LIST = ('able ache acid acorn acre actor adept adobe adore agent aged agile aisle alarm album alert alien alike alive alley aloe aloft aloud amber amble amend ample angel anger angle ankle apple april apron arena argue arise armor aroma array arrow ashen aside asset atlas atom audio audit avert await awake award aware badge baker bacon basil basin batch bathe beach beacon beam bean bear beast began begin being belt bench berry blade blame blank blast blaze bleak blend bless blimp blink bliss block bloom blown blues bluff blunt board boast bonus booth boots bored brace brain brake brand brave bread break breed brick bride brief bring broad broke brook broom broth brown brush bugle build built bunch bunk cabin cable cadet camel candy canoe cargo carol carve catch cause cedar chair chalk champ chant charm chart chase cheap cheek cheer chess chest chief child chill china choir chord chore chose chunk cider cigar civic civil claim clamp clang clash clasp class clean clear clerk click cliff climb cling cloak clock clone close cloth cloud clove clown club coach coast cobra cocoa comet comic coral cord corn couch cough could count court cover crack craft cramp crane crash crate crave crawl crazy cream creek creep crept crest crime crisp crop cross crowd crown crumb crush crust cube cubic curl curve cyber cycle daily dairy daisy dance dandy dark dart dawn dealt debit debris decay decal decoy delay delta dense depot depth desk devil diary diner dingo dinner dirt disco ditch diver dizzy dodge donor donut doubt dough dozen draft drain drama drank drape drawn dread dream dress dried drift drill drink drive droll drone drove drown dryer eagle early earth easel eaten ebony edge eerie eight elbow elder elect elite elope email ember empty ended enemy enjoy enter entry equal erase error essay ethic evade even event every evict evoke exact exalt exile exist extra fable faced facet faint fairy faith false fancy farm fatal favor feast fetch fever fiber field fiend fiery fight final finch fjord flag flair flake flame flank flare flash flask fleet flesh flick fling flint flirt float flock flood floor flora flour flown fluid flung flush flute foam foamy focal focus foggy foray force forge forgo forth forum found frail frame frank fraud freed fresh fried frill frisk frock frog frost frown fruit fudge funny gable gains gamer gap garage garden gauge gavel gaze gear geese genre ghost giant gift ginger girl given giver glade gland glare glass gleam glide glint gloat globe gloom glory gloss glove glow glue gnome goal goat golden goose gorge gouge grace grade grain grand grant grape graph grasp grass grate grave gravy graze great greed green greet grid grief grill grim grime grind groan groom grope gross group grove growl grown gruff guard guess guest guide guild guilt gulf gully guru gust habit hairy halt handy happy hardy harm haste hatch haven hazel heart heavy hedge helm herb hero hinge hippo hobby honey honor horse hotel hound house hover human humid humor hurry husky hyena ideal idiom idler igloo image imply inbox incur index inept infer inlet inner input irate irony issue item ivory ivy jam jazz jelly jetty jewel joint joker jolly judge juice juicy jumbo jump juror keel keen kernel kick kind king kiosk kite kitten knack kneel knelt knife knock knoll known koala label labor laden lodge lagoon lake lance lapse large laser latch later laud laugh layer leaf leap learn lease leash least ledge legal lemon lemur level lever light lilac limbo lime linen lingo liter lively llama loaf loan lobby local lodge lofty logic loop loose loser lotus lousy loved lover lower loyal lucid lucky lunar lunch lung lush lute lymph lyric macro madam magic magma major maker mango maple march marsh mason match maze meadow medal media melon mercy merge merit metal meter micro midst might mild mimic mince miner minor mint mirth mixer mocha model moist molar mold money month moody moral morph mossy motel motor mound mount mourn mouse mouth mover movie muddy mulch mummy mural music musky mute myth nacho nadir naive naked nasal navy neat needy neigh nerve never newer newly niche niece night noble noise noisy nomad noose north notch novel nudge nurse nylon oasis ocean octet odds offer often olive omega onion onset opal open opera orbit organ ounce ovary owner ozone paint panda panic pansy pants paper parade party pasta patch path patio pause peace peach pearl pedal peer penny perch peril petal phase phone photo piano picky piece piety pilot pinch pine pique pitch pivot pixel pizza place plaid plain plane plank plant plate plaza plead plot pluck plumb plume plump plush poach poem point poise poker polar polish pond pony porch pose pouch pound power prank preen press price pride prime print prior prism prize probe prone proof prose proud prowl pulse punch pupil puppy purse quack quail quake qualm quart queen query quest queue quick quiet quill quilt quirk quota quote rabbit radar radio raft rage rail rally ranch range rapid raven razor reach react ready realm rebel recap relax relay relic remit repay reply resin rhino rider ridge rifle rigid rinse ripe risk rival river roach roast robe robin robot rocky rodeo rogue roman roost rose rough round route rover royal ruby rugby ruler rumor rural rusty saber sadly saint salad salon salsa salty sandy sauce sauna savor scale scalp scan scare scarf scene scent scoff scold scone scoop scope score scorn scout scrap scrub seal seam sedan seed sepia serum seven sever shack shade shady shaft shake shale shame shape share shark sharp shave shawl shear sheep sheet shelf shell shine shiny shirt shoal shock shone shore short shout shown shrub shrug shush siege sight silky silly silo since sinew siren sixth sixty sized skate skiff skill skirt skull skunk slack slain slant slate sleek sleep sleet slice slick slide slime sling slope sloth slump smack small smart smash smear smell smile smirk smith smoke smoky snack snail snake snare sneak sniff snore snout snowy snug soap sober solar solid solo solve sonar sonic sorry sound south space spade spare spark spawn speak spear speck spell spend spent spice spicy spike spill spine spiral spire spite splat split spoil spoke spoon sport spout spray spree sprig spur squad squat squid stack staff stage stain stair stake stale stalk stall stamp stand star stare start stash state stave steak steal steam steed steel steep steer stem step stern stick stiff still sting stint stir stock stoic stole stomp stone stool stoop store stork storm story stout stove strap straw stray strip stub study stuff stump stung stunt style sugar suit sulky sunny super surge sushi swamp swan swarm swear sweat sweep sweet swell swept swift swim swine swing swirl sword table taco taffy tale talon tango taper tapir tardy tarot taste taunt tawny teach teal tease teeth tempo tenor tense tepid thank theft their theme there thick thief thigh thing think third thorn those three threw throb throw thumb thyme tidal tiger tight tile timer tipsy toad toast today token tonic tooth topaz topic torch total totem touch tough tower toxic trace track trade trail train tram trap trawl tread treat trend trial tribe trick tried trim tromp troop trout truce truck truly trump trunk trust truth tsunami tuba tulip tumor tunic turbo tutor twang tweak tweed tweet twine twirl twist ultra uncle under undo union unit unite unity untie upper upset urban urge usage used user usher usual utter vague valet valid valor value valve vapor vault vegan venue verge verse vex vial vibe video vigor villa vinyl viola viper viral virus visit vista vivid vocal vodka vogue voice void volt vote vouch vowel wafer wager wagon waist waltz warm wary waste watch water wave weary weave wedge weird whale wharf wheat wheel whelp where which while whim whine whirl whisk white whole whoop widow width wield wince winch windy wine wing wink wiry wise wisp witty woke wolf woman wonky wood woozy word world worm worn worry worse worst worth wound woven wrap wrath wreck wrist write wrong yacht yard yarn yeast yield yodel yoga yogurt yoke young youth zebra zero zesty zippy zone zonal ' +
+'absorb accept accord acquire action actual advice advise almond ancient animal answer artist assist attach attend author autumn avenue backup badger ballot bamboo banana banner barrel basket battle beacon beaten beauty become belong beside better beware beyond bishop bitter blanket bottle bounce bracket branch breath breeze bridge bright broken bronze bubble bucket budget buffet builder bullet burden bureau butter cactus camera cancel candle canvas canyon carbon careful carpet carrot casino castle casual cattle cavern census cereal chance change chapel charge cheese cherry circle citrus clever climate clothes cluster coffee collar combat comedy corner cosmic cottage cotton county couple crayon create credit crimson crispy crowd crystal cuckoo curious current cursor custom damage danger dazzle debate decade decide defeat defend degree deluxe demand depend desert design desire detail detect device digital dinner direct divide doctor dollar domain double dragon effort emerald empire enable energy engine escape estate exceed except excite expand expect expert export fabric falcon fasten father feather fellow female figure filter finger flavor flower folder follow forest forget formal fortune fossil foster fought fringe frozen future gadget galaxy gallon garden garlic garnet gather gentle glacier golden gossip govern granite gravity ground guitar hammer hamster handle harbor hazard helmet hidden hollow honest hunter hurdle icicle impact import income indoor infant inform injure insect inside intent invest invite island jacket jaguar jungle junior kettle kidney kindle kingdom kitchen kitten ladder lagoon laptop lantern lattice laundry lawyer leader league leather legend lesson letter lettuce liquid listen litter lizard locket lonely lounge lumber luxury magnet mallow mammal manage mango marble margin marker market matter meadow meaning medium melody memory mentor method middle minute mirror mixture mobile modest moment monkey mosaic mother motion muffin museum musket mustard mutual napkin narrow native nature nectar needle nephew nickel noodle notice nugget number object oblige occupy office online orange orchard orchid outer output oxygen packet paddle palace pallet parcel pardon parent parlor parrot pastel pastry patrol pattern peanut pebble pelican pencil pepper period permit person phrase pickle pigeon pillow pistol planet plaster plastic player plenty plumber pocket poetry poison police pollen ponder poplar portal potato pottery powder praise prefer pretty prince prison profit prompt proper public pucker pumpkin punish puppet purple pursue puzzle quaint quarry quiver rabbit racket radish rally ranger rather ration reason recall recent record reduce reflect refuse regard region regret relate relief remain remind remote render repair repeat report rescue resist resort result reveal review reward ribbon riddle rocket rookie roster rubber ruffle rumble runner rustic saddle safari salmon sample sandal satin savage scarce scheme scholar scrape script sculpt season second secret sector secure select senate senior sensor serene series settle shadow shatter shelter shield shiver shrine shrink signal silver simple sister sketch skewer slalom sliver slogan smooth soccer socket sodium solemn sonnet source sparkle sphere spider spiral splash sponge spread sprint sprout squash squeeze stable stadium stapler statue steady stellar stereo stigma stitch strain streak stream street stride strike string stripe stroke strong studio submit subtle suburb subway summer summit sundae sunset supply survey suspect swivel symbol system tablet tackle talent tandem tangle target tassel temple tenant tender tennis theory thread thrive throne throng ticket timber timing tinker tissue toffee tongue topple torch tornado toward toxin trader traffic tragic transit travel treaty tremble trend tribute trigger trophy trouble trumpet tunnel turkey turnip turtle twelve typical unfold unique unlock unpack update uphold upload urgent utmost vacuum valley vanish vector velvet vendor verbal versus vessel victor virtue vision visual volume voyage wallet walnut wander warden warmth warren weapon weasel weather weekly welcome wharf whisper willow window winner winter wisdom wizard wonder wooden worker writer yellow yonder zephyr zigzag zinger zodiac zombie').split(' ');
+const WORD_SET = new Set(WORD_LIST);
+export function isWord(w) { return WORD_SET.has((w || '').toLowerCase()); }
+export function canBuild(word, rack) {                    // rack = array of lowercase letters
+  const have = {}; for (const c of rack) have[c] = (have[c] || 0) + 1;
+  for (const c of (word || '').toLowerCase()) { if (!have[c]) return false; have[c]--; }
+  return true;
+}
+export function wordScore(word) {                         // by length: 3→1, 4→2, 5→4, 6→6, 7+→len*2
+  const n = (word || '').length;
+  return n < 3 ? 0 : n === 3 ? 1 : n === 4 ? 2 : n === 5 ? 4 : n === 6 ? 6 : n * 2;
+}
+// Rack seeds: 6–8 letter words whose scrambled letters make a playable rack. rng()->[0,1).
+export const RACK_SEEDS = WORD_LIST.filter((w) => w.length >= 6 && w.length <= 8);
+export function makeRack(rng) {
+  const seed = RACK_SEEDS[Math.floor(rng() * RACK_SEEDS.length)];
+  const letters = seed.split('');
+  for (let i = letters.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [letters[i], letters[j]] = [letters[j], letters[i]]; }
+  return letters;                                         // array of lowercase letters
+}
+
+// ---------- Match-3 ---------- board[y][x] = colour int (0..k-1) or null. Find runs of ≥3.
+export function match3Find(board) {
+  const h = board.length, w = board[0].length, hit = new Set();
+  for (let y = 0; y < h; y++) for (let x = 0; x < w - 2; x++) {
+    const v = board[y][x]; if (v == null) continue;
+    if (board[y][x + 1] === v && board[y][x + 2] === v) { let k = x; while (k < w && board[y][k] === v) hit.add(y + ',' + k++); }
+  }
+  for (let x = 0; x < w; x++) for (let y = 0; y < h - 2; y++) {
+    const v = board[y][x]; if (v == null) continue;
+    if (board[y + 1][x] === v && board[y + 2][x] === v) { let k = y; while (k < h && board[k][x] === v) hit.add((k++) + ',' + x); }
+  }
+  return hit;
+}
+// Drop non-null cells down each column, refill the emptied tops with refill() (a colour int).
+export function match3Gravity(board, refill) {
+  const h = board.length, w = board[0].length;
+  for (let x = 0; x < w; x++) {
+    const col = []; for (let y = h - 1; y >= 0; y--) if (board[y][x] != null) col.push(board[y][x]);
+    for (let y = h - 1; y >= 0; y--) board[y][x] = col[h - 1 - y] != null ? col[h - 1 - y] : refill();
+  }
+  return board;
 }
 
