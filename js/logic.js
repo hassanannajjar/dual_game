@@ -591,15 +591,25 @@ export function nextRating(cur, opp, outcome) {
 export const ACHIEVEMENTS = [
   { id: 'first_win', emoji: '🥇', test: (d) => d.wins >= 1 },
   { id: 'wins_10', emoji: '🎯', test: (d) => d.wins >= 10 },
+  { id: 'wins_25', emoji: '🏹', test: (d) => d.wins >= 25 },
   { id: 'wins_50', emoji: '👑', test: (d) => d.wins >= 50 },
+  { id: 'wins_100', emoji: '🏆', test: (d) => d.wins >= 100 },
   { id: 'streak_5', emoji: '🔥', test: (d) => d.bestStreak >= 5 },
   { id: 'bot_hard', emoji: '🤖', test: (d) => d.hardBot >= 1 },
+  { id: 'bot_master', emoji: '🦾', test: (d) => d.hardBot >= 10 },
   { id: 'explorer', emoji: '🧭', test: (d) => d.cats >= 6 },
+  { id: 'plays_50', emoji: '🎮', test: (d) => d.plays >= 50 },
   { id: 'veteran', emoji: '🎖️', test: (d) => d.plays >= 100 },
+  { id: 'plays_250', emoji: '🏅', test: (d) => d.plays >= 250 },
   { id: 'rated_1200', emoji: '⭐', test: (d) => d.maxRating >= 1200 },
+  { id: 'level_10', emoji: '🌟', test: (d) => d.level >= 10 },
+  { id: 'level_25', emoji: '💫', test: (d) => d.level >= 25 },
+  { id: 'streak_7d', emoji: '📅', test: (d) => d.streakDays >= 7 },
 ];
-export function evalAchievements(stats) {
+// extra (optional) = { level, streakDays } from the loyalty layer; absent → those tests are false.
+export function evalAchievements(stats, extra) {
   const g = Object.values((stats && stats.games) || {});
+  const e = extra || {};
   const d = {
     wins: g.reduce((a, x) => a + (x.w || 0), 0),
     plays: g.reduce((a, x) => a + (x.w || 0) + (x.l || 0) + (x.d || 0), 0),
@@ -607,8 +617,42 @@ export function evalAchievements(stats) {
     maxRating: g.reduce((a, x) => Math.max(a, x.rating || 0), 0),
     hardBot: ((stats && stats.botWins) || {}).hard || 0,
     cats: ((stats && stats.cats) || []).length,
+    level: e.level || 0, streakDays: e.streakDays || 0,
   };
   return ACHIEVEMENTS.filter((a) => a.test(d)).map((a) => a.id);
+}
+
+// ---------- Loyalty rewards (pure) ----------
+export function levelRewardCoins(level) { return 40 + level * 10; }        // coins granted on reaching a level
+const DAILY = [25, 40, 60, 80, 100, 120, 200];                             // 7-day login cycle; day 7 also drops a chest
+export function dailyReward(day) { const i = (Math.max(1, day) - 1) % 7; return { coins: DAILY[i], chest: i === 6 }; }
+
+// deterministic per-day quest pick (stable for a given date, testable)
+function hashStr(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
+function mulberry(a) { return function () { a |= 0; a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+export const QUEST_POOL = [
+  { id: 'play3', type: 'play', target: 3, coins: 40, xp: 20 },
+  { id: 'play5', type: 'play', target: 5, coins: 70, xp: 35 },
+  { id: 'win2', type: 'win', target: 2, coins: 60, xp: 30 },
+  { id: 'win3', type: 'win', target: 3, coins: 90, xp: 45 },
+  { id: 'streak2', type: 'winstreak', target: 2, coins: 70, xp: 35 },
+  { id: 'bot1', type: 'beatbot', target: 1, coins: 50, xp: 25 },
+  { id: 'online1', type: 'online', target: 1, coins: 60, xp: 30 },
+  { id: 'newgame', type: 'trynew', target: 1, coins: 50, xp: 25 },
+  { id: 'coins150', type: 'earncoins', target: 150, coins: 50, xp: 25 },
+];
+export function pickDailyQuests(dateStr) {
+  const rng = mulberry(hashStr('q' + dateStr));
+  const pool = QUEST_POOL.slice();
+  for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
+  const out = [], types = new Set();
+  for (const q of pool) { if (types.has(q.type)) continue; types.add(q.type); out.push(Object.assign({}, q)); if (out.length === 3) break; }
+  return out;
+}
+// gift chest contents; rng() -> [0,1). Coins 120..390 (rounded to 10), 35% chance of a 2x booster.
+export function chestRoll(rng) {
+  const coins = Math.round((120 + Math.floor(rng() * 280)) / 10) * 10;
+  return { coins, booster: rng() < 0.35 };
 }
 
 // ---------- Loyalty: XP → Levels → Tiers (pure, unit-tested) ----------

@@ -126,6 +126,16 @@ const DICT = {
     equip: 'Equip', equipped: 'On', need_coins: 'Not enough coins', need_level: 'Reach level {n} first',
     level_up: '⭐ Level {n} — {tier}!', earned: '+{xp} XP · +{coins} 🪙', daily_bonus: '🎁 Daily bonus +{coins} 🪙 (day {streak})',
     leaderboard_global: '🌍 Global leaderboard',
+    // loyalty: quests, streak, gifts
+    daily_quests: 'Daily quests', login_streak: 'Login streak', gifts: 'Gifts',
+    day: 'Day', streak_days: '🔥 {n}-day streak', chests: 'Chests', open_chest: 'Open',
+    claim: 'Claim', claimed: 'Claimed', quest_done: '✅ Quest done: {name}',
+    chest_earned: '🎁 You earned a gift chest!', chest_opened: '🎁 {msg}',
+    quest_play3: 'Play 3 matches', quest_play5: 'Play 5 matches', quest_win2: 'Win 2 matches',
+    quest_win3: 'Win 3 matches', quest_streak2: 'Win 2 in a row', quest_bot1: 'Beat a bot',
+    quest_online1: 'Play an online match', quest_newgame: 'Try a new game', quest_coins150: 'Earn 150 coins',
+    ach_wins_25: '25 Wins', ach_wins_100: '100 Wins', ach_bot_master: 'Beat Hard ×10',
+    ach_plays_50: '50 Games', ach_plays_250: '250 Games', ach_level_10: 'Level 10', ach_level_25: 'Level 25', ach_streak_7d: '7-Day Streak',
   },
   ar: {
     tagline: 'لاعبان · اتصال مباشر · بدون تسجيل',
@@ -243,6 +253,15 @@ const DICT = {
     equip: 'تجهيز', equipped: 'مفعّل', need_coins: 'عملات غير كافية', need_level: 'تحتاج المستوى {n}',
     level_up: '⭐ المستوى {n} — {tier}!', earned: '+{xp} خبرة · +{coins} 🪙', daily_bonus: '🎁 مكافأة يومية +{coins} 🪙 (اليوم {streak})',
     leaderboard_global: '🌍 المتصدرون عالميًا',
+    daily_quests: 'المهام اليومية', login_streak: 'سلسلة الدخول', gifts: 'الهدايا',
+    day: 'يوم', streak_days: '🔥 سلسلة {n} يوم', chests: 'الصناديق', open_chest: 'افتح',
+    claim: 'استلام', claimed: 'تم', quest_done: '✅ اكتملت المهمة: {name}',
+    chest_earned: '🎁 حصلت على صندوق هدية!', chest_opened: '🎁 {msg}',
+    quest_play3: 'العب 3 مباريات', quest_play5: 'العب 5 مباريات', quest_win2: 'افز بمباراتين',
+    quest_win3: 'افز بـ 3 مباريات', quest_streak2: 'افز مرتين متتاليتين', quest_bot1: 'اهزم الحاسوب',
+    quest_online1: 'العب مباراة أونلاين', quest_newgame: 'جرّب لعبة جديدة', quest_coins150: 'اكسب 150 عملة',
+    ach_wins_25: '25 فوزًا', ach_wins_100: '100 فوز', ach_bot_master: 'اهزم الصعب ×10',
+    ach_plays_50: '50 مباراة', ach_plays_250: '250 مباراة', ach_level_10: 'المستوى 10', ach_level_25: 'المستوى 25', ach_streak_7d: 'سلسلة 7 أيام',
   },
 };
 

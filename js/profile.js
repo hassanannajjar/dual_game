@@ -1,10 +1,10 @@
 // Player profile + progression — stats, per-game rating, achievements. All localStorage.
-import { t } from './i18n.js?v=15';
-import { sound } from './sound.js?v=15';
-import { getName, setName } from './prefs.js?v=15';
-import { nextRating, evalAchievements, ACHIEVEMENTS } from './logic.js?v=15';
-import { earnForResult, renderLevelHeader, renderShop, owns, equip, REWARDS } from './loyalty.js?v=15';
-import { getToken } from './identity.js?v=15';
+import { t } from './i18n.js?v=16';
+import { sound } from './sound.js?v=16';
+import { getName, setName } from './prefs.js?v=16';
+import { nextRating, evalAchievements, ACHIEVEMENTS } from './logic.js?v=16';
+import { earnForResult, grantAchievement, questEvent, getLevel, getStreak, renderLevelHeader, renderShop, renderQuests, renderStreak, renderGifts, owns, equip, REWARDS } from './loyalty.js?v=16';
+import { getToken } from './identity.js?v=16';
 
 const $ = (id) => document.getElementById(id);
 const AVATARS = ['🦊', '🐼', '🐸', '🦁', '🐙', '🦄', '🐧', '🐳', '🤖', '👾', '🎲', '⚡'];
@@ -48,13 +48,22 @@ export function recordResult(info) {
   }
   saveStats(s);
 
-  const had = loadAch();
-  const now = evalAchievements(s);
-  const unlocked = now.filter((id) => !had.includes(id));
-  if (unlocked.length) { write('arcade:ach', now); sound('badge'); }
+  // Loyalty earn first (updates xp/level, applies booster + level-up gifts).
+  const earn = earnForResult(info.outcome, g.streak);
 
-  const earn = earnForResult(info.outcome, g.streak, unlocked.length);
-  return Object.assign({ delta, unlocked }, earn);
+  // Achievements — evaluated with the post-earn level + login streak; each new one pays out.
+  const had = loadAch();
+  const now = evalAchievements(s, { level: getLevel(), streakDays: getStreak() });
+  const unlocked = now.filter((id) => !had.includes(id));
+  if (unlocked.length) { write('arcade:ach', now); sound('badge'); const ar = grantAchievement(unlocked.length); earn.coinGain += ar.coins; }
+
+  // Daily quests progress off the same event.
+  const q = questEvent({
+    played: 1, win: info.outcome === 'win', online: !info.vsBot && !info.solo,
+    beatBot: info.vsBot && info.outcome === 'win', gameId: info.gameId, coins: earn.coinGain, winStreak: g.streak,
+  });
+
+  return Object.assign({ delta, unlocked, questsDone: q.completed, chestFromQuests: q.grantedChest }, earn);
 }
 
 // ---------- profile modal ----------
@@ -84,6 +93,11 @@ function renderProfile(games) {
     av.appendChild(b);
   }
   $('profile-name').value = getName();
+
+  // daily quests, streak calendar, gifts
+  if ($('quests')) renderQuests($('quests'), () => renderProfile(games));
+  if ($('streak-cal')) renderStreak($('streak-cal'));
+  if ($('gifts')) renderGifts($('gifts'), () => renderProfile(games));
 
   // shop
   renderShop($('shop'), () => renderProfile(games));

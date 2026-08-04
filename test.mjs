@@ -279,4 +279,25 @@ assert.strictEqual(tierForLevel(999).key, 'legend', 'tier caps at legend');
 { const cap = xpCoinsForResult('win', 100), ten = xpCoinsForResult('win', 10);
   assert.strictEqual(cap.xp, ten.xp, 'streak bonus caps at 10'); }
 
-console.log('PASS (all logic incl. bots/minesweeper/sudoku + rating/achievements + loyalty + earlier)');
+// ---- Loyalty rewards: level/daily/quests/chest ----
+import { levelRewardCoins, dailyReward, pickDailyQuests, chestRoll, QUEST_POOL } from './js/logic.js';
+assert.ok(levelRewardCoins(10) > levelRewardCoins(1), 'level reward grows with level');
+assert.strictEqual(dailyReward(1).coins, 25, 'daily day1 = 25');
+assert.strictEqual(dailyReward(7).chest, true, 'daily day7 drops a chest');
+assert.strictEqual(dailyReward(8).chest, false, 'daily cycles: day8 = day1, no chest');
+assert.strictEqual(dailyReward(14).chest, true, 'daily day14 = day7, chest again');
+{ const a = pickDailyQuests('2026-08-04'), b = pickDailyQuests('2026-08-04');
+  assert.deepStrictEqual(a, b, 'quests deterministic for a date');
+  assert.strictEqual(a.length, 3, 'three quests a day');
+  assert.strictEqual(new Set(a.map((q) => q.type)).size, 3, 'quests have distinct types');
+  const ids = new Set(QUEST_POOL.map((q) => q.id));
+  assert.ok(a.every((q) => ids.has(q.id)), 'quests come from the pool'); }
+{ let n = 0; const seq = [0.5, 0.1]; const rng = () => seq[n++]; const c = chestRoll(rng);
+  assert.ok(c.coins >= 120 && c.coins <= 400 && c.coins % 10 === 0, 'chest coins in range & rounded');
+  assert.strictEqual(c.booster, true, 'chest booster fires at rng 0.1 (<0.35)'); }
+{ let n = 0; const seq = [0.9, 0.9]; const rng = () => seq[n++]; assert.strictEqual(chestRoll(rng).booster, false, 'no booster at rng 0.9'); }
+assert.ok(evalAchievements({ games: { c: { w: 1, l: 0, d: 0, bestStreak: 1, rating: 1000 } }, botWins: {}, cats: [] }, { level: 10, streakDays: 0 }).includes('level_10'), 'ach level_10 via extra');
+assert.ok(evalAchievements({ games: {}, botWins: {}, cats: [] }, { level: 3, streakDays: 7 }).includes('streak_7d'), 'ach 7-day streak via extra');
+assert.ok(!evalAchievements({ games: {}, botWins: {}, cats: [] }).includes('level_10'), 'level ach needs extra (backward compatible)');
+
+console.log('PASS (all logic incl. bots/minesweeper/sudoku + rating/achievements + loyalty + quests/chests + earlier)');

@@ -2,14 +2,14 @@
 // drives phases: home -> connect -> lobby -> [setup] -> [toss] -> play -> over,
 // and handles pause / disconnect-reconnect / refresh-resume.
 // Depends on the global `Peer` (PeerJS, loaded via CDN).
-import { t, initLang, onLangChange } from './i18n.js?v=15';
-import { sound } from './sound.js?v=15';
-import { initPrefs, getName, setName, haptic } from './prefs.js?v=15';
-import { demo } from './demos.js?v=15';
-import { goOnline as presenceOnline, goOffline as presenceOffline, onLeaderboard, publishScore } from './presence.js?v=15';
-import { recordResult, getRating, overallRating, openProfile, closeProfile, initProfile } from './profile.js?v=15';
-import { claimDaily, getLevel, getCoins, setNotify } from './loyalty.js?v=15';
-import { getUid } from './identity.js?v=15';
+import { t, initLang, onLangChange } from './i18n.js?v=16';
+import { sound } from './sound.js?v=16';
+import { initPrefs, getName, setName, haptic } from './prefs.js?v=16';
+import { demo } from './demos.js?v=16';
+import { goOnline as presenceOnline, goOffline as presenceOffline, onLeaderboard, publishScore } from './presence.js?v=16';
+import { recordResult, getRating, overallRating, openProfile, closeProfile, initProfile } from './profile.js?v=16';
+import { claimDaily, getLevel, getCoins, setNotify } from './loyalty.js?v=16';
+import { getUid } from './identity.js?v=16';
 
 // ---------- DOM helpers ----------
 const $ = (id) => document.getElementById(id);
@@ -723,8 +723,11 @@ function recordAndSeries(outcome) {
     vsBot: S.vsBot, solo: S.solo, botLevel: S.botLevel, oppRating: S.oppRating,
   });
   for (const id of res.unlocked) toast(t('new_badge', { name: t('ach_' + id) }));
-  if (res.leveledUp) { toast(t('level_up', { n: res.level, tier: t('tier_' + res.tier.key) })); sound('badge'); haptic([40, 40, 80]); }
-  else if (res.xpGain) toast(t('earned', { xp: res.xpGain, coins: res.coinGain }));
+  for (const q of (res.questsDone || [])) toast(t('quest_done', { name: t('quest_' + q.id) }));
+  if ((res.questsDone || []).length) sound('quest');
+  if (res.chestFromQuests || res.chestsGranted) { toast(t('chest_earned')); sound('chest'); }
+  if (res.leveledUp) { toast(t('level_up', { n: res.level, tier: t('tier_' + res.tier.key) })); sound('levelup'); haptic([40, 40, 80]); }
+  else if (res.xpGain) { toast(t('earned', { xp: res.xpGain, coins: res.coinGain })); sound('coin'); }
   publishScore({ level: getLevel(), rating: overallRating(), coins: getCoins() });
 }
 function restartMatch(initiator) {
@@ -781,7 +784,10 @@ export function boot() {
   renderHome();
   // Daily login bonus (once per day).
   const daily = claimDaily();
-  if (daily.claimed) setTimeout(() => { toast(t('daily_bonus', { coins: daily.coins, streak: daily.streak })); sound('badge'); }, 600);
+  if (daily.claimed) setTimeout(() => {
+    toast(t('daily_bonus', { coins: daily.coins, streak: daily.streak })); sound('coin');
+    if (daily.chest) setTimeout(() => { toast(t('chest_earned')); sound('chest'); }, 1400);
+  }, 600);
   $('btn-create').onclick = createRoom;
   $('game-search').oninput = (e) => { S.homeSearch = e.target.value; renderHome(); };
   $('btn-join').onclick = () => joinRoom($('join-code').value.trim().toUpperCase());

@@ -1,14 +1,14 @@
 // Loyalty economy — XP/levels, spendable coins, a cosmetics shop, daily bonus. All localStorage.
-import { levelForXp, tierForLevel, xpCoinsForResult } from './logic.js?v=15';
-import { t } from './i18n.js?v=15';
-import { sound } from './sound.js?v=15';
+import { levelForXp, tierForLevel, xpCoinsForResult, levelRewardCoins, dailyReward, pickDailyQuests, chestRoll } from './logic.js?v=16';
+import { t } from './i18n.js?v=16';
+import { sound } from './sound.js?v=16';
 
 const read = (k, d) => { try { const s = localStorage.getItem(k); return s ? JSON.parse(s) : d; } catch (e) { return d; } };
 const write = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
 const getS = (k, d) => { try { return localStorage.getItem(k) ?? d; } catch (e) { return d; } };
 const setS = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
 
-const DEFAULT = { xp: 0, coins: 0, owned: [], lastDaily: '', dailyStreak: 0 };
+const DEFAULT = { xp: 0, coins: 0, owned: [], lastDaily: '', dailyStreak: 0, chests: 0, boosterMatches: 0 };
 function load() { return Object.assign({}, DEFAULT, read('arcade:loyalty', {})); }
 function save(s) { write('arcade:loyalty', s); }
 
@@ -56,32 +56,105 @@ export function getEquipped(type) {
 }
 
 // ---------- earn ----------
-// Called from recordResult. info = {outcome}, streak = current win streak, newAch = # of new achievements.
-export function earnForResult(outcome, streak, newAch) {
+export function getStreak() { return load().dailyStreak || 0; }
+export function getChests() { return load().chests || 0; }
+export function getBooster() { return load().boosterMatches || 0; }
+
+// Match reward: base xp/coins + 2x booster (coins only) + level-up coin gifts (chest every 5 levels).
+export function earnForResult(outcome, streak) {
   const s = load();
   const before = levelForXp(s.xp).level;
   const g = xpCoinsForResult(outcome, streak);
-  let xp = g.xp, coins = g.coins;
-  if (newAch) { xp += newAch * 40; coins += newAch * 50; }
-  s.xp += xp; s.coins += coins;
-  save(s);
+  let xp = g.xp, coins = g.coins, boosterUsed = false;
+  if (s.boosterMatches > 0) { coins *= 2; s.boosterMatches--; boosterUsed = true; }
+  s.xp += xp;
   const after = levelForXp(s.xp).level;
-  return { xpGain: xp, coinGain: coins, leveledUp: after > before, level: after, tier: tierForLevel(after) };
+  let chestsGranted = 0;
+  for (let L = before + 1; L <= after; L++) { coins += levelRewardCoins(L); if (L % 5 === 0) { s.chests++; chestsGranted++; } }
+  s.coins += coins;
+  save(s);
+  return { xpGain: xp, coinGain: coins, leveledUp: after > before, level: after, tier: tierForLevel(after), chestsGranted, boosterUsed };
+}
+// Lump reward when achievements unlock (called from recordResult with the count of new ones).
+export function grantAchievement(n) {
+  if (!n) return { coins: 0, xp: 0 };
+  const s = load(); const coins = n * 50, xp = n * 40; s.coins += coins; s.xp += xp; save(s);
+  return { coins, xp };
 }
 
-// Daily login bonus. Uses local date. Returns {claimed, coins, xp, streak}.
+// Daily login bonus (7-day escalating calendar; day 7 also drops a chest).
 function ymd(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
 export function claimDaily() {
   const s = load();
   const now = new Date();
   const today = ymd(now);
-  if (s.lastDaily === today) return { claimed: false };
+  if (s.lastDaily === today) return { claimed: false, streak: s.dailyStreak };
   const y = new Date(now); y.setDate(y.getDate() - 1);
   s.dailyStreak = (s.lastDaily === ymd(y)) ? (s.dailyStreak || 0) + 1 : 1;
-  const coins = 25 + Math.min(s.dailyStreak, 7) * 10;
-  s.coins += coins; s.xp += 10; s.lastDaily = today;
+  const r = dailyReward(s.dailyStreak);
+  s.coins += r.coins; s.xp += 10; s.lastDaily = today;
+  let chest = false; if (r.chest) { s.chests++; chest = true; }
   save(s);
-  return { claimed: true, coins, xp: 10, streak: s.dailyStreak };
+  return { claimed: true, coins: r.coins, xp: 10, streak: s.dailyStreak, chest };
+}
+
+// ---------- gift chests + boosters ----------
+export function openChest() {
+  const s = load(); if ((s.chests || 0) <= 0) return null;
+  s.chests--;
+  const roll = chestRoll(Math.random);
+  s.coins += roll.coins;
+  let booster = 0;
+  if (roll.booster) { s.boosterMatches = (s.boosterMatches || 0) + 3; booster = 3; }
+  let cosmetic = null;
+  if (Math.random() < 0.25) { const locked = REWARDS.filter((r) => !owns(r.id)); if (locked.length) { cosmetic = locked[Math.floor(Math.random() * locked.length)]; s.owned.push(cosmetic.id); } }
+  save(s); sound('chest');
+  return { coins: roll.coins, booster, cosmetic };
+}
+
+// ---------- daily quests ----------
+const QKEY = 'arcade:quests';
+function loadQuests() {
+  const today = ymd(new Date());
+  let q = read(QKEY, null);
+  if (!q || q.date !== today) {
+    q = { date: today, list: pickDailyQuests(today).map((x) => Object.assign({}, x, { prog: 0, done: false, claimed: false })), games: [], chestGiven: false };
+    write(QKEY, q);
+  }
+  return q;
+}
+export function getQuests() { const q = loadQuests(); return { list: q.list, allDone: q.list.every((x) => x.done) }; }
+// ev = { played, win, online, beatBot, gameId, coins, winStreak }
+export function questEvent(ev) {
+  const q = loadQuests(); const completed = [];
+  const isNew = ev.gameId && !q.games.includes(ev.gameId);
+  if (isNew) q.games.push(ev.gameId);
+  for (const quest of q.list) {
+    if (quest.done) continue;
+    let inc = 0;
+    switch (quest.type) {
+      case 'play': inc = ev.played ? 1 : 0; break;
+      case 'win': inc = ev.win ? 1 : 0; break;
+      case 'winstreak': if (ev.win && (ev.winStreak || 0) >= quest.target) quest.prog = quest.target; break;
+      case 'beatbot': inc = ev.beatBot ? 1 : 0; break;
+      case 'online': inc = ev.online ? 1 : 0; break;
+      case 'trynew': inc = isNew ? 1 : 0; break;
+      case 'earncoins': inc = ev.coins || 0; break;
+    }
+    if (inc) quest.prog = Math.min(quest.target, quest.prog + inc);
+    if (!quest.done && quest.prog >= quest.target) { quest.done = true; completed.push(quest); }
+  }
+  let grantedChest = false;
+  if (q.list.every((x) => x.done) && !q.chestGiven) { q.chestGiven = true; const s = load(); s.chests = (s.chests || 0) + 1; save(s); grantedChest = true; }
+  write(QKEY, q);
+  return { completed, grantedChest };
+}
+export function claimQuest(i) {
+  const q = loadQuests(); const quest = q.list[i];
+  if (!quest || !quest.done || quest.claimed) return null;
+  quest.claimed = true; write(QKEY, q);
+  const s = load(); s.coins += quest.coins; s.xp += quest.xp; save(s); sound('coin');
+  return { coins: quest.coins, xp: quest.xp };
 }
 
 // ---------- buy / equip ----------
@@ -153,4 +226,55 @@ export function renderShop(box, onChange) {
     }
     box.appendChild(grid);
   }
+}
+
+export function renderQuests(box, onChange) {
+  box.innerHTML = '';
+  const { list } = getQuests();
+  for (let i = 0; i < list.length; i++) {
+    const q = list[i];
+    const row = el('div', 'rounded-xl bg-slate-800/60 border border-slate-700 p-2.5 mb-2');
+    const top = el('div', 'flex items-center justify-between gap-2 text-sm');
+    top.appendChild(el('span', 'flex-1', t('quest_' + q.id)));
+    if (q.claimed) top.appendChild(el('span', 'text-[11px] text-emerald-400 font-semibold', '✓ ' + t('claimed')));
+    else if (q.done) { const b = el('button', 'text-[11px] px-2 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 font-semibold', t('claim') + ' +' + q.coins + ' 🪙'); b.onclick = () => { claimQuest(i); onChange && onChange(); }; top.appendChild(b); }
+    else top.appendChild(el('span', 'text-[11px] text-amber-400', '+' + q.coins + ' 🪙'));
+    row.appendChild(top);
+    const bar = el('div', 'mt-1.5 h-1.5 rounded-full bg-slate-900 overflow-hidden');
+    const fill = el('div', 'h-full bg-indigo-500 rounded-full'); fill.style.width = Math.round(Math.min(1, q.prog / q.target) * 100) + '%'; bar.appendChild(fill);
+    row.appendChild(bar);
+    row.appendChild(el('p', 'mt-0.5 text-[10px] text-slate-500 text-end', q.prog + ' / ' + q.target));
+    box.appendChild(row);
+  }
+}
+
+export function renderStreak(box) {
+  box.innerHTML = '';
+  const streak = getStreak();
+  const dayIdx = (Math.max(1, streak) - 1) % 7;
+  const row = el('div', 'flex items-stretch gap-1');
+  for (let i = 0; i < 7; i++) {
+    const r = dailyReward(i + 1);
+    const cell = el('div', 'flex-1 text-center rounded-lg py-1.5 ' + (i <= dayIdx ? 'bg-indigo-600' : 'bg-slate-800') + (i === dayIdx ? ' ring-2 ring-white' : ''));
+    cell.innerHTML = `<div class="text-[9px] text-slate-300">${t('day')} ${i + 1}</div><div class="text-[11px] font-bold">${r.chest ? '🎁' : r.coins}</div>`;
+    row.appendChild(cell);
+  }
+  box.appendChild(row);
+  box.appendChild(el('p', 'mt-1 text-[11px] text-slate-400 text-center', t('streak_days', { n: streak })));
+}
+
+export function renderGifts(box, onChange) {
+  box.innerHTML = '';
+  const chests = getChests(), booster = getBooster();
+  const row = el('div', 'flex items-center justify-between gap-2');
+  row.appendChild(el('span', 'text-sm', `🎁 ${t('chests')}: <b>${chests}</b>` + (booster ? `  ·  <span class="text-amber-400">⚡ 2x ×${booster}</span>` : '')));
+  const b = el('button', 'px-3 py-1.5 rounded-lg font-semibold text-sm ' + (chests > 0 ? 'bg-amber-500 text-slate-900 hover:bg-amber-400' : 'bg-slate-700 text-slate-500'), t('open_chest'));
+  b.disabled = chests <= 0;
+  b.onclick = () => {
+    const res = openChest();
+    if (res) { let msg = '+' + res.coins + ' 🪙'; if (res.booster) msg += ' · ⚡2x'; if (res.cosmetic) msg += ' · ' + (res.cosmetic.emoji || '🎨'); NOTIFY(t('chest_opened', { msg })); }
+    onChange && onChange();
+  };
+  row.appendChild(b);
+  box.appendChild(row);
 }
