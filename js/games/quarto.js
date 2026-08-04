@@ -1,4 +1,4 @@
-import { quartoWinner } from '../logic.js?v=22';
+import { quartoWinner } from '../logic.js?v=23';
 
 // Pieces 0..15 = 4 attribute bits: 1 big, 2 round, 4 indigo, 8 hollow. You place the piece your
 // opponent hands you, then hand them one. A line of 4 sharing ANY attribute wins.

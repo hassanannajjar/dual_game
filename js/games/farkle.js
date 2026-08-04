@@ -1,4 +1,4 @@
-import { farkleScore } from '../logic.js?v=22';
+import { farkleScore } from '../logic.js?v=23';
 
 // Press-your-luck dice. Roll, auto-keep all scoring dice, then Bank or roll on. A roll with
 // no scoring dice = Farkle (lose the turn's points). First to TARGET wins.

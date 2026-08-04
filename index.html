@@ -36,7 +36,7 @@
     </div>
   </header>
 
-  <main class="flex-1 w-full max-w-lg mx-auto px-4 py-5"
+  <main class="flex-1 w-full max-w-lg md:max-w-2xl mx-auto px-4 py-5"
         style="padding-bottom: max(1.25rem, env(safe-area-inset-bottom));">
 
     <!-- HOME -->
@@ -45,8 +45,10 @@
         <h1 class="text-2xl font-black mb-1" data-i18n="pick_game">Pick a game</h1>
         <p class="text-slate-300/80 text-sm" data-i18n="tagline">2 players · peer-to-peer · no sign-up</p>
       </div>
-      <button id="btn-find-players" class="w-full py-3 rounded-xl bg-emerald-600/90 hover:bg-emerald-500 font-semibold transition flex items-center justify-center gap-2">
-        <span>🟢</span><span data-i18n="find_players">Find players online</span>
+      <button id="btn-find-players" class="w-full py-3 rounded-xl bg-emerald-600/90 hover:bg-emerald-500 font-semibold transition active:scale-[0.99] flex items-center justify-center gap-2">
+        <span class="relative flex h-2.5 w-2.5"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-white/70"></span><span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-white"></span></span>
+        <span data-i18n="find_players">Find players online</span>
+        <span id="find-count" class="text-xs font-normal opacity-90"></span>
       </button>
       <input id="game-search" data-i18n-ph="search_ph" placeholder="Search games…"
              class="w-full py-2.5 px-4 rounded-xl bg-slate-800 border border-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 placeholder:text-slate-500" />
@@ -337,6 +339,6 @@
       });
     })();
   </script>
-  <script type="module" src="js/app.js?v=22"></script>
+  <script type="module" src="js/app.js?v=23"></script>
 </body>
 </html>

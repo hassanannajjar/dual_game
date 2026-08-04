@@ -2,14 +2,14 @@
 // drives phases: home -> connect -> lobby -> [setup] -> [toss] -> play -> over,
 // and handles pause / disconnect-reconnect / refresh-resume.
 // Depends on the global `Peer` (PeerJS, loaded via CDN).
-import { t, initLang, onLangChange } from './i18n.js?v=22';
-import { sound } from './sound.js?v=22';
-import { initPrefs, getName, setName, haptic } from './prefs.js?v=22';
-import { demo } from './demos.js?v=22';
-import { goOnline as presenceOnline, onBoard as onPresenceBoard, publishScore, setPresence, isOnline } from './presence.js?v=22';
-import { recordResult, getRating, overallRating, openProfile, closeProfile, initProfile, getAvatar } from './profile.js?v=22';
-import { claimDaily, getLevel, getCoins, setNotify } from './loyalty.js?v=22';
-import { getUid, getGuestName } from './identity.js?v=22';
+import { t, initLang, onLangChange } from './i18n.js?v=23';
+import { sound } from './sound.js?v=23';
+import { initPrefs, getName, setName, haptic } from './prefs.js?v=23';
+import { demo } from './demos.js?v=23';
+import { goOnline as presenceOnline, onBoard as onPresenceBoard, publishScore, setPresence, isOnline } from './presence.js?v=23';
+import { recordResult, getRating, overallRating, openProfile, closeProfile, initProfile, getAvatar } from './profile.js?v=23';
+import { claimDaily, getLevel, getCoins, setNotify } from './loyalty.js?v=23';
+import { getUid, getGuestName } from './identity.js?v=23';
 
 // ---------- DOM helpers ----------
 const $ = (id) => document.getElementById(id);
@@ -262,7 +262,7 @@ function buildSections(container, onPick, filterCat, q) {
     any = true;
     const sec = el('div', 'mb-5');
     sec.appendChild(el('h2', 'text-xs font-bold uppercase tracking-wider text-slate-500 mb-2', t('cat_' + cat)));
-    const grid = el('div', 'grid grid-cols-1 sm:grid-cols-2 gap-3');
+    const grid = el('div', 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3');
     for (const g of list) grid.appendChild(gameCard(g, onPick));
     sec.appendChild(grid);
     container.appendChild(sec);
@@ -352,6 +352,7 @@ function updatePresenceHeader(onlineCount) {
   const c = $('hdr-count'); if (c) c.textContent = onlineCount;
   const av = $('hdr-avatar'); if (av) av.textContent = getAvatar();
   const d = $('btn-dnd'); if (d) { d.textContent = S.dnd ? '🔕' : '🔔'; d.title = t(S.dnd ? 'dnd_on' : 'dnd_off'); }
+  const fc = $('find-count'); if (fc) fc.textContent = onlineCount ? `· ${onlineCount} ${t('online_now_short')}` : '';
 }
 function tierBadge(level) { return level >= 40 ? '👑' : level >= 25 ? '💎' : level >= 15 ? '💠' : level >= 10 ? '🥇' : level >= 5 ? '🥈' : '🥉'; }
 function renderBoard(list) {

@@ -126,7 +126,7 @@ const DICT = {
     equip: 'Equip', equipped: 'On', need_coins: 'Not enough coins', need_level: 'Reach level {n} first',
     level_up: '⭐ Level {n} — {tier}!', earned: '+{xp} XP · +{coins} 🪙', daily_bonus: '🎁 Daily bonus +{coins} 🪙 (day {streak})',
     leaderboard_global: '🌍 Global leaderboard',
-    busy: 'Busy', dnd_short: 'DND', dnd_on: 'Invites off', dnd_off: 'Accepting invites', board_hint: 'Tap Invite next to an online player to challenge them.',
+    busy: 'Busy', dnd_short: 'DND', dnd_on: 'Invites off', dnd_off: 'Accepting invites', board_hint: 'Tap Invite next to an online player to challenge them.', online_now_short: 'online',
     // loyalty: quests, streak, gifts
     daily_quests: 'Daily quests', login_streak: 'Login streak', gifts: 'Gifts',
     day: 'Day', streak_days: '🔥 {n}-day streak', chests: 'Chests', open_chest: 'Open',
@@ -258,7 +258,7 @@ const DICT = {
     equip: 'تجهيز', equipped: 'مفعّل', need_coins: 'عملات غير كافية', need_level: 'تحتاج المستوى {n}',
     level_up: '⭐ المستوى {n} — {tier}!', earned: '+{xp} خبرة · +{coins} 🪙', daily_bonus: '🎁 مكافأة يومية +{coins} 🪙 (اليوم {streak})',
     leaderboard_global: '🌍 المتصدرون عالميًا',
-    busy: 'مشغول', dnd_short: 'مشغول', dnd_on: 'الدعوات موقوفة', dnd_off: 'يستقبل الدعوات', board_hint: 'اضغط "دعوة" بجانب لاعب متصل لتحديه.',
+    busy: 'مشغول', dnd_short: 'مشغول', dnd_on: 'الدعوات موقوفة', dnd_off: 'يستقبل الدعوات', board_hint: 'اضغط "دعوة" بجانب لاعب متصل لتحديه.', online_now_short: 'متصل',
     daily_quests: 'المهام اليومية', login_streak: 'سلسلة الدخول', gifts: 'الهدايا',
     day: 'يوم', streak_days: '🔥 سلسلة {n} يوم', chests: 'الصناديق', open_chest: 'افتح',
     claim: 'استلام', claimed: 'تم', quest_done: '✅ اكتملت المهمة: {name}',
