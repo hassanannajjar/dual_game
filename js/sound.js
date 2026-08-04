@@ -2,10 +2,10 @@
 // sound(name). Mute at arcade:sound, volume at arcade:vol, music at arcade:music.
 
 let ctx = null, master = null, musicTimer = null, mi = 0;
-let enabled = true, music = false, vol = 0.8;
+let enabled = true, music = true, vol = 0.8;   // music defaults ON; a stored pref overrides
 try { enabled = localStorage.getItem('arcade:sound') !== 'off'; } catch (e) {}
 try { const v = parseFloat(localStorage.getItem('arcade:vol')); if (!isNaN(v)) vol = Math.min(1, Math.max(0, v)); } catch (e) {}
-try { music = localStorage.getItem('arcade:music') === 'on'; } catch (e) {}
+try { const m = localStorage.getItem('arcade:music'); if (m) music = m === 'on'; } catch (e) {}
 
 // AudioContext + master bus must be created/resumed after a user gesture.
 function ac() {
@@ -99,8 +99,8 @@ export function soundOn() { return enabled; }
 // node so layers slowly fade in/out. The mix "breathes" (occasional near-silence) and, in "auto",
 // crossfades moods. A scene (menu vs match) biases which moods/layers are active.
 let mStep = 0, musicBus = null, mixGain = null, layerGains = null, curMood = 'interstellar';
-let moodUntil = 0, musicMode = 'auto', scene = 'menu', breatheUntil = 0;
-try { musicMode = localStorage.getItem('arcade:musicMood') || 'auto'; } catch (e) {}
+let moodUntil = 0, musicMode = 'tracks', scene = 'menu', breatheUntil = 0;   // default to user's audio files
+try { musicMode = localStorage.getItem('arcade:musicMood') || 'tracks'; } catch (e) {}
 const semi = (root, n) => root * Math.pow(2, n / 12);
 const LAYERS = ['pad', 'bass', 'arp', 'tick', 'shimmer'];
 const MOODS = {
@@ -295,6 +295,7 @@ function playTrack(chIndex) {
     if (ch.el.duration && ch.el.currentTime > ch.el.duration - 6 && !ch.fading) { ch.fading = true; nextTrack(); }
   };
   ch.el.onended = () => { if (!ch.fading) { ch.fading = true; nextTrack(); } };
+  ch.el.onerror = () => { stopTracks(); tracksRunning = false; if (musicMode === 'tracks') startSynth(); };   // bad file → never silent
 }
 function nextTrack() {
   const tp = trackPlayer; if (!tp) return;

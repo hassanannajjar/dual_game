@@ -1,4 +1,4 @@
-import { TETROMINOES, rotateCells, tetrisFits, tetrisClear } from '../logic.js?v=28';
+import { TETROMINOES, rotateCells, tetrisFits, tetrisClear } from '../logic.js?v=29';
 
 const W = 10, H = 20;
 const TYPES = ['I', 'O', 'T', 'S', 'Z', 'J', 'L'];

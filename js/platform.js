@@ -2,18 +2,18 @@
 // drives phases: home -> connect -> lobby -> [setup] -> [toss] -> play -> over,
 // and handles pause / disconnect-reconnect / refresh-resume.
 // Depends on the global `Peer` (PeerJS, loaded via CDN).
-import { t, initLang, onLangChange, getLang } from './i18n.js?v=28';
-import { rankTier } from './logic.js?v=28';
-import { sound, setMusicScene, musicSwell, setMusicNotify } from './sound.js?v=28';
-import { initPrefs, getName, setName, haptic } from './prefs.js?v=28';
-import { demo } from './demos.js?v=28';
-import { goOnline as presenceOnline, onBoard as onPresenceBoard, publishScore, setPresence, isOnline } from './presence.js?v=28';
-import { recordResult, getRating, overallRating, openProfile, closeProfile, initProfile, getAvatar, shareStats, currentSeason } from './profile.js?v=28';
-import { claimDaily, getLevel, getCoins, setNotify } from './loyalty.js?v=28';
-import { getUid, getGuestName } from './identity.js?v=28';
-import { isFav, toggleFav, getFavs } from './favorites.js?v=28';
-import { getFriends, addFriend } from './friends.js?v=28';
-import { hasTutorial, getTutorial } from './tutorials.js?v=28';
+import { t, initLang, onLangChange, getLang } from './i18n.js?v=29';
+import { rankTier } from './logic.js?v=29';
+import { sound, setMusicScene, musicSwell, setMusicNotify } from './sound.js?v=29';
+import { initPrefs, getName, setName, haptic } from './prefs.js?v=29';
+import { demo } from './demos.js?v=29';
+import { goOnline as presenceOnline, onBoard as onPresenceBoard, publishScore, setPresence, isOnline } from './presence.js?v=29';
+import { recordResult, getRating, overallRating, openProfile, closeProfile, initProfile, getAvatar, shareStats, currentSeason } from './profile.js?v=29';
+import { claimDaily, getLevel, getCoins, setNotify } from './loyalty.js?v=29';
+import { getUid, getGuestName } from './identity.js?v=29';
+import { isFav, toggleFav, getFavs } from './favorites.js?v=29';
+import { getFriends, addFriend } from './friends.js?v=29';
+import { hasTutorial, getTutorial } from './tutorials.js?v=29';
 
 // ---------- DOM helpers ----------
 const $ = (id) => document.getElementById(id);

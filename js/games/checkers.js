@@ -1,4 +1,4 @@
-import { checkerMoves, checkerHasMove } from '../logic.js?v=28';
+import { checkerMoves, checkerHasMove } from '../logic.js?v=29';
 
 const M = { board: [], mine: 'b', opp: 'r', cells: [], sel: null, dests: [], mustCont: null, animateTo: null };
 

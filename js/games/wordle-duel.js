@@ -1,4 +1,4 @@
-import { wordleScore, wordleConsistent, WORDLE_WORDS } from '../logic.js?v=28';
+import { wordleScore, wordleConsistent, WORDLE_WORDS } from '../logic.js?v=29';
 
 // Duel: each player sets a secret 5-letter word; you race to crack the OTHER player's word
 // with Wordle feedback. First to all-green wins. (Turn-based; mirrors hangman/number-duel.)
