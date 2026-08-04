@@ -1,4 +1,4 @@
-import { ticTacToeWinner, ultimateWinner } from '../logic.js?v=16';
+import { ticTacToeWinner, ultimateWinner } from '../logic.js?v=17';
 
 const M = { boards: [], small: [], active: -1, mine: 'X', opp: 'O', cellEls: [], boardEls: [] };
 const boardFull = (i) => M.boards[i].every(Boolean);
@@ -72,6 +72,27 @@ export default {
     build(ctx);
   },
   onTurn(mine, ctx) { paint(ctx); },
+  botMove(level) {
+    const playB = (M.active !== -1 && !M.small[M.active] && !boardFull(M.active))
+      ? [M.active]
+      : [...Array(9).keys()].filter((b) => !M.small[b] && !boardFull(b));
+    const cand = [];
+    for (const b of playB) for (let c = 0; c < 9; c++) if (!M.boards[b][c]) cand.push([b, c]);
+    if (!cand.length) return null;
+    if (level === 'easy') { const [b, c] = cand[Math.floor(Math.random() * cand.length)]; return { type: 'move', b, c }; }
+    let best = cand[0], bs = -1e9;
+    for (const [b, c] of cand) {
+      let sc = Math.random() * 0.5;
+      const test = M.boards[b].slice(); test[c] = M.opp;
+      if (ticTacToeWinner(test) === M.opp) { sc += 50; const sm = M.small.slice(); sm[b] = M.opp; if (ultimateWinner(sm) === M.opp) sc += 1000; }
+      if (M.small[c] || M.boards[c].every(Boolean)) sc -= 15;                       // sends opp to a free board
+      else { const oc = M.boards[c]; for (let k = 0; k < 9; k++) if (!oc[k]) { const tt = oc.slice(); tt[k] = M.mine; if (ticTacToeWinner(tt) === M.mine) { sc -= 40; break; } } }
+      if (level === 'hard') { const tb = M.boards[b].slice(); tb[c] = M.mine; if (ticTacToeWinner(tb) === M.mine) sc += 25; }  // block opp winning this board
+      if (c === 4) sc += 2; if (b === 4) sc += 1;
+      if (sc > bs) { bs = sc; best = [b, c]; }
+    }
+    return { type: 'move', b: best[0], c: best[1] };
+  },
   onMessage(msg, ctx) {
     if (msg.type !== 'move') return;
     applyMove(msg.b, msg.c, M.opp); ctx.sound('place'); paint(ctx);

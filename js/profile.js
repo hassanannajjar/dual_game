@@ -1,10 +1,10 @@
 // Player profile + progression — stats, per-game rating, achievements. All localStorage.
-import { t } from './i18n.js?v=16';
-import { sound } from './sound.js?v=16';
-import { getName, setName } from './prefs.js?v=16';
-import { nextRating, evalAchievements, ACHIEVEMENTS } from './logic.js?v=16';
-import { earnForResult, grantAchievement, questEvent, getLevel, getStreak, renderLevelHeader, renderShop, renderQuests, renderStreak, renderGifts, owns, equip, REWARDS } from './loyalty.js?v=16';
-import { getToken } from './identity.js?v=16';
+import { t } from './i18n.js?v=17';
+import { sound } from './sound.js?v=17';
+import { getName, setName } from './prefs.js?v=17';
+import { nextRating, evalAchievements, ACHIEVEMENTS } from './logic.js?v=17';
+import { earnForResult, grantAchievement, questEvent, getLevel, getStreak, renderLevelHeader, renderShop, renderQuests, renderStreak, renderGifts, owns, equip, REWARDS } from './loyalty.js?v=17';
+import { getToken } from './identity.js?v=17';
 
 const $ = (id) => document.getElementById(id);
 const AVATARS = ['🦊', '🐼', '🐸', '🦁', '🐙', '🦄', '🐧', '🐳', '🤖', '👾', '🎲', '⚡'];

@@ -1,4 +1,4 @@
-import { mancalaSow, mancalaEnded, mancalaFinalize } from '../logic.js?v=16';
+import { mancalaSow, mancalaEnded, mancalaFinalize } from '../logic.js?v=17';
 
 const M = { board: [], side: 0, pitEls: {}, storeEls: {} };
 const myPits = () => (M.side === 0 ? [0, 1, 2, 3, 4, 5] : [7, 8, 9, 10, 11, 12]);
@@ -63,6 +63,29 @@ export default {
     build(ctx);
   },
   onTurn(mine, ctx) { paint(ctx); },
+  // Bot plays its full turn (chains extra turns) on a local board copy; picks by
+  // extra-turn > captures > seeds-into-store (easy = random).
+  botMove(level) {
+    const pits = M.side === 0 ? [7, 8, 9, 10, 11, 12] : [0, 1, 2, 3, 4, 5];
+    const store = M.side === 0 ? 13 : 6;
+    let board = M.board.slice();
+    const seq = []; let guard = 0;
+    while (guard++ < 12) {
+      const legal = pits.filter((p) => board[p] > 0);
+      if (!legal.length) break;
+      let pick;
+      if (level === 'easy') pick = legal[Math.floor(Math.random() * legal.length)];
+      else {
+        let bs = -1e9;
+        for (const p of legal) { const r = mancalaSow(board, p); const sc = (r.extraTurn ? 50 : 0) + r.captured * 8 + (r.board[store] - board[store]); if (sc > bs) { bs = sc; pick = p; } }
+      }
+      const r = mancalaSow(board, pick); board = r.board;
+      seq.push({ type: 'move', pit: pick });
+      if (mancalaEnded(board)) break;
+      if (!r.extraTurn) break;
+    }
+    return seq;
+  },
   onMessage(msg, ctx) {
     if (msg.type !== 'move') return;
     const res = mancalaSow(M.board, msg.pit);

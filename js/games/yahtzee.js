@@ -1,4 +1,4 @@
-import { yahtzeeScore, YAHTZEE_CATS } from '../logic.js?v=16';
+import { yahtzeeScore, YAHTZEE_CATS } from '../logic.js?v=17';
 
 const PIPS = ['', '⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
 const LABEL = { ones: '1s', twos: '2s', threes: '3s', fours: '4s', fives: '5s', sixes: '6s',
@@ -83,6 +83,24 @@ export default {
   id: 'yahtzee', name: 'Yahtzee', emoji: '🎰', blurb: 'Roll for the best hand', category: 'luck', difficulty: 'medium',
   start(ctx) { M.my = {}; M.opp = {}; M.dice = [0, 0, 0, 0, 0]; M.holds = [false, false, false, false, false]; M.rolls = 3; build(ctx); },
   onTurn(mine, ctx) { if (mine) { M.dice = [0, 0, 0, 0, 0]; M.holds = [false, false, false, false, false]; M.rolls = 3; } paint(ctx); },
+  // Bot rolls its own dice (keeping the most common face on rerolls) then scores the best
+  // unfilled category; if nothing scores it dumps into a cheap upper box.
+  botMove(level) {
+    const filled = (c) => M.opp[c] !== undefined;
+    let dice = Array.from({ length: 5 }, () => 1 + Math.floor(Math.random() * 6));
+    const rerolls = level === 'easy' ? 0 : 2;
+    for (let r = 0; r < rerolls; r++) {
+      const cnt = {}; for (const d of dice) cnt[d] = (cnt[d] || 0) + 1;
+      const keep = +Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a])[0];
+      dice = dice.map((d) => (d === keep ? d : 1 + Math.floor(Math.random() * 6)));
+    }
+    const open = YAHTZEE_CATS.filter((c) => !filled(c));
+    if (!open.length) return null;
+    let best = open[0], bestV = -1;
+    for (const c of open) { const v = yahtzeeScore(c, dice); if (v > bestV) { bestV = v; best = c; } }
+    if (bestV <= 0) { const dump = ['ones', 'twos', 'threes', 'yahtzee', 'fourKind', 'threeKind', 'fours', 'fives', 'sixes', 'fullHouse', 'smallStraight', 'largeStraight', 'chance']; for (const c of dump) if (open.includes(c)) { best = c; break; } }
+    return [{ type: 'dice', dice }, { type: 'score', cat: best, val: yahtzeeScore(best, dice) }];
+  },
   onMessage(msg, ctx) {
     if (msg.type === 'dice') { M.oppDice = msg.dice; }
     else if (msg.type === 'score') {

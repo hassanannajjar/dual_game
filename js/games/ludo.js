@@ -1,4 +1,4 @@
-import { ludoStep, ludoAbs } from '../logic.js?v=16';
+import { ludoStep, ludoAbs } from '../logic.js?v=17';
 
 const PIPS = ['', '⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
 const M = { tokens: { me: [0, 0, 0, 0], opp: [0, 0, 0, 0] }, entryMe: 0, entryOpp: 26, pending: null,
@@ -87,6 +87,39 @@ export default {
     build(ctx);
   },
   onTurn(mine, ctx) { if (mine) M.pending = null; paint(ctx); },
+  // Bot plays its whole turn (roll → move, extra roll on a 6). Simulates locally to sequence
+  // multi-roll turns; real state updates as the messages are applied.
+  botMove(level) {
+    const seq = [];
+    const tok = M.tokens.opp.slice();
+    const myAbs = M.tokens.me.map((s) => ludoAbs(M.entryMe, s));
+    const pickToken = (mv, v) => {
+      if (level === 'easy') return mv[Math.floor(Math.random() * mv.length)];
+      let best = mv[0], bestScore = -1e9;
+      for (const i of mv) {
+        const ns = ludoStep(tok[i], v); let sc = ns;                 // progress
+        const abs = ludoAbs(M.entryOpp, ns);
+        if (abs != null && myAbs.includes(abs)) sc += 100;           // capture
+        if (ns === 57) sc += 60;                                     // finish
+        if (tok[i] === 0) sc += 20;                                  // leave base
+        if (sc > bestScore) { bestScore = sc; best = i; }
+      }
+      return best;
+    };
+    let guard = 0;
+    while (guard++ < 20) {
+      const v = 1 + Math.floor(Math.random() * 6);
+      seq.push({ type: 'roll', v });
+      const mv = [0, 1, 2, 3].filter((i) => ludoStep(tok[i], v) !== null);
+      if (!mv.length) { seq.push({ type: 'nomove' }); break; }
+      const i = pickToken(mv, v);
+      tok[i] = ludoStep(tok[i], v);
+      seq.push({ type: 'move', i, v });
+      if (tok.every((s) => s === 57)) break;                         // bot wins
+      if (v !== 6) break;                                            // no extra turn
+    }
+    return seq;
+  },
   onMessage(msg, ctx) {
     if (msg.type === 'roll') { M.dieEl.textContent = PIPS[msg.v]; ctx.sound('drop'); }
     else if (msg.type === 'nomove') { ctx.setTurn(true); }

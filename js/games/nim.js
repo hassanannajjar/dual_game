@@ -1,4 +1,4 @@
-import { nimEmpty, nimBestMove } from '../logic.js?v=16';
+import { nimEmpty, nimBestMove } from '../logic.js?v=17';
 
 const M = { rows: [], rowEls: [] };
 function paint(ctx) {

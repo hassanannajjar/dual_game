@@ -1,4 +1,4 @@
-import { MORRIS_ADJ, morrisMillsAt } from '../logic.js?v=16';
+import { MORRIS_ADJ, morrisMillsAt } from '../logic.js?v=17';
 
 // Node coordinates on a 0..6 grid [col, row].
 const COORD = [
@@ -123,6 +123,47 @@ export default {
     build(ctx);
   },
   onTurn(mine, ctx) { M.sel = null; updateHint(ctx); paint(ctx); },
+  // Bot (M.opp): one place/move per turn + a removal if it forms a mill. All decisions on a
+  // local board copy so it never double-mutates the real state (onMessage applies the moves).
+  botMove(level) {
+    const B = M.board.slice(), opp = M.opp, mine = M.mine;
+    const emp = () => { const a = []; for (let i = 0; i < 24; i++) if (B[i] === null) a.push(i); return a; };
+    const count = (w) => B.filter((v) => v === w).length;
+    const mob = (i) => MORRIS_ADJ[i].filter((j) => B[j] === null).length;
+    const forms = (pos, w) => { const o = B[pos]; B[pos] = w; const m = morrisMillsAt(B, pos).length > 0; B[pos] = o; return m; };
+    const chooseRemove = () => {
+      const cand = []; for (let i = 0; i < 24; i++) if (B[i] === mine) cand.push({ i, inM: morrisMillsAt(B, i).length > 0 });
+      const anyOut = cand.some((c) => !c.inM);
+      const legal = cand.filter((c) => anyOut ? !c.inM : true);
+      if (!legal.length) return null;
+      if (level === 'easy') return legal[Math.floor(Math.random() * legal.length)].i;
+      legal.sort((a, b) => mob(b.i) - mob(a.i));
+      return legal[0].i;
+    };
+    const seq = [];
+    if (M.placedOpp < 9) {
+      const emps = emp(); let pos = -1;
+      for (const e of emps) if (forms(e, opp)) { pos = e; break; }                 // complete own mill
+      if (pos < 0 && level !== 'easy') for (const e of emps) if (forms(e, mine)) { pos = e; break; } // block
+      if (pos < 0) { if (level === 'easy') pos = emps[Math.floor(Math.random() * emps.length)]; else { let bs = -1; for (const e of emps) { const sc = MORRIS_ADJ[e].filter((j) => B[j] === opp).length + Math.random(); if (sc > bs) { bs = sc; pos = e; } } } }
+      seq.push({ type: 'place', pos });
+      B[pos] = opp;
+      if (morrisMillsAt(B, pos).length) { const rm = chooseRemove(); if (rm != null) seq.push({ type: 'remove', pos: rm }); }
+    } else {
+      const flying = count(opp) === 3;
+      const moves = [];
+      for (let i = 0; i < 24; i++) if (B[i] === opp) { const dests = flying ? emp() : MORRIS_ADJ[i].filter((j) => B[j] === null); for (const d of dests) moves.push([i, d]); }
+      if (!moves.length) return null;
+      let best;
+      if (level === 'easy') best = moves[Math.floor(Math.random() * moves.length)];
+      else { let bs = -1e9; for (const [f, d] of moves) { B[f] = null; B[d] = opp; let sc = (morrisMillsAt(B, d).length ? 100 : 0) + mob(d) + Math.random(); B[d] = null; B[f] = opp; if (sc > bs) { bs = sc; best = [f, d]; } } }
+      const [f, d] = best;
+      seq.push({ type: 'move', from: f, to: d });
+      B[f] = null; B[d] = opp;
+      if (morrisMillsAt(B, d).length) { const rm = chooseRemove(); if (rm != null) seq.push({ type: 'remove', pos: rm }); }
+    }
+    return seq;
+  },
   onMessage(msg, ctx) {
     if (msg.type === 'place') {
       M.board[msg.pos] = M.opp; M.placedOpp++; ctx.sound('place'); updateHint(ctx); paint(ctx);
