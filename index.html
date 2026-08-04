@@ -23,8 +23,14 @@
           style="padding-top: max(0.75rem, env(safe-area-inset-top));">
     <button id="btn-home" class="font-black text-lg tracking-tight text-indigo-400">◆ ARCADE</button>
     <div class="flex items-center gap-3">
-      <span id="status" class="text-xs text-slate-400"></span>
+      <span id="status" class="text-xs text-slate-400 hidden sm:inline"></span>
       <button id="btn-install" class="hidden text-sm px-3 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 font-semibold" data-i18n="install">Install</button>
+      <button id="btn-presence" class="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-slate-800/70 hover:bg-slate-700 text-xs transition active:scale-95" title="Players online" aria-label="Players online">
+        <span id="hdr-avatar" class="text-sm leading-none">🦊</span>
+        <span class="relative flex h-2 w-2"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60"></span><span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-400"></span></span>
+        <span id="hdr-count" class="font-semibold tabular-nums">0</span>
+      </button>
+      <button id="btn-dnd" class="text-lg leading-none" title="Availability" aria-label="Availability">🔔</button>
       <button id="btn-profile" class="text-xl leading-none" title="Profile" aria-label="Profile">🏅</button>
       <button id="btn-prefs" class="text-xl leading-none" title="Settings" aria-label="Settings">⚙</button>
     </div>
@@ -50,23 +56,12 @@
 
     <!-- ONLINE LOBBY -->
     <section id="screen-online" class="hidden space-y-4">
-      <h2 class="text-xl font-bold" data-i18n="online_players">Online players</h2>
-      <div class="grid grid-cols-2 gap-2">
-        <input id="online-name" maxlength="16" data-i18n-ph="display_name" placeholder="Your name"
-               class="py-2.5 px-3 rounded-xl bg-slate-800 border border-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-        <input id="online-circle" maxlength="24" data-i18n-ph="circle_ph" placeholder="Circle (e.g. family)"
-               class="py-2.5 px-3 rounded-xl bg-slate-800 border border-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+      <div class="flex items-baseline justify-between">
+        <h2 class="text-xl font-bold" data-i18n="leaderboard_global">🌍 Global leaderboard</h2>
+        <span class="text-[10px] text-slate-500" data-i18n="lb_note">for fun · scores are not verified</span>
       </div>
-      <button id="btn-go-online" class="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 font-semibold transition" data-i18n="go_online">Go online</button>
-      <p id="online-status" class="text-center text-xs text-slate-400 h-4"></p>
-      <ul id="online-list" class="space-y-2"></ul>
-      <div class="pt-2">
-        <div class="flex items-baseline justify-between">
-          <h3 class="text-sm font-bold" data-i18n="leaderboard_global">🌍 Global leaderboard</h3>
-          <span class="text-[10px] text-slate-500" data-i18n="lb_note">for fun · scores are not verified</span>
-        </div>
-        <ul id="leaderboard-list" class="space-y-1.5 mt-2"></ul>
-      </div>
+      <p class="text-xs text-slate-400" data-i18n="board_hint">Tap Invite next to an online player to challenge them.</p>
+      <ul id="leaderboard-list" class="space-y-1.5"></ul>
       <button id="btn-online-back" class="w-full py-2 text-sm text-slate-500 hover:text-slate-300" data-i18n="back_games">← Back to games</button>
     </section>
 
@@ -300,12 +295,13 @@
 
   <!-- INCOMING INVITE -->
   <div id="invite-panel" class="hidden fixed inset-0 z-40 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
-    <div class="w-full max-w-xs bg-slate-900 border border-slate-700 rounded-2xl p-5 text-center space-y-4">
-      <div class="text-4xl">🎮</div>
+    <div class="w-full max-w-xs bg-slate-900 border border-slate-700 rounded-2xl p-5 text-center space-y-4 shadow-2xl">
+      <div id="invite-avatar" class="text-5xl">🎮</div>
       <p id="invite-text" class="text-lg font-semibold"></p>
+      <p class="text-xs text-slate-500">Auto-declines in <span id="invite-countdown" class="font-mono text-slate-300">10s</span></p>
       <div class="grid grid-cols-2 gap-2">
-        <button id="btn-invite-accept" class="py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 font-semibold" data-i18n="accept">Accept</button>
-        <button id="btn-invite-decline" class="py-3 rounded-xl bg-slate-700 hover:bg-slate-600 font-semibold" data-i18n="decline">Decline</button>
+        <button id="btn-invite-accept" class="py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 font-semibold transition active:scale-95" data-i18n="accept">Accept</button>
+        <button id="btn-invite-decline" class="py-3 rounded-xl bg-slate-700 hover:bg-slate-600 font-semibold transition active:scale-95" data-i18n="decline">Decline</button>
       </div>
     </div>
   </div>
@@ -341,6 +337,6 @@
       });
     })();
   </script>
-  <script type="module" src="js/app.js?v=21"></script>
+  <script type="module" src="js/app.js?v=22"></script>
 </body>
 </html>

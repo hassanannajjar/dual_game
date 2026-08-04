@@ -18,3 +18,13 @@ export function getUid() {
 }
 // Short, human-friendly form of the token (e.g. for a "Player ID" display).
 export function getToken() { return getUid().replace(/-/g, '').slice(0, 8).toUpperCase(); }
+
+// A stable, friendly default handle derived from the uid (used until the player sets a name),
+// so they can go online instantly. e.g. "Fox-4821".
+const GUEST_ANIMALS = ['Fox', 'Panda', 'Otter', 'Falcon', 'Wolf', 'Koala', 'Tiger', 'Raven', 'Lynx', 'Orca', 'Hawk', 'Bison', 'Puma', 'Heron', 'Gecko', 'Moose'];
+export function getGuestName() {
+  const t = getToken();
+  let h = 0; for (let i = 0; i < t.length; i++) h = (h * 31 + t.charCodeAt(i)) >>> 0;
+  const num = (parseInt(t.slice(0, 4), 16) % 9000) + 1000;
+  return `${GUEST_ANIMALS[h % GUEST_ANIMALS.length]}-${num}`;
+}

@@ -2,14 +2,14 @@
 // drives phases: home -> connect -> lobby -> [setup] -> [toss] -> play -> over,
 // and handles pause / disconnect-reconnect / refresh-resume.
 // Depends on the global `Peer` (PeerJS, loaded via CDN).
-import { t, initLang, onLangChange } from './i18n.js?v=21';
-import { sound } from './sound.js?v=21';
-import { initPrefs, getName, setName, haptic } from './prefs.js?v=21';
-import { demo } from './demos.js?v=21';
-import { goOnline as presenceOnline, goOffline as presenceOffline, onLeaderboard, publishScore } from './presence.js?v=21';
-import { recordResult, getRating, overallRating, openProfile, closeProfile, initProfile } from './profile.js?v=21';
-import { claimDaily, getLevel, getCoins, setNotify } from './loyalty.js?v=21';
-import { getUid } from './identity.js?v=21';
+import { t, initLang, onLangChange } from './i18n.js?v=22';
+import { sound } from './sound.js?v=22';
+import { initPrefs, getName, setName, haptic } from './prefs.js?v=22';
+import { demo } from './demos.js?v=22';
+import { goOnline as presenceOnline, onBoard as onPresenceBoard, publishScore, setPresence, isOnline } from './presence.js?v=22';
+import { recordResult, getRating, overallRating, openProfile, closeProfile, initProfile, getAvatar } from './profile.js?v=22';
+import { claimDaily, getLevel, getCoins, setNotify } from './loyalty.js?v=22';
+import { getUid, getGuestName } from './identity.js?v=22';
 
 // ---------- DOM helpers ----------
 const $ = (id) => document.getElementById(id);
@@ -52,6 +52,7 @@ const S = {
   inPlay: false, paused: false, over: false, reconnectTimer: null, leaving: false,
   oppName: '', lastLoserIsHost: null, homeFilter: 'all', homeSearch: '',
   oppRating: null, series: { me: 0, opp: 0, key: null }, unread: 0,
+  dnd: false, online: false, boardList: [],
 };
 
 // ---------- persistence (localStorage) ----------
@@ -205,9 +206,9 @@ function onData(msg) {
       if (S.isHost) enterHostLobby(); else enterGuestLobby();
       break;
     case 'invite':
+      if (S.dnd || S.inPlay) { sys('invite-declined'); try { S.conn && S.conn.close(); } catch (e) {} S.conn = null; S.isHost = false; break; }
       S.pendingInvite = { fromId: msg.fromId, name: msg.name };
-      $('invite-text').textContent = t('invited_by', { name: msg.name || 'Player' });
-      $('invite-panel').classList.remove('hidden');
+      showInvite(msg.name || 'Player');
       break;
     case 'invite-accept':
       beginInvitedGame(true);
@@ -330,47 +331,61 @@ function scheduleBotMove() {
 
 // ---------- online lobby (presence over MQTT) + invites ----------
 const esc = (s) => String(s).replace(/[<>&"]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c]));
-function openOnlineLobby() {
-  show('online');
-  $('online-name').value = getName() || '';
-  try { $('online-circle').value = localStorage.getItem('arcade:circle') || ''; } catch (e) {}
-  $('online-status').textContent = '';
-  $('online-list').innerHTML = '';
-  $('btn-go-online').textContent = t(S.inLobby ? 'go_offline' : 'go_online');
-}
+function effectiveName() { return (getName() || getGuestName()).slice(0, 16); }
+function myProfile() { return { level: getLevel(), rating: overallRating(), coins: getCoins(), avatar: getAvatar() }; }
 function ensureLobbyPeer(cb) {
   if (S.lobbyPeer && S.lobbyPeer.open) { cb(S.lobbyPeer.id); return; }
   S.lobbyPeer = new Peer();
   S.lobbyPeer.on('open', (id) => cb(id));
   S.lobbyPeer.on('connection', onLobbyConn);
-  S.lobbyPeer.on('error', () => { $('online-status').textContent = 'Error'; });
+  S.lobbyPeer.on('error', () => {});
 }
-function toggleOnline() {
-  if (S.inLobby) { presenceOffline(); S.inLobby = false; $('btn-go-online').textContent = t('go_online'); $('online-status').textContent = ''; $('online-list').innerHTML = ''; renderLeaderboard([]); return; }
-  const name = ($('online-name').value.trim() || getName());
-  if (!name) { toast(t('need_name')); return; }
-  setName(name);
-  const circle = $('online-circle').value.trim() || 'public';
-  try { localStorage.setItem('arcade:circle', circle); } catch (e) {}
-  $('online-status').textContent = t('connecting_lobby');
+// Always-on presence: connect once at boot; on later calls just refresh (new peerId, busy off).
+function goOnlinePresence() {
   ensureLobbyPeer((peerId) => {
-    presenceOnline(circle, name, peerId, renderOnlineList, getUid(), { level: getLevel(), rating: overallRating(), coins: getCoins() });
-    S.inLobby = true;
-    $('online-status').textContent = t('online_now');
-    $('btn-go-online').textContent = t('go_offline');
+    if (isOnline()) setPresence(Object.assign({ peerId, name: effectiveName(), busy: false, dnd: S.dnd }, myProfile()));
+    else presenceOnline(getUid(), effectiveName(), peerId, myProfile(), S.dnd);
+    S.online = true;
   });
 }
-function renderOnlineList(list) {
-  const ul = $('online-list'); if (!ul) return; ul.innerHTML = '';
-  if (!list.length) { ul.appendChild(el('li', 'text-center text-slate-500 text-sm py-4', t('no_players'))); return; }
-  for (const p of list) {
-    const li = el('li', 'flex items-center justify-between gap-2 bg-slate-800 rounded-xl px-3 py-2');
-    li.appendChild(el('span', 'font-semibold truncate', `🟢 ${esc(p.name)}`));
-    const b = el('button', 'px-4 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-sm font-semibold', t('invite'));
-    b.onclick = () => invitePlayer(p.peerId, p.name);
-    li.appendChild(b);
-    ul.appendChild(li);
-  }
+function updatePresenceHeader(onlineCount) {
+  const c = $('hdr-count'); if (c) c.textContent = onlineCount;
+  const av = $('hdr-avatar'); if (av) av.textContent = getAvatar();
+  const d = $('btn-dnd'); if (d) { d.textContent = S.dnd ? '🔕' : '🔔'; d.title = t(S.dnd ? 'dnd_on' : 'dnd_off'); }
+}
+function tierBadge(level) { return level >= 40 ? '👑' : level >= 25 ? '💎' : level >= 15 ? '💠' : level >= 10 ? '🥇' : level >= 5 ? '🥈' : '🥉'; }
+function renderBoard(list) {
+  S.boardList = list;
+  updatePresenceHeader(list.filter((p) => p.online).length);
+  const box = $('leaderboard-list'); if (!box || $('screen-online').classList.contains('hidden')) return;
+  box.innerHTML = '';
+  if (!list.length) { box.appendChild(el('li', 'text-center text-slate-500 text-sm py-6', t('lb_empty'))); return; }
+  list.slice(0, 40).forEach((p, i) => {
+    const li = el('li', 'flex items-center justify-between gap-2 rounded-xl px-3 py-2 text-sm ' + (p.isMe ? 'bg-indigo-600/20 ring-1 ring-indigo-500/50' : 'bg-slate-800'));
+    const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `<span class="inline-block w-5 text-center text-slate-500">${i + 1}</span>`;
+    const dot = `<span class="${p.online ? 'text-emerald-400' : 'text-slate-600'}">●</span>`;
+    const left = el('span', 'flex items-center gap-1.5 truncate');
+    left.innerHTML = `${medal}<span class="text-base">${p.avatar || '🎮'}</span>${dot}<span class="truncate font-semibold">${esc(p.name)}</span><span class="text-[10px] text-slate-400 shrink-0">${tierBadge(p.level || 1)}${t('lvl')}${p.level || 1}</span>`;
+    li.appendChild(left);
+    const right = el('span', 'flex items-center gap-2 shrink-0');
+    right.innerHTML = `<span class="font-mono text-indigo-400">${p.rating}</span><span class="font-mono text-amber-400 text-xs">🪙${p.coins || 0}</span>`;
+    if (!p.isMe && p.online && p.peerId) {
+      const canInvite = !p.dnd && !p.busy && !(S.conn && S.conn.open);
+      const b = el('button', 'px-3 py-1 rounded-lg text-xs font-semibold transition active:scale-95 ' + (canInvite ? 'bg-indigo-600 hover:bg-indigo-500' : 'bg-slate-700 text-slate-500'), p.busy ? t('busy') : p.dnd ? t('dnd_short') : t('invite'));
+      if (canInvite) b.onclick = () => invitePlayer(p.peerId, p.name); else b.disabled = true;
+      right.appendChild(b);
+    }
+    li.appendChild(right);
+    box.appendChild(li);
+  });
+}
+function openBoard() { show('online'); renderBoard(S.boardList || []); }
+function toggleDnd() {
+  S.dnd = !S.dnd;
+  try { localStorage.setItem('arcade:dnd', S.dnd ? '1' : '0'); } catch (e) {}
+  setPresence({ dnd: S.dnd });
+  updatePresenceHeader((S.boardList || []).filter((p) => p.online).length);
+  toast(t(S.dnd ? 'dnd_on' : 'dnd_off')); sound('toggle');
 }
 function wireInvite(conn) {
   conn.on('data', onData);
@@ -378,7 +393,7 @@ function wireInvite(conn) {
   conn.on('error', onDisconnect);
 }
 function onLobbyConn(conn) {
-  if (S.conn && S.conn.open) { try { conn.close(); } catch (e) {} return; } // busy
+  if ((S.conn && S.conn.open) || S.inPlay) { try { conn.close(); } catch (e) {} return; } // busy / in a match
   S.conn = conn;
   wireInvite(conn);
 }
@@ -388,12 +403,12 @@ function invitePlayer(peerId, name) {
   const conn = S.lobbyPeer.connect(peerId, { reliable: true });
   S.conn = conn; S.isHost = true;
   wireInvite(conn);
-  conn.on('open', () => sys('invite', { name: getName() || 'Player', fromId: S.lobbyPeer.id }));
+  conn.on('open', () => sys('invite', { name: effectiveName(), fromId: S.lobbyPeer.id }));
   toast(t('inviting', { name }));
 }
 function beginInvitedGame(iAmHost) {
   $('invite-panel').classList.add('hidden');
-  presenceOffline(); S.inLobby = false;
+  setPresence({ busy: true });
   S.isHost = iAmHost;
   S.peer = S.lobbyPeer;
   S.roomCode = iAmHost ? S.lobbyPeer.id : (S.pendingInvite ? S.pendingInvite.fromId : S.roomCode);
@@ -401,13 +416,18 @@ function beginInvitedGame(iAmHost) {
   if (iAmHost) openPicker();
   else { enterGuestLobby(); $('room-code').textContent = S.oppName || '—'; }
 }
-function leaveLobby() {
-  presenceOffline();
-  try { S.lobbyPeer && S.lobbyPeer.destroy(); } catch (e) {}
-  S.lobbyPeer = null; S.inLobby = false;
-  $('btn-go-online').textContent = t('go_online');
-  show('home');
+function showInvite(name) {
+  const av = $('invite-avatar'); if (av) av.textContent = (S.pendingInvite && S.pendingInvite.avatar) || '🎮';
+  $('invite-text').textContent = t('invited_by', { name });
+  $('invite-panel').classList.remove('hidden');
+  sound('join'); haptic([30, 40, 30]);
+  let n = 10; const cd = $('invite-countdown');
+  clearInterval(S.inviteTimer);
+  const tick = () => { if (cd) cd.textContent = n + 's'; if (n <= 0) { declineInvite(); return; } n--; };
+  tick(); S.inviteTimer = setInterval(tick, 1000);
 }
+function acceptInvite() { clearInterval(S.inviteTimer); $('invite-panel').classList.add('hidden'); sys('invite-accept'); beginInvitedGame(false); }
+function declineInvite() { clearInterval(S.inviteTimer); $('invite-panel').classList.add('hidden'); sys('invite-declined'); try { S.conn && S.conn.close(); } catch (e) {} S.conn = null; S.isHost = false; }
 function selectGame(id) {
   S.game = gameById(id);
   $('connect-title').textContent = gameTitle(S.game);
@@ -545,6 +565,7 @@ function preparePlayScreen() {
 }
 function startGame(iAmFirst) {
   S.inPlay = true; S.paused = false;
+  if (S.online) setPresence({ busy: true });   // show "busy" on the board while playing
   const turnsOn = preparePlayScreen();
   if (S.vsBot && S.game.botInit) S.game.botInit(S.botLevel, ctx);
   S.game.start(ctx, { iAmFirst });
@@ -655,19 +676,7 @@ function sendEmote(emoji) { floatEmote(emoji); sys('emote', { emoji }); }
 function openChat() { $('chat-panel').classList.remove('hidden'); S.unread = 0; updateChatBadge(); setTimeout(() => { const i = $('chat-input'); if (i) i.focus(); }, 50); }
 function closeChat() { $('chat-panel').classList.add('hidden'); }
 
-// ---------- leaderboard (experimental, over MQTT) ----------
-function renderLeaderboard(list) {
-  const box = $('leaderboard-list'); if (!box) return;
-  box.innerHTML = '';
-  if (!list || !list.length) { box.appendChild(el('li', 'text-center text-slate-500 text-sm py-3', t('lb_empty'))); return; }
-  list.slice(0, 30).forEach((p, i) => {
-    const li = el('li', 'flex items-center justify-between gap-2 bg-slate-800 rounded-xl px-3 py-2 text-sm');
-    const dot = p.online ? '<span class="text-emerald-400" title="online">🟢</span>' : '<span class="text-slate-600" title="offline">⚫</span>';
-    li.appendChild(el('span', 'flex items-center gap-1.5 truncate', `${dot}<span class="text-slate-500">${i + 1}.</span> <span class="text-slate-400">${t('lvl')}${p.level || 1}</span> ${esc(p.name)}`));
-    li.appendChild(el('span', 'flex items-center gap-2 shrink-0 font-mono', `<span class="text-indigo-400">${p.rating}</span><span class="text-amber-400">🪙${p.coins || 0}</span>`));
-    box.appendChild(li);
-  });
-}
+// (board rendering handled by renderBoard, which merges presence + leaderboard)
 
 // ---------- resume after refresh ----------
 function resumePlay(state) {
@@ -740,7 +749,6 @@ function restartMatch(initiator) {
 function goHome() {
   S.leaving = true;
   if (S.game && S.game.stop) S.game.stop();
-  presenceOffline(); S.inLobby = false;
   S.inPlay = false; S.paused = false; S.vsBot = false; S.solo = false;
   S.series = { me: 0, opp: 0, key: null }; S.oppRating = null;
   resetChat();
@@ -750,10 +758,13 @@ function goHome() {
   if (S.helpDemoStop) { S.helpDemoStop(); S.helpDemoStop = null; }
   $('help-panel').classList.add('hidden');
   $('pause-overlay').classList.add('hidden');
+  const lobbyConsumed = !!(S.peer && S.peer === S.lobbyPeer);   // invite games reuse the lobby peer
   resetConnection();
+  if (lobbyConsumed) S.lobbyPeer = null;
   S.game = null;
   show('home');
   setStatus('');
+  goOnlinePresence();                                            // stay online: fresh lobby peer + busy off
   setTimeout(() => { S.leaving = false; }, 300);
 }
 
@@ -823,11 +834,12 @@ export function boot() {
   $('picker-panel').addEventListener('click', (e) => { if (e.target === $('picker-panel')) closePicker(); });
   $('btn-play-solo').onclick = startSolo;
   $('btn-play-bot').onclick = startBot;
-  $('btn-find-players').onclick = openOnlineLobby;
-  $('btn-go-online').onclick = toggleOnline;
-  $('btn-online-back').onclick = leaveLobby;
-  $('btn-invite-accept').onclick = () => { $('invite-panel').classList.add('hidden'); sys('invite-accept'); beginInvitedGame(false); };
-  $('btn-invite-decline').onclick = () => { $('invite-panel').classList.add('hidden'); sys('invite-declined'); try { S.conn && S.conn.close(); } catch (e) {} S.conn = null; };
+  $('btn-find-players').onclick = openBoard;
+  if ($('btn-online-back')) $('btn-online-back').onclick = () => show('home');
+  if ($('btn-presence')) $('btn-presence').onclick = openBoard;
+  if ($('btn-dnd')) $('btn-dnd').onclick = toggleDnd;
+  $('btn-invite-accept').onclick = acceptInvite;
+  $('btn-invite-decline').onclick = declineInvite;
   $('btn-pause').onclick = () => { pauseGame('manual'); sys('pause'); };
   $('btn-resume').onclick = () => { resumeGame(); sys('resume-play'); };
   $('btn-pause-leave').onclick = goHome;
@@ -850,8 +862,11 @@ export function boot() {
   const eb = $('emote-bar');
   for (const em of EMOTES) { const b = el('button', 'text-2xl p-1 active:scale-125 transition', em); b.onclick = () => sendEmote(em); eb.appendChild(b); }
 
-  // Leaderboard
-  onLeaderboard(renderLeaderboard);
+  // Always-on global presence + live board
+  try { S.dnd = localStorage.getItem('arcade:dnd') === '1'; } catch (e) {}
+  updatePresenceHeader(0);
+  onPresenceBoard(renderBoard);
+  goOnlinePresence();
 
   // Refresh auto-resume: restore an in-progress match and reconnect.
   const sess = loadSession();

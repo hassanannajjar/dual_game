@@ -1,95 +1,95 @@
-// Presence directory over a public MQTT broker (no backend). Games stay P2P.
-// Depends on the global `mqtt` (mqtt.js, loaded via CDN).
+// Presence + leaderboard over a public MQTT broker (no backend). Games stay P2P (PeerJS).
+// GLOBAL + always-on: an ephemeral presence beacon (who's online now, how to invite them, DND/busy)
+// keyed by the stable player uid, plus a retained leaderboard entry (persistent ranking). The two
+// are merged into one board list. Depends on the global `mqtt` (mqtt.js via CDN).
 
 const BROKERS = ['wss://broker.emqx.io:8084/mqtt', 'wss://broker.hivemq.com:8884/mqtt'];
 const PREFIX = 'dualarcade/v1';
-const HEARTBEAT = 15000, STALE = 45000, LB_STALE = 30 * 24 * 3600 * 1000;   // hide leaderboard entries older than 30d
-const LB_BEAT = 20000, ONLINE_FRESH = 45000;                               // republish score every 20s; "online" = seen within 45s
+const BEAT = 15000, LB_BEAT = 20000, STALE = 45000, LB_STALE = 30 * 24 * 3600 * 1000;
 
-const P = { client: null, circle: 'public', name: '', peerId: '', uid: '', players: new Map(), onList: null, hb: null, prune: null, lbHb: null, scores: new Map(), onLb: null, score: { level: 1, rating: 1000, coins: 0 } };
+const P = {
+  client: null, onBoard: null,
+  self: { uid: '', name: 'Player', peerId: '', dnd: false, busy: false, level: 1, rating: 1000, coins: 0, avatar: '🦊' },
+  online: new Map(),   // uid -> { name, peerId, dnd, busy, level, avatar, ts }
+  scores: new Map(),   // uid -> { name, level, rating, coins, ts }  (retained)
+  hb: null, lbHb: null, prune: null,
+};
+const topicPresence = () => `${PREFIX}/global/presence/${P.self.uid}`;
+const topicScore = () => `${PREFIX}/global/lb/${P.self.uid}`;
 
-function topicSelf() { return `${PREFIX}/${P.circle}/p/${P.peerId}`; }
-// Leaderboard is GLOBAL and keyed by the stable player uid (one durable entry per person),
-// so rankings accumulate across sessions instead of resetting with the ephemeral peerId.
-function topicScore() { return `${PREFIX}/global/lb/${P.uid}`; }
-export function onLeaderboard(cb) { P.onLb = cb; }
-function emitLb() {
-  const now = Date.now();
-  const list = [...P.scores.values()]
-    .filter((v) => !v.ts || now - v.ts < LB_STALE)
-    .map((v) => Object.assign({}, v, { online: !!v.ts && now - v.ts < ONLINE_FRESH }))
-    .sort((a, b) => (b.online - a.online) || (b.level - a.level) || (b.rating - a.rating) || (b.coins - a.coins));
-  if (P.onLb) P.onLb(list);
+export function onBoard(cb) { P.onBoard = cb; }
+function emitBoard() {
+  if (!P.onBoard) return;
+  const now = Date.now(), byUid = new Map();
+  for (const [uid, v] of P.scores) { if (v.ts && now - v.ts > LB_STALE) continue; byUid.set(uid, { uid, name: v.name, level: v.level, rating: v.rating, coins: v.coins, online: false }); }
+  for (const [uid, v] of P.online) {
+    if (now - v.ts > STALE) continue;
+    const e = byUid.get(uid) || { uid, name: v.name, level: v.level || 1, rating: 1000, coins: 0 };
+    Object.assign(e, { online: true, peerId: v.peerId, dnd: !!v.dnd, busy: !!v.busy, avatar: v.avatar, name: v.name || e.name, level: v.level || e.level });
+    byUid.set(uid, e);
+  }
+  const list = [...byUid.values()].map((e) => Object.assign(e, { isMe: e.uid === P.self.uid }));
+  list.sort((a, b) => (b.online - a.online) || (b.level - a.level) || (b.rating - a.rating) || (b.coins - a.coins));
+  P.onBoard(list);
 }
-// Publish our profile to the shared GLOBAL (unverified) leaderboard. score = {level, rating, coins}.
+
+function publishBeacon() {
+  if (!P.client || !P.client.connected) return;
+  const s = P.self;
+  P.client.publish(topicPresence(), JSON.stringify({ name: s.name, peerId: s.peerId, dnd: s.dnd, busy: s.busy, level: s.level, avatar: s.avatar, ts: Date.now() }), { retain: false, qos: 0 });
+}
 export function publishScore(score) {
-  if (score) P.score = Object.assign({}, P.score, score);
+  if (score) Object.assign(P.self, score);
   if (!P.client || !P.client.connected) return;
-  P.client.publish(topicScore(), JSON.stringify(Object.assign({ name: P.name, ts: Date.now() }, P.score)), { retain: true, qos: 0 });
+  const s = P.self;
+  P.client.publish(topicScore(), JSON.stringify({ name: s.name, level: s.level, rating: s.rating, coins: s.coins, ts: Date.now() }), { retain: true, qos: 0 });
 }
-function emit() {
-  const now = Date.now();
-  const list = [];
-  for (const [id, v] of P.players) { if (id !== P.peerId && now - v.ts < STALE) list.push({ peerId: id, name: v.name }); }
-  list.sort((a, b) => a.name.localeCompare(b.name));
-  if (P.onList) P.onList(list);
-}
-function publishPresence() {
-  if (!P.client || !P.client.connected) return;
-  P.client.publish(topicSelf(), JSON.stringify({ name: P.name, ts: Date.now() }), { retain: true, qos: 0 });
+// Merge a patch into our identity/status and re-announce immediately (dnd, busy, peerId, name, ...).
+export function setPresence(patch) {
+  Object.assign(P.self, patch || {});
+  publishBeacon();
+  if (patch && ('level' in patch || 'name' in patch)) publishScore();
 }
 
-// goOnline(circle, name, peerId, onList, uid, score) -> connects & starts announcing. onList(list) called on changes.
-export function goOnline(circle, name, peerId, onList, uid, score) {
+// goOnline(uid, name, peerId, profile, dnd) — connect once and stay online for the session.
+export function goOnline(uid, name, peerId, profile, dnd) {
   goOffline();
-  P.circle = (circle || 'public').toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 24) || 'public';
-  P.name = (name || 'Player').slice(0, 16);
-  P.peerId = peerId;
-  P.uid = uid || peerId;
-  P.onList = onList;
-  P.score = Object.assign({ level: 1, rating: 1000, coins: 0 }, score || {});
-  P.players = new Map();
-  P.scores = new Map();
-  const url = BROKERS[0];
-  const willTopic = topicSelf();
-  P.client = mqtt.connect(url, {
-    clientId: 'da_' + peerId.slice(0, 12) + '_' + Math.floor(Math.random() * 1e4),
+  Object.assign(P.self, { uid: uid || peerId, name: (name || 'Player').slice(0, 16), peerId, dnd: !!dnd, busy: false }, profile || {});
+  P.online = new Map(); P.scores = new Map();
+  P.client = mqtt.connect(BROKERS[0], {
+    clientId: 'da_' + P.self.uid.slice(0, 12) + '_' + Math.floor(Math.random() * 1e4),
     keepalive: 30, reconnectPeriod: 4000, connectTimeout: 8000,
-    will: { topic: willTopic, payload: '', retain: true, qos: 0 },   // auto-clear on disconnect
+    will: { topic: topicPresence(), payload: '', retain: false, qos: 0 },
   });
   P.client.on('connect', () => {
-    P.client.subscribe(`${PREFIX}/${P.circle}/p/+`, { qos: 0 });
+    P.client.subscribe(`${PREFIX}/global/presence/+`, { qos: 0 });
     P.client.subscribe(`${PREFIX}/global/lb/+`, { qos: 0 });
-    publishPresence();
-    publishScore();
-    clearInterval(P.hb); P.hb = setInterval(publishPresence, HEARTBEAT);
-    clearInterval(P.lbHb); P.lbHb = setInterval(() => publishScore(), LB_BEAT);   // keep our global entry "online"
-    clearInterval(P.prune); P.prune = setInterval(() => { emit(); emitLb(); }, 10000);
-    emit();
+    publishBeacon(); publishScore();
+    clearInterval(P.hb); P.hb = setInterval(publishBeacon, BEAT);
+    clearInterval(P.lbHb); P.lbHb = setInterval(() => publishScore(), LB_BEAT);
+    clearInterval(P.prune); P.prune = setInterval(emitBoard, 10000);
+    emitBoard();
   });
   P.client.on('message', (topic, payload) => {
-    const parts = topic.split('/');
-    const id = parts.pop(), kind = parts[parts.length - 1];   // .../{p|lb}/{id}
+    const parts = topic.split('/'), id = parts.pop(), kind = parts[parts.length - 1];
     const s = payload.toString();
-    if (kind === 'lb') {
-      if (!s) { P.scores.delete(id); emitLb(); return; }
-      try { const v = JSON.parse(s); P.scores.set(id, { name: v.name || 'Player', level: v.level || 1, rating: v.rating || 1000, coins: v.coins || 0, ts: v.ts || 0 }); emitLb(); } catch (e) {}
-      return;
+    if (kind === 'presence') {
+      if (!s) { P.online.delete(id); emitBoard(); return; }
+      try { const v = JSON.parse(s); P.online.set(id, { name: v.name || 'Player', peerId: v.peerId, dnd: !!v.dnd, busy: !!v.busy, level: v.level || 1, avatar: v.avatar || '🦊', ts: v.ts || Date.now() }); emitBoard(); } catch (e) {}
+    } else if (kind === 'lb') {
+      if (!s) { P.scores.delete(id); emitBoard(); return; }
+      try { const v = JSON.parse(s); P.scores.set(id, { name: v.name || 'Player', level: v.level || 1, rating: v.rating || 1000, coins: v.coins || 0, ts: v.ts || 0 }); emitBoard(); } catch (e) {}
     }
-    if (!s) { P.players.delete(id); emit(); return; }        // will/leave cleared it
-    try { const { name: nm, ts } = JSON.parse(s); P.players.set(id, { name: nm || 'Player', ts: ts || Date.now() }); emit(); } catch (e) {}
   });
   P.client.on('error', () => {});
 }
 
 export function goOffline() {
-  clearInterval(P.hb); clearInterval(P.prune); clearInterval(P.lbHb); P.hb = P.prune = P.lbHb = null;
+  clearInterval(P.hb); clearInterval(P.lbHb); clearInterval(P.prune); P.hb = P.lbHb = P.prune = null;
   if (P.client) {
-    // Clear only presence (topicSelf); leave the retained global leaderboard entry so the ranking persists.
-    try { P.client.publish(topicSelf(), '', { retain: true, qos: 0 }); P.client.end(true); } catch (e) {}
+    try { P.client.publish(topicPresence(), '', { retain: false, qos: 0 }); P.client.end(true); } catch (e) {}
     P.client = null;
   }
-  P.players = new Map();
-  P.scores = new Map();
+  P.online = new Map(); P.scores = new Map();
 }
 export function isOnline() { return !!(P.client && P.client.connected); }
