@@ -1,4 +1,4 @@
-import { SNL_MAP } from '../logic.js?v=13';
+import { SNL_MAP } from '../logic.js?v=14';
 
 const PIPS = ['', '⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
 const M = { me: 0, opp: 0, cells: [], dieEl: null, rollBtn: null, msgEl: null };
@@ -68,6 +68,7 @@ export default {
   id: 'snakes', name: 'Snakes & Ladders', emoji: '🐍', blurb: 'Climb and slide', category: 'luck', difficulty: 'easy',
   start(ctx) { M.me = 0; M.opp = 0; build(ctx); },
   onTurn(mine, ctx) { paint(ctx); },
+  botMove() { return { type: 'roll', v: 1 + Math.floor(Math.random() * 6) }; },   // pure luck, no decision
   onMessage(msg, ctx) {
     if (msg.type !== 'roll') return;
     M.dieEl.textContent = PIPS[msg.v];

@@ -47,6 +47,21 @@ export default {
   id: 'pig', name: 'Dice Pig', emoji: '🎲', blurb: 'Push your luck', category: 'luck', difficulty: 'easy',
   start(ctx) { M.my = M.opp = M.turnTotal = M.oppTurn = 0; build(ctx); },
   onTurn(mine, ctx) { if (mine) M.turnTotal = 0; else M.oppTurn = 0; paint(ctx); },
+  // Bot plays a whole turn at once (it generates its own dice): roll until a hold threshold or bust.
+  botMove(level) {
+    const base = level === 'easy' ? 12 : 20;
+    const seq = []; let tt = 0;
+    while (true) {
+      const v = 1 + Math.floor(Math.random() * 6);
+      seq.push({ type: 'roll', v });
+      if (v === 1) return seq;                         // bust — turn passes back
+      tt += v;
+      const total = M.opp + tt;
+      if (total >= TARGET) { seq.push({ type: 'hold', score: total }); return seq; }
+      const goal = (level === 'hard' && M.my >= 80) ? 30 : base;   // hard pushes to catch up
+      if (tt >= goal) { seq.push({ type: 'hold', score: total }); return seq; }
+    }
+  },
   onMessage(msg, ctx) {
     if (msg.type === 'roll') {
       M.dieEl.textContent = PIPS[msg.v];
