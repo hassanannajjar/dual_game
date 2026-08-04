@@ -2,14 +2,14 @@
 // drives phases: home -> connect -> lobby -> [setup] -> [toss] -> play -> over,
 // and handles pause / disconnect-reconnect / refresh-resume.
 // Depends on the global `Peer` (PeerJS, loaded via CDN).
-import { t, initLang, onLangChange } from './i18n.js?v=20';
-import { sound } from './sound.js?v=20';
-import { initPrefs, getName, setName, haptic } from './prefs.js?v=20';
-import { demo } from './demos.js?v=20';
-import { goOnline as presenceOnline, goOffline as presenceOffline, onLeaderboard, publishScore } from './presence.js?v=20';
-import { recordResult, getRating, overallRating, openProfile, closeProfile, initProfile } from './profile.js?v=20';
-import { claimDaily, getLevel, getCoins, setNotify } from './loyalty.js?v=20';
-import { getUid } from './identity.js?v=20';
+import { t, initLang, onLangChange } from './i18n.js?v=21';
+import { sound } from './sound.js?v=21';
+import { initPrefs, getName, setName, haptic } from './prefs.js?v=21';
+import { demo } from './demos.js?v=21';
+import { goOnline as presenceOnline, goOffline as presenceOffline, onLeaderboard, publishScore } from './presence.js?v=21';
+import { recordResult, getRating, overallRating, openProfile, closeProfile, initProfile } from './profile.js?v=21';
+import { claimDaily, getLevel, getCoins, setNotify } from './loyalty.js?v=21';
+import { getUid } from './identity.js?v=21';
 
 // ---------- DOM helpers ----------
 const $ = (id) => document.getElementById(id);
@@ -773,6 +773,7 @@ const ctx = {
   ready: localReady,
   endGame,
   save: persist,
+  flashWin(els) { (els || []).forEach((e) => e && e.classList && e.classList.add('is-win')); },   // pulse the winning cells
 };
 
 // ---------- boot ----------

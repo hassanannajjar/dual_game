@@ -1,4 +1,4 @@
-import { connectFourWinner } from '../logic.js?v=20';
+import { connectFourWinner } from '../logic.js?v=21';
 
 const COLS = 7, ROWS = 6;
 const M = { grid: [], mine: 'R', opp: 'Y', cellEls: [] };
@@ -15,6 +15,16 @@ function render(ctx) {
     }
   }
 }
+function winCells(col, row) {
+  const player = M.grid[col][row];
+  for (const [dc, dr] of [[1, 0], [0, 1], [1, 1], [1, -1]]) {
+    const line = [[col, row]];
+    for (const sign of [1, -1]) { let c = col + dc * sign, r = row + dr * sign; while (c >= 0 && c < COLS && r >= 0 && r < ROWS && M.grid[c][r] === player) { line.push([c, r]); c += dc * sign; r += dr * sign; } }
+    if (line.length >= 4) return line;
+  }
+  return [];
+}
+function highlightWin(ctx, c, row) { ctx.flashWin(winCells(c, row).map(([cx, cy]) => M.cellEls[cx][cy])); }
 function drop(c, color, ctx) {
   const row = M.grid[c].length;
   if (row >= ROWS) return { full: true };
@@ -40,7 +50,7 @@ export default {
   onMessage(msg, ctx) {
     if (msg.type !== 'drop') return;
     const res = drop(msg.c, M.opp, ctx);
-    if (res.winner) ctx.endGame('lose');
+    if (res.winner) { highlightWin(ctx, msg.c, res.row); ctx.endGame('lose'); }
     else if (res.boardFull) ctx.endGame('draw');
     else ctx.setTurn(true);
   },
@@ -91,7 +101,7 @@ function build(ctx) {
         const res = drop(c, M.mine, ctx);
         if (res.full) return;
         ctx.send('drop', { c });
-        if (res.winner) ctx.endGame('win');
+        if (res.winner) { highlightWin(ctx, c, res.row); ctx.endGame('win'); }
         else if (res.boardFull) ctx.endGame('draw');
         else ctx.setTurn(false);
       };

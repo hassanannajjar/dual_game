@@ -1,4 +1,4 @@
-import { ticTacToeWinner, tttBestMove } from '../logic.js?v=20';
+import { ticTacToeWinner, tttBestMove } from '../logic.js?v=21';
 
 const M = { cells: [], mine: 'X', opp: 'O', btns: [] };
 const emptyIdx = () => M.cells.map((v, i) => (v ? -1 : i)).filter((i) => i >= 0);
@@ -24,7 +24,12 @@ function place(i, mark, ctx) {
   render(ctx);
   const w = ticTacToeWinner(M.cells);
   if (w === 'draw') { ctx.endGame('draw'); return true; }
-  if (w) { ctx.endGame(w === M.mine ? 'win' : 'lose'); return true; }
+  if (w) {
+    const LINES = [[0, 1, 2], [3, 4, 5], [6, 7, 8], [0, 3, 6], [1, 4, 7], [2, 5, 8], [0, 4, 8], [2, 4, 6]];
+    const line = LINES.find((l) => l.every((k) => M.cells[k] === w));
+    if (line) ctx.flashWin(line.map((k) => M.btns[k]));
+    ctx.endGame(w === M.mine ? 'win' : 'lose'); return true;
+  }
   return false;
 }
 

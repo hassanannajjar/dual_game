@@ -1,4 +1,4 @@
-import { lineWinner } from '../logic.js?v=20';
+import { lineWinner } from '../logic.js?v=21';
 
 const N = 13;
 const M = { board: [], mine: 'B', opp: 'W', cells: [] };
@@ -35,11 +35,20 @@ function build(ctx) {
   ctx.root.appendChild(wrap);
   paint();
 }
+function winLine(x, y) {
+  const p = M.board[y][x];
+  for (const [dx, dy] of [[1, 0], [0, 1], [1, 1], [1, -1]]) {
+    const line = [[x, y]];
+    for (const s of [1, -1]) { let cx = x + dx * s, cy = y + dy * s; while (cy >= 0 && cy < N && cx >= 0 && cx < N && M.board[cy][cx] === p) { line.push([cx, cy]); cx += dx * s; cy += dy * s; } }
+    if (line.length >= 5) return line;
+  }
+  return [];
+}
 function play(ctx, x, y) {
   if (!ctx.myTurn || M.board[y][x]) return;
   M.board[y][x] = M.mine; paint(); ctx.sound('place');
   ctx.send('move', { x, y });
-  if (lineWinner(M.board, x, y, 5) === M.mine) return ctx.endGame('win');
+  if (lineWinner(M.board, x, y, 5) === M.mine) { ctx.flashWin(winLine(x, y).map(([cx, cy]) => M.cells[cy][cx])); return ctx.endGame('win'); }
   if (full(M.board)) return ctx.endGame('draw');
   ctx.setTurn(false);
 }
@@ -55,7 +64,7 @@ export default {
   onMessage(msg, ctx) {
     if (msg.type !== 'move') return;
     M.board[msg.y][msg.x] = M.opp; paint(); ctx.sound('place');
-    if (lineWinner(M.board, msg.x, msg.y, 5) === M.opp) return ctx.endGame('lose');
+    if (lineWinner(M.board, msg.x, msg.y, 5) === M.opp) { ctx.flashWin(winLine(msg.x, msg.y).map(([cx, cy]) => M.cells[cy][cx])); return ctx.endGame('lose'); }
     if (full(M.board)) return ctx.endGame('draw');
     ctx.setTurn(true);
   },
