@@ -1,11 +1,11 @@
 // Player profile + progression — stats, per-game rating, achievements. All localStorage.
-import { t } from './i18n.js?v=31';
-import { sound } from './sound.js?v=31';
-import { getName, setName } from './prefs.js?v=31';
-import { evalAchievements, ACHIEVEMENTS, historyPush, seasonId, softResetRating, rpDelta, rpRank, romanDiv } from './logic.js?v=31';
-import { earnForResult, grantAchievement, questEvent, getLevel, getStreak, renderLevelHeader, renderShop, renderQuests, renderWeekly, renderStreak, renderGifts, owns, equip, REWARDS } from './loyalty.js?v=31';
-import { getToken } from './identity.js?v=31';
-import { getFavs } from './favorites.js?v=31';
+import { t } from './i18n.js?v=32';
+import { sound } from './sound.js?v=32';
+import { getName, setName } from './prefs.js?v=32';
+import { evalAchievements, ACHIEVEMENTS, historyPush, seasonId, softResetRating, rpDelta, rpRank, romanDiv } from './logic.js?v=32';
+import { earnForResult, grantAchievement, questEvent, getLevel, getStreak, renderLevelHeader, renderShop, renderQuests, renderWeekly, renderStreak, renderGifts, owns, equip, REWARDS } from './loyalty.js?v=32';
+import { getToken } from './identity.js?v=32';
+import { getFavs } from './favorites.js?v=32';
 
 const $ = (id) => document.getElementById(id);
 const AVATARS = ['🦊', '🐼', '🐸', '🦁', '🐙', '🦄', '🐧', '🐳', '🤖', '👾', '🎲', '⚡'];

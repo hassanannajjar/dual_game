@@ -1,4 +1,4 @@
-import { ticTacToeWinner, tttBestMove } from '../logic.js?v=31';
+import { ticTacToeWinner, tttBestMove } from '../logic.js?v=32';
 
 const M = { cells: [], mine: 'X', opp: 'O', btns: [] };
 const emptyIdx = () => M.cells.map((v, i) => (v ? -1 : i)).filter((i) => i >= 0);

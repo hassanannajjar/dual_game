@@ -29,7 +29,7 @@ function emitBoard() {
     byUid.set(uid, e);
   }
   const list = [...byUid.values()].map((e) => Object.assign(e, { isMe: e.uid === P.self.uid }));
-  list.sort((a, b) => (b.online - a.online) || (b.level - a.level) || (b.rating - a.rating) || (b.coins - a.coins));
+  list.sort((a, b) => (b.rating - a.rating) || (b.level - a.level) || (b.coins - a.coins));   // rank by RP → level → coins
   P.onBoard(list);
 }
 

@@ -2,18 +2,18 @@
 // drives phases: home -> connect -> lobby -> [setup] -> [toss] -> play -> over,
 // and handles pause / disconnect-reconnect / refresh-resume.
 // Depends on the global `Peer` (PeerJS, loaded via CDN).
-import { t, initLang, onLangChange, getLang } from './i18n.js?v=31';
-import { rpRank } from './logic.js?v=31';
-import { sound, setMusicScene, musicSwell, setMusicNotify } from './sound.js?v=31';
-import { initPrefs, getName, setName, haptic } from './prefs.js?v=31';
-import { demo } from './demos.js?v=31';
-import { goOnline as presenceOnline, onBoard as onPresenceBoard, publishScore, setPresence, isOnline } from './presence.js?v=31';
-import { recordResult, getRating, overallRating, openProfile, closeProfile, initProfile, getAvatar, shareStats, currentSeason } from './profile.js?v=31';
-import { claimDaily, getLevel, getCoins, setNotify } from './loyalty.js?v=31';
-import { getUid, getGuestName } from './identity.js?v=31';
-import { isFav, toggleFav, getFavs } from './favorites.js?v=31';
-import { getFriends, addFriend } from './friends.js?v=31';
-import { hasTutorial, getTutorial } from './tutorials.js?v=31';
+import { t, initLang, onLangChange, getLang } from './i18n.js?v=32';
+import { rpRank } from './logic.js?v=32';
+import { sound, setMusicScene, musicSwell, setMusicNotify } from './sound.js?v=32';
+import { initPrefs, getName, setName, haptic } from './prefs.js?v=32';
+import { demo } from './demos.js?v=32';
+import { goOnline as presenceOnline, onBoard as onPresenceBoard, publishScore, setPresence, isOnline } from './presence.js?v=32';
+import { recordResult, getRating, overallRating, openProfile, closeProfile, initProfile, getAvatar, shareStats, currentSeason } from './profile.js?v=32';
+import { claimDaily, getLevel, getCoins, setNotify } from './loyalty.js?v=32';
+import { getUid, getGuestName } from './identity.js?v=32';
+import { isFav, toggleFav, getFavs } from './favorites.js?v=32';
+import { getFriends, addFriend } from './friends.js?v=32';
+import { hasTutorial, getTutorial } from './tutorials.js?v=32';
 
 // ---------- DOM helpers ----------
 const $ = (id) => document.getElementById(id);
@@ -440,7 +440,7 @@ function goOnlinePresence() {
 function updatePresenceHeader(onlineCount) {
   const c = $('hdr-count'); if (c) c.textContent = onlineCount;
   const av = $('hdr-avatar'); if (av) av.textContent = getAvatar();
-  const d = $('btn-dnd'); if (d) { d.innerHTML = icon(S.dnd ? 'bell-off' : 'bell'); d.title = t(S.dnd ? 'dnd_on' : 'dnd_off'); }
+  const d = $('btn-dnd'); if (d) { d.innerHTML = icon(S.dnd ? 'invite-off' : 'invite'); d.title = t(S.dnd ? 'dnd_on' : 'dnd_off'); }
   const fc = $('find-count'); if (fc) fc.textContent = onlineCount ? `· ${onlineCount} ${t('online_now_short')}` : '';
 }
 function renderBoard(list) {
@@ -451,13 +451,16 @@ function renderBoard(list) {
   if (!list.length) { box.appendChild(el('li', 'text-center text-slate-500 text-sm py-6', t('lb_empty'))); return; }
   list.slice(0, 40).forEach((p, i) => {
     const li = el('li', 'flex items-center justify-between gap-2 rounded-xl px-3 py-2 text-sm ' + (p.isMe ? 'bg-indigo-600/20 ring-1 ring-indigo-500/50' : 'bg-slate-800'));
-    const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `<span class="inline-block w-5 text-center text-slate-500">${i + 1}</span>`;
+    const pos = i === 0
+      ? '<span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-400 text-slate-900 font-black text-xs shrink-0">1</span>'
+      : `<span class="inline-block w-6 text-center text-slate-500 font-semibold shrink-0">${i + 1}</span>`;
     const dot = `<span class="${p.online ? 'text-emerald-400' : 'text-slate-600'}">●</span>`;
+    const rk = rpRank(p.rating);
     const left = el('span', 'flex items-center gap-1.5 truncate');
-    left.innerHTML = `${medal}<span class="text-base">${p.avatar || '🎮'}</span>${dot}<span class="truncate font-semibold">${esc(p.name)}</span><span class="text-[10px] text-slate-500 shrink-0 px-1 rounded bg-slate-700/60">${t('lvl')}${p.level || 1}</span>`;
+    left.innerHTML = `${pos}<span class="text-base">${p.avatar || '🎮'}</span>${dot}<span class="truncate font-semibold">${esc(p.name)}</span><span class="text-[10px] text-slate-500 shrink-0 px-1 rounded bg-slate-700/60">${t('lvl')}${p.level || 1}</span>`;
     li.appendChild(left);
     const right = el('span', 'flex items-center gap-2 shrink-0');
-    right.innerHTML = `<span title="${t('rank_' + rpRank(p.rating).key)}">${rpRank(p.rating).emoji}</span><span class="font-mono text-indigo-400">${p.rating}</span><span class="font-mono text-amber-400 text-xs">🪙${p.coins || 0}</span>`;
+    right.innerHTML = `<span title="${t('rank_' + rk.key)}">${rk.emoji}</span><span class="font-mono text-indigo-400" title="${t('rp_full')}">${p.rating}</span><span class="text-[9px] text-slate-500 -ms-1">${t('rp')}</span><span class="font-mono text-amber-400 text-xs">🪙${p.coins || 0}</span>`;
     if (!p.isMe && p.online && p.peerId) {
       const canInvite = !p.dnd && !p.busy && !(S.conn && S.conn.open);
       const b = el('button', 'px-3 py-1 rounded-lg text-xs font-semibold transition active:scale-95 ' + (canInvite ? 'bg-indigo-600 hover:bg-indigo-500' : 'bg-slate-700 text-slate-500'), p.busy ? t('busy') : p.dnd ? t('dnd_short') : t('invite'));

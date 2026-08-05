@@ -30,6 +30,8 @@
     <symbol id="i-bell" viewBox="0 0 24 24"><path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5S10.5 3.17 10.5 4v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/></symbol>
     <symbol id="i-bell-off" viewBox="0 0 24 24"><path d="M20 18.69L7.84 6.14 5.27 3.49 4 4.76l2.8 2.8v.01c-.52.99-.8 2.16-.8 3.42v5l-2 2v1h13.73l2 2L21 19.72l-1-1.03zM12 22c1.11 0 2-.89 2-2h-4c0 1.11.89 2 2 2zm6-7.32V11c0-3.08-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68c-.15.03-.29.08-.42.12L18 14.68z"/></symbol>
     <symbol id="i-search" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></symbol>
+    <symbol id="i-invite" viewBox="0 0 24 24"><path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></symbol>
+    <symbol id="i-invite-off" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.42 0-8-3.58-8-8 0-1.85.63-3.55 1.69-4.9L16.9 18.31C15.55 19.37 13.85 20 12 20zm6.31-3.1L7.1 5.69C8.45 4.63 10.15 4 12 4c4.42 0 8 3.58 8 8 0 1.85-.63 3.55-1.69 4.9z"/></symbol>
   </svg>
 
   <!-- header -->
@@ -44,7 +46,7 @@
         <span class="relative flex h-2 w-2"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60"></span><span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-400"></span></span>
         <span id="hdr-count" class="font-semibold tabular-nums">0</span>
       </button>
-      <button id="btn-dnd" class="p-2 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-slate-100 transition" title="Availability" aria-label="Availability"><svg class="w-5 h-5 fill-current"><use href="#i-bell"></use></svg></button>
+      <button id="btn-dnd" class="p-2 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-slate-100 transition" title="Accepting invites" aria-label="Accepting invites"><svg class="w-5 h-5 fill-current"><use href="#i-invite"></use></svg></button>
       <button id="btn-profile" class="p-2 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-slate-100 transition" title="Profile" aria-label="Profile"><svg class="w-5 h-5 fill-current"><use href="#i-trophy"></use></svg></button>
       <button id="btn-prefs" class="p-2 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-slate-100 transition" title="Settings" aria-label="Settings"><svg class="w-5 h-5 fill-current"><use href="#i-gear"></use></svg></button>
     </div>
@@ -80,6 +82,7 @@
         <span id="season-label" class="text-[10px] text-indigo-300"></span>
       </div>
       <p class="text-xs text-slate-400" data-i18n="board_hint">Tap Invite next to an online player to challenge them.</p>
+      <p class="text-[11px] text-slate-500" data-i18n="rp_legend">Number = Ranked Points. Everyone starts at 1000 (Bronze) — win matches to climb.</p>
       <div id="friends-section" class="hidden space-y-1.5">
         <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500" data-i18n="friends_recent">Friends & recent</h3>
         <ul id="friends-list" class="space-y-1.5"></ul>
@@ -419,6 +422,6 @@
       });
     })();
   </script>
-  <script type="module" src="js/app.js?v=31"></script>
+  <script type="module" src="js/app.js?v=32"></script>
 </body>
 </html>
