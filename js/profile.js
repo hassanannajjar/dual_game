@@ -1,11 +1,11 @@
 // Player profile + progression — stats, per-game rating, achievements. All localStorage.
-import { t } from './i18n.js?v=29';
-import { sound } from './sound.js?v=29';
-import { getName, setName } from './prefs.js?v=29';
-import { nextRating, evalAchievements, ACHIEVEMENTS, historyPush, seasonId, softResetRating, rankTier } from './logic.js?v=29';
-import { earnForResult, grantAchievement, questEvent, getLevel, getStreak, renderLevelHeader, renderShop, renderQuests, renderWeekly, renderStreak, renderGifts, owns, equip, REWARDS } from './loyalty.js?v=29';
-import { getToken } from './identity.js?v=29';
-import { getFavs } from './favorites.js?v=29';
+import { t } from './i18n.js?v=31';
+import { sound } from './sound.js?v=31';
+import { getName, setName } from './prefs.js?v=31';
+import { evalAchievements, ACHIEVEMENTS, historyPush, seasonId, softResetRating, rpDelta, rpRank, romanDiv } from './logic.js?v=31';
+import { earnForResult, grantAchievement, questEvent, getLevel, getStreak, renderLevelHeader, renderShop, renderQuests, renderWeekly, renderStreak, renderGifts, owns, equip, REWARDS } from './loyalty.js?v=31';
+import { getToken } from './identity.js?v=31';
+import { getFavs } from './favorites.js?v=31';
 
 const $ = (id) => document.getElementById(id);
 const AVATARS = ['🦊', '🐼', '🐸', '🦁', '🐙', '🦄', '🐧', '🐳', '🤖', '👾', '🎲', '⚡'];
@@ -19,14 +19,10 @@ function loadAch() { return read('arcade:ach', []); }
 
 export function getAvatar() { return read('arcade:avatar', AVATARS[0]); }
 
-export function getRating(gid) {
-  const g = loadStats().games[gid];
-  return g && g.rating ? g.rating : 1000;
-}
-export function overallRating() {
-  const g = Object.values(loadStats().games);
-  return g.length ? Math.max(...g.map((x) => x.rating || 1000)) : 1000;
-}
+// Ranked Points — the single account-level competitive number.
+export function getRP() { return loadStats().rp || 1000; }
+export function getRating() { return getRP(); }        // legacy name — now returns RP (used in the P2P handshake)
+export function overallRating() { return getRP(); }    // legacy name — now returns RP
 
 // Record a finished match. Returns { delta, unlocked:[ids] } for the caller to surface.
 // info: { gameId, outcome, category, vsBot, solo, botLevel, oppRating }
@@ -39,14 +35,10 @@ export function recordResult(info) {
   else if (info.outcome === 'draw') { g.d++; g.streak = 0; }
   else { g.l++; g.streak = 0; }
 
-  let delta = 0;
-  if (info.vsBot) {
-    if (info.outcome === 'win') s.botWins[info.botLevel || 'medium'] = (s.botWins[info.botLevel || 'medium'] || 0) + 1;
-  } else if (!info.solo) {                                   // rating only for real online matches
-    const before = g.rating;
-    g.rating = nextRating(before, info.oppRating, info.outcome);
-    delta = g.rating - before;
-  }
+  if (info.vsBot && info.outcome === 'win') s.botWins[info.botLevel || 'medium'] = (s.botWins[info.botLevel || 'medium'] || 0) + 1;
+  // Ranked Points — moves on every match (online / bot / solo).
+  const rpRes = rpDelta({ outcome: info.outcome, vsBot: info.vsBot, solo: info.solo, botLevel: info.botLevel, oppRating: info.oppRating, streak: g.streak }, s.rp || 1000);
+  s.rp = rpRes.rp;
   saveStats(s);
 
   // Match history (newest-first, capped).
@@ -69,7 +61,7 @@ export function recordResult(info) {
     beatBot: info.vsBot && info.outcome === 'win', gameId: info.gameId, coins: earn.coinGain, winStreak: g.streak,
   });
 
-  return Object.assign({ delta, unlocked, questsDone: q.completed, chestFromQuests: q.grantedChest, weeklyDone: q.weeklyDone }, earn);
+  return Object.assign({ delta: rpRes.delta, rpGain: rpRes.delta, unlocked, questsDone: q.completed, chestFromQuests: q.grantedChest, weeklyDone: q.weeklyDone }, earn);
 }
 
 // ---------- ranked seasons ---------- soft-reset ratings at each new calendar-month season.
@@ -78,23 +70,22 @@ export function applySeason() {
   const prev = read('arcade:season', null);
   if (prev && prev.id === cur) return prev;
   const s = loadStats();
-  let bestPrev = 0;
-  for (const g of Object.values(s.games)) { bestPrev = Math.max(bestPrev, g.rating || 1000); if (prev) g.rating = softResetRating(g.rating || 1000); }
-  if (prev) saveStats(s);                                   // only reset when carrying over from a prior season
+  const bestPrev = s.rp || 1000;
+  if (prev) { s.rp = softResetRating(s.rp || 1000); saveStats(s); }   // soft-reset RP toward 1000 each new season
   const rec = { id: cur, prevBest: prev ? bestPrev : 0 };
   write('arcade:season', rec);
   return rec;
 }
 export function currentSeason() { return read('arcade:season', { id: seasonId(new Date()), prevBest: 0 }); }
-export function myRankTier() { return rankTier(overallRating()); }
+export function myRankTier() { return rpRank(getRP()); }
 
 // ---------- share card ---------- returns true if it fell back to clipboard (caller can toast).
 export function shareStats(games) {
   const s = loadStats(); const played = Object.values(s.games);
   const totW = played.reduce((a, g) => a + (g.w || 0), 0);
-  const rt = rankTier(overallRating());
+  const rp = getRP(), r = rpRank(rp);
   const url = location.origin + location.pathname;
-  const text = t('share_text', { tier: rt.emoji, rating: overallRating(), wins: totW, games: played.length, url });
+  const text = t('share_text', { tier: r.emoji, rating: rp, wins: totW, games: played.length, url });
   if (navigator.share) { navigator.share({ text }).catch(() => {}); return false; }
   if (navigator.clipboard) { navigator.clipboard.writeText(text).catch(() => {}); return true; }
   return false;
@@ -142,22 +133,21 @@ function renderProfile(games) {
   const played = (games || []).filter((g) => s.games[g.id]);
   const totW = played.reduce((a, g) => a + s.games[g.id].w, 0);
   const totP = played.reduce((a, g) => a + s.games[g.id].w + s.games[g.id].l + s.games[g.id].d, 0);
-  const rt = rankTier(overallRating());
-  $('profile-totals').innerHTML = t('profile_totals', { w: totW, p: totP, r: overallRating() }) +
-    ` · <span class="text-indigo-300">${rt.emoji} ${t('rank_' + rt.key)}</span>`;
+  if ($('rank-card')) renderRank($('rank-card'));
+  $('profile-totals').textContent = t('profile_totals_np', { w: totW, p: totP });
 
   if ($('history')) renderHistory($('history'), games);
 
-  // per-game table
+  // per-game table (W/L/D, most-played first)
   const tbl = $('profile-stats'); tbl.innerHTML = '';
   if (!played.length) tbl.appendChild(el('p', 'text-sm text-slate-500 text-center py-2', t('no_stats')));
-  played.sort((a, b) => s.games[b.id].rating - s.games[a.id].rating);
+  const plays = (id) => s.games[id].w + s.games[id].l + s.games[id].d;
+  played.sort((a, b) => (s.games[b.id].w - s.games[a.id].w) || (plays(b.id) - plays(a.id)));
   for (const g of played) {
     const st = s.games[g.id];
     const row = el('div', 'flex items-center justify-between gap-2 text-sm py-1.5 border-b border-slate-800');
     row.appendChild(el('span', 'flex-1 truncate', `${g.emoji} ${gName(g)}`));
     row.appendChild(el('span', 'text-slate-400 tabular-nums', `${st.w}/${st.l}/${st.d}`));
-    row.appendChild(el('span', 'w-12 text-end font-semibold text-indigo-400 tabular-nums', st.rating));
     tbl.appendChild(row);
   }
 
@@ -171,6 +161,19 @@ function renderProfile(games) {
     cell.appendChild(el('span', 'text-[10px] leading-tight text-slate-400', achLabel(a.id)));
     grid.appendChild(cell);
   }
+}
+
+function renderRank(box) {
+  const rp = getRP(), r = rpRank(rp);
+  box.innerHTML = '';
+  const top = el('div', 'flex items-center justify-between');
+  top.appendChild(el('span', 'font-display font-bold text-lg', `${r.emoji} ${t('rank_' + r.key)}${r.division ? ' ' + romanDiv(r.division) : ''}`));
+  top.appendChild(el('span', 'font-mono font-bold text-indigo-300', `${rp} <span class="text-[10px] text-slate-400">RP</span>`));
+  box.appendChild(top);
+  const bar = el('div', 'mt-2 h-2 rounded-full bg-slate-800 overflow-hidden');
+  const fill = el('div', 'h-full bg-indigo-500 rounded-full transition-all'); fill.style.width = Math.round(r.pct * 100) + '%'; bar.appendChild(fill);
+  box.appendChild(bar);
+  box.appendChild(el('p', 'mt-1 text-[11px] text-slate-400', r.nextKey ? t('rp_to_next', { n: r.toNext, tier: t('rank_' + r.nextKey) }) : t('rp_caption')));
 }
 
 function renderHistory(box, games) {

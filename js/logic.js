@@ -977,3 +977,41 @@ export function upsertFriend(list, f, cap = 24) {
   return [Object.assign({}, f)].concat(rest).slice(0, cap);
 }
 
+// ---------- Ranked Points (RP) ---------- one account-level competitive number, moves every match.
+export const RP_FLOOR = 800;                 // can't drop below Bronze
+export const RP_TIERS = [
+  { key: 'bronze', emoji: '🥉', min: 800, max: 1199 },
+  { key: 'silver', emoji: '🥈', min: 1200, max: 1499 },
+  { key: 'gold', emoji: '🥇', min: 1500, max: 1799 },
+  { key: 'platinum', emoji: '💠', min: 1800, max: 2099 },
+  { key: 'diamond', emoji: '💎', min: 2100, max: 2399 },
+  { key: 'master', emoji: '👑', min: 2400, max: Infinity },
+];
+export function romanDiv(n) { return ['', 'I', 'II', 'III'][n] || ''; }
+// rpRank(rp) -> { key, emoji, division (3=III bottom .. 1=I top; 0 for Master), into, need, pct, nextKey, toNext }
+export function rpRank(rp) {
+  rp = Math.max(RP_FLOOR, Math.round(rp || 1000));
+  let tier = RP_TIERS[0], idx = 0;
+  for (let i = 0; i < RP_TIERS.length; i++) if (rp >= RP_TIERS[i].min) { tier = RP_TIERS[i]; idx = i; }
+  const nextTier = RP_TIERS[idx + 1] || null;
+  if (tier.key === 'master') return { key: 'master', emoji: '👑', division: 0, into: rp - tier.min, need: 0, pct: 1, nextKey: null, toNext: 0 };
+  const span = tier.max - tier.min + 1, pos = Math.min(2, Math.floor((rp - tier.min) / (span / 3)));
+  return { key: tier.key, emoji: tier.emoji, division: 3 - pos, into: rp - tier.min, need: span, pct: (rp - tier.min) / span, nextKey: nextTier ? nextTier.key : null, toNext: nextTier ? (nextTier.min - rp) : 0 };
+}
+// rpDelta(info, curRp) -> { delta, rp } — info: { outcome, vsBot, solo, botLevel, oppRating, streak }
+export function rpDelta(info, curRp) {
+  const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+  const rp = Math.max(RP_FLOOR, curRp || 1000);
+  const diffMult = info.botLevel === 'hard' ? 1.5 : info.botLevel === 'easy' ? 0.5 : 1;
+  let d;
+  if (info.solo) d = info.outcome === 'win' ? 6 : info.outcome === 'draw' ? 2 : -2;
+  else if (info.vsBot) d = info.outcome === 'win' ? Math.round(12 * diffMult) : info.outcome === 'draw' ? 2 : -6;
+  else if (info.outcome === 'win') { d = 22; if (info.oppRating) d += clamp(Math.round((info.oppRating - rp) / 50), 0, 10); }
+  else if (info.outcome === 'draw') d = 4;
+  else { d = -14; if (info.oppRating) d += clamp(Math.round((info.oppRating - rp) / 50), 0, 8); }  // beaten by a stronger opp costs less
+  if (info.outcome === 'win' && !info.solo && info.streak) d += Math.min(info.streak, 5) * 2;
+  if (d < 0 && rp < 1100) d = Math.round(d * 0.5);                                                 // beginner protection
+  const nrp = Math.max(RP_FLOOR, rp + d);
+  return { delta: nrp - rp, rp: nrp };
+}
+

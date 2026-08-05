@@ -378,4 +378,29 @@ assert.strictEqual(rankTier(1800).key, 'master', 'rank master at 1800');
   assert.strictEqual(f.length, 2, 'friends dedup by uid'); assert.strictEqual(f[0].uid, 'a', 'friends re-upsert moves to front'); assert.strictEqual(f[0].name, 'Al2', 'friends upsert updates fields'); }
 assert.deepStrictEqual(upsertFriend([{ uid: 'a' }], { name: 'no-uid' }), [{ uid: 'a' }], 'friends ignore entries without uid');
 
-console.log('PASS (all logic incl. bots/minesweeper/sudoku + rating/achievements + loyalty + quests/chests + hard-bots + new-games incl. mastermind/dominoes/word-race/match3 + weekly + history/seasons/rank/friends + earlier)');
+// ---- Ranked Points (RP) ----
+import { rpDelta, rpRank, RP_FLOOR } from './js/logic.js';
+{ const win = (i) => rpDelta(Object.assign({ outcome: 'win' }, i), 1000).delta;
+  assert.ok(win({}) > win({ vsBot: true, botLevel: 'medium' }), 'online win > bot win');
+  assert.ok(win({ vsBot: true, botLevel: 'medium' }) > win({ solo: true }), 'bot win > solo win');
+  assert.strictEqual(win({ vsBot: true, botLevel: 'hard' }), 18, 'hard bot win = 12*1.5');
+  assert.strictEqual(win({ vsBot: true, botLevel: 'easy' }), 6, 'easy bot win = 12*0.5'); }
+assert.ok(rpDelta({ outcome: 'lose' }, 1500).delta < 0, 'online loss is negative');
+assert.strictEqual(rpDelta({ outcome: 'lose' }, 800).rp, RP_FLOOR, 'RP cannot drop below floor');
+{ const strong = rpDelta({ outcome: 'lose' }, 1500).delta;                       // no opp info
+  const vsStronger = rpDelta({ outcome: 'lose', oppRating: 1900 }, 1500).delta;   // beaten by stronger
+  assert.ok(vsStronger > strong, 'losing to a stronger opponent costs less'); }
+{ const flat = rpDelta({ outcome: 'win' }, 1500).delta;
+  const upset = rpDelta({ outcome: 'win', oppRating: 1900 }, 1500).delta;
+  assert.ok(upset > flat, 'beating a higher-RP opponent gives an underdog bonus'); }
+{ const s0 = rpDelta({ outcome: 'win' }, 1500).delta, s5 = rpDelta({ outcome: 'win', streak: 5 }, 1500).delta;
+  assert.strictEqual(s5 - s0, 10, 'win streak adds up to +10'); }
+{ const lo = rpDelta({ outcome: 'lose' }, 1000).delta, hi = rpDelta({ outcome: 'lose' }, 1500).delta;
+  assert.ok(lo > hi, 'losses halved under 1100 (beginner protection)'); }
+assert.strictEqual(rpRank(799).key, 'bronze', 'rp floor → bronze');
+assert.strictEqual(rpRank(800).division, 3, 'bottom of bronze is division III');
+assert.strictEqual(rpRank(1000).division, 2, 'mid-bronze is division II');
+{ const r = rpRank(1200); assert.strictEqual(r.key, 'silver', 'rp 1200 → silver'); assert.strictEqual(r.division, 3, 'silver entry = III'); assert.strictEqual(r.toNext, 300, 'silver→gold gap'); }
+{ const m = rpRank(2500); assert.strictEqual(m.key, 'master', 'rp 2500 → master'); assert.strictEqual(m.division, 0, 'master has no division'); assert.strictEqual(m.nextKey, null, 'master is the top'); }
+
+console.log('PASS (all logic incl. bots/minesweeper/sudoku + rating/achievements + loyalty + quests/chests + hard-bots + new-games incl. mastermind/dominoes/word-race/match3 + weekly + history/seasons/rank/friends + RP + earlier)');

@@ -1,7 +1,7 @@
 // Loyalty economy — XP/levels, spendable coins, a cosmetics shop, daily bonus. All localStorage.
-import { levelForXp, tierForLevel, xpCoinsForResult, levelRewardCoins, dailyReward, pickDailyQuests, chestRoll, isoWeekKey, pickWeekly } from './logic.js?v=29';
-import { t } from './i18n.js?v=29';
-import { sound } from './sound.js?v=29';
+import { levelForXp, tierForLevel, xpCoinsForResult, levelRewardCoins, dailyReward, pickDailyQuests, chestRoll, isoWeekKey, pickWeekly } from './logic.js?v=31';
+import { t } from './i18n.js?v=31';
+import { sound } from './sound.js?v=31';
 
 const read = (k, d) => { try { const s = localStorage.getItem(k); return s ? JSON.parse(s) : d; } catch (e) { return d; } };
 const write = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
@@ -227,7 +227,7 @@ export function renderLevelHeader(box) {
   const li = getLevelInfo();
   const pct = Math.round((li.into / li.need) * 100);
   const top = el('div', 'flex items-center justify-between text-sm');
-  top.appendChild(el('span', 'font-bold', `${li.tier.emoji} ${t('level')} ${li.level} · ${t('tier_' + li.tier.key)}`));
+  top.appendChild(el('span', 'font-bold', `⭐ ${t('level')} ${li.level}`));
   top.appendChild(el('span', 'font-semibold text-amber-400', `🪙 ${li.coins.toLocaleString()}`));
   box.appendChild(top);
   const bar = el('div', 'mt-1 h-2 rounded-full bg-slate-800 overflow-hidden');

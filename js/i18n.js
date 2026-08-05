@@ -168,6 +168,8 @@ const DICT = {
     friends_recent: 'Friends & recent', offline: 'Offline', season: 'Season {id}',
     learn: '📘 Learn to play', tut_prev: 'Back', tut_next: 'Next', tut_done: 'Got it',
     rank_bronze: 'Bronze', rank_silver: 'Silver', rank_gold: 'Gold', rank_platinum: 'Platinum', rank_diamond: 'Diamond', rank_master: 'Master',
+    profile_totals_np: '{w} wins · {p} played', rp_to_next: '{n} RP to {tier}', rp_caption: 'Ranked Points — win matches to climb.',
+    earned_rp: '{rp} RP · +{xp} XP · +{coins} 🪙',
   },
   ar: {
     tagline: 'لاعبان · اتصال مباشر · بدون تسجيل',
@@ -326,6 +328,8 @@ const DICT = {
     friends_recent: 'الأصدقاء والأخيرون', offline: 'غير متصل', season: 'الموسم {id}',
     learn: '📘 تعلّم اللعب', tut_prev: 'رجوع', tut_next: 'التالي', tut_done: 'فهمت',
     rank_bronze: 'برونزي', rank_silver: 'فضي', rank_gold: 'ذهبي', rank_platinum: 'بلاتيني', rank_diamond: 'ماسي', rank_master: 'أسطوري',
+    profile_totals_np: '{w} فوزًا · {p} مباراة', rp_to_next: '{n} نقطة للوصول إلى {tier}', rp_caption: 'نقاط التصنيف — افز بالمباريات لترتقي.',
+    earned_rp: '{rp} نقطة تصنيف · +{xp} خبرة · +{coins} 🪙',
   },
 };
 

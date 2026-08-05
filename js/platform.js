@@ -2,18 +2,18 @@
 // drives phases: home -> connect -> lobby -> [setup] -> [toss] -> play -> over,
 // and handles pause / disconnect-reconnect / refresh-resume.
 // Depends on the global `Peer` (PeerJS, loaded via CDN).
-import { t, initLang, onLangChange, getLang } from './i18n.js?v=29';
-import { rankTier } from './logic.js?v=29';
-import { sound, setMusicScene, musicSwell, setMusicNotify } from './sound.js?v=29';
-import { initPrefs, getName, setName, haptic } from './prefs.js?v=29';
-import { demo } from './demos.js?v=29';
-import { goOnline as presenceOnline, onBoard as onPresenceBoard, publishScore, setPresence, isOnline } from './presence.js?v=29';
-import { recordResult, getRating, overallRating, openProfile, closeProfile, initProfile, getAvatar, shareStats, currentSeason } from './profile.js?v=29';
-import { claimDaily, getLevel, getCoins, setNotify } from './loyalty.js?v=29';
-import { getUid, getGuestName } from './identity.js?v=29';
-import { isFav, toggleFav, getFavs } from './favorites.js?v=29';
-import { getFriends, addFriend } from './friends.js?v=29';
-import { hasTutorial, getTutorial } from './tutorials.js?v=29';
+import { t, initLang, onLangChange, getLang } from './i18n.js?v=31';
+import { rpRank } from './logic.js?v=31';
+import { sound, setMusicScene, musicSwell, setMusicNotify } from './sound.js?v=31';
+import { initPrefs, getName, setName, haptic } from './prefs.js?v=31';
+import { demo } from './demos.js?v=31';
+import { goOnline as presenceOnline, onBoard as onPresenceBoard, publishScore, setPresence, isOnline } from './presence.js?v=31';
+import { recordResult, getRating, overallRating, openProfile, closeProfile, initProfile, getAvatar, shareStats, currentSeason } from './profile.js?v=31';
+import { claimDaily, getLevel, getCoins, setNotify } from './loyalty.js?v=31';
+import { getUid, getGuestName } from './identity.js?v=31';
+import { isFav, toggleFav, getFavs } from './favorites.js?v=31';
+import { getFriends, addFriend } from './friends.js?v=31';
+import { hasTutorial, getTutorial } from './tutorials.js?v=31';
 
 // ---------- DOM helpers ----------
 const $ = (id) => document.getElementById(id);
@@ -443,7 +443,6 @@ function updatePresenceHeader(onlineCount) {
   const d = $('btn-dnd'); if (d) { d.innerHTML = icon(S.dnd ? 'bell-off' : 'bell'); d.title = t(S.dnd ? 'dnd_on' : 'dnd_off'); }
   const fc = $('find-count'); if (fc) fc.textContent = onlineCount ? `· ${onlineCount} ${t('online_now_short')}` : '';
 }
-function tierBadge(level) { return level >= 40 ? '👑' : level >= 25 ? '💎' : level >= 15 ? '💠' : level >= 10 ? '🥇' : level >= 5 ? '🥈' : '🥉'; }
 function renderBoard(list) {
   S.boardList = list;
   updatePresenceHeader(list.filter((p) => p.online).length);
@@ -455,10 +454,10 @@ function renderBoard(list) {
     const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `<span class="inline-block w-5 text-center text-slate-500">${i + 1}</span>`;
     const dot = `<span class="${p.online ? 'text-emerald-400' : 'text-slate-600'}">●</span>`;
     const left = el('span', 'flex items-center gap-1.5 truncate');
-    left.innerHTML = `${medal}<span class="text-base">${p.avatar || '🎮'}</span>${dot}<span class="truncate font-semibold">${esc(p.name)}</span><span class="text-[10px] text-slate-400 shrink-0">${tierBadge(p.level || 1)}${t('lvl')}${p.level || 1}</span>`;
+    left.innerHTML = `${medal}<span class="text-base">${p.avatar || '🎮'}</span>${dot}<span class="truncate font-semibold">${esc(p.name)}</span><span class="text-[10px] text-slate-500 shrink-0 px-1 rounded bg-slate-700/60">${t('lvl')}${p.level || 1}</span>`;
     li.appendChild(left);
     const right = el('span', 'flex items-center gap-2 shrink-0');
-    right.innerHTML = `<span title="${t('rank_' + rankTier(p.rating).key)}">${rankTier(p.rating).emoji}</span><span class="font-mono text-indigo-400">${p.rating}</span><span class="font-mono text-amber-400 text-xs">🪙${p.coins || 0}</span>`;
+    right.innerHTML = `<span title="${t('rank_' + rpRank(p.rating).key)}">${rpRank(p.rating).emoji}</span><span class="font-mono text-indigo-400">${p.rating}</span><span class="font-mono text-amber-400 text-xs">🪙${p.coins || 0}</span>`;
     if (!p.isMe && p.online && p.peerId) {
       const canInvite = !p.dnd && !p.busy && !(S.conn && S.conn.open);
       const b = el('button', 'px-3 py-1 rounded-lg text-xs font-semibold transition active:scale-95 ' + (canInvite ? 'bg-indigo-600 hover:bg-indigo-500' : 'bg-slate-700 text-slate-500'), p.busy ? t('busy') : p.dnd ? t('dnd_short') : t('invite'));
@@ -858,7 +857,7 @@ function recordAndSeries(outcome) {
   if (res.weeklyDone) { toast(t('weekly_done')); sound('quest'); }
   if (res.chestFromQuests || res.chestsGranted) { toast(t('chest_earned')); sound('chest'); }
   if (res.leveledUp) { toast(t('level_up', { n: res.level, tier: t('tier_' + res.tier.key) })); sound('levelup'); haptic([40, 40, 80]); }
-  else if (res.xpGain) { toast(t('earned', { xp: res.xpGain, coins: res.coinGain })); sound('coin'); }
+  else if (res.xpGain) { toast(t('earned_rp', { rp: (res.rpGain >= 0 ? '+' : '') + res.rpGain, xp: res.xpGain, coins: res.coinGain })); sound('coin'); }
   publishScore({ level: getLevel(), rating: overallRating(), coins: getCoins() });
 }
 function restartMatch(initiator) {

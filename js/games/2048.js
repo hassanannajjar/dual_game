@@ -1,5 +1,5 @@
-import { move2048, has2048Move } from '../logic.js?v=29';
-import { getSkin } from '../loyalty.js?v=29';
+import { move2048, has2048Move } from '../logic.js?v=31';
+import { getSkin } from '../loyalty.js?v=31';
 
 const SKINS = {
   classic: { 0: 'bg-slate-800', 2: 'bg-slate-600', 4: 'bg-slate-500', 8: 'bg-amber-600', 16: 'bg-amber-500', 32: 'bg-orange-500', 64: 'bg-orange-600', 128: 'bg-yellow-500', 256: 'bg-yellow-400 text-slate-900', 512: 'bg-lime-500 text-slate-900', 1024: 'bg-emerald-500 text-slate-900', 2048: 'bg-indigo-500' },
