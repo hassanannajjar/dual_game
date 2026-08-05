@@ -1,4 +1,4 @@
-import { sudokuGen, sudokuValid } from '../logic.js?v=32';
+import { sudokuGen, sudokuValid } from '../logic.js?v=33';
 
 const CLUES = { easy: 44, medium: 34, hard: 28 };
 const M = { grid: [], given: [], sel: null, cells: [], over: false, level: 'easy', statusEl: null };

@@ -603,9 +603,9 @@ export const ACHIEVEMENTS = [
   { id: 'plays_250', emoji: '🏅', test: (d) => d.plays >= 250 },
   { id: 'wins_250', emoji: '💠', test: (d) => d.wins >= 250 },
   { id: 'streak_10', emoji: '⚡', test: (d) => d.bestStreak >= 10 },
-  { id: 'rated_1200', emoji: '⭐', test: (d) => d.maxRating >= 1200 },
-  { id: 'rated_1400', emoji: '🌠', test: (d) => d.maxRating >= 1400 },
-  { id: 'rated_1600', emoji: '🔱', test: (d) => d.maxRating >= 1600 },
+  { id: 'rated_1200', emoji: '⭐', test: (d) => d.rp >= 1200 },
+  { id: 'rated_1400', emoji: '🌠', test: (d) => d.rp >= 1400 },
+  { id: 'rated_1600', emoji: '🔱', test: (d) => d.rp >= 1600 },
   { id: 'level_10', emoji: '🌟', test: (d) => d.level >= 10 },
   { id: 'level_25', emoji: '💫', test: (d) => d.level >= 25 },
   { id: 'level_40', emoji: '🦅', test: (d) => d.level >= 40 },
@@ -627,7 +627,7 @@ export function evalAchievements(stats, extra) {
     maxRating: g.reduce((a, x) => Math.max(a, x.rating || 0), 0),
     hardBot: ((stats && stats.botWins) || {}).hard || 0,
     cats: ((stats && stats.cats) || []).length,
-    level: e.level || 0, streakDays: e.streakDays || 0, favs: e.favs || 0,
+    level: e.level || 0, streakDays: e.streakDays || 0, favs: e.favs || 0, rp: e.rp || 0,
   };
   return ACHIEVEMENTS.filter((a) => a.test(d)).map((a) => a.id);
 }
@@ -866,13 +866,14 @@ export function levelForXp(xp) {
   while (xp >= floorXp + need) { floorXp += need; level++; need = 100 + (level - 1) * 40; }
   return { level, into: xp - floorXp, need, floorXp };
 }
+// Level tiers — progression flavour (NOT the competitive RP rank, which owns the metal medals).
 export const TIERS = [
-  { key: 'bronze', name: 'Bronze', emoji: '🥉', min: 1 },
-  { key: 'silver', name: 'Silver', emoji: '🥈', min: 5 },
-  { key: 'gold', name: 'Gold', emoji: '🥇', min: 10 },
-  { key: 'platinum', name: 'Platinum', emoji: '💠', min: 15 },
-  { key: 'diamond', name: 'Diamond', emoji: '💎', min: 25 },
-  { key: 'legend', name: 'Legend', emoji: '👑', min: 40 },
+  { key: 'rookie', name: 'Rookie', emoji: '🌱', min: 1 },
+  { key: 'apprentice', name: 'Apprentice', emoji: '⚡', min: 5 },
+  { key: 'pro', name: 'Pro', emoji: '🚀', min: 10 },
+  { key: 'veteran', name: 'Veteran', emoji: '🎖️', min: 15 },
+  { key: 'champion', name: 'Champion', emoji: '🏆', min: 25 },
+  { key: 'legend', name: 'Legend', emoji: '🌟', min: 40 },
 ];
 export function tierForLevel(level) {
   let t = TIERS[0];
@@ -961,15 +962,6 @@ export function historyPush(arr, entry, cap = 30) { return [entry, ...(arr || []
 // Ranked seasons: id by calendar month; soft-reset pulls ratings halfway back to 1000.
 export function seasonId(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); }
 export function softResetRating(r) { return Math.round(1000 + ((r || 1000) - 1000) * 0.5); }
-export const RANK_TIERS = [
-  { key: 'bronze', emoji: '🥉', min: 0 },
-  { key: 'silver', emoji: '🥈', min: 1050 },
-  { key: 'gold', emoji: '🥇', min: 1150 },
-  { key: 'platinum', emoji: '💠', min: 1300 },
-  { key: 'diamond', emoji: '💎', min: 1500 },
-  { key: 'master', emoji: '👑', min: 1750 },
-];
-export function rankTier(rating) { let t = RANK_TIERS[0]; for (const x of RANK_TIERS) if ((rating || 1000) >= x.min) t = x; return t; }
 // Friends / recent players: upsert by stable uid, newest-first, capped.
 export function upsertFriend(list, f, cap = 24) {
   if (!f || !f.uid) return list || [];
@@ -1010,6 +1002,7 @@ export function rpDelta(info, curRp) {
   else if (info.outcome === 'draw') d = 4;
   else { d = -14; if (info.oppRating) d += clamp(Math.round((info.oppRating - rp) / 50), 0, 8); }  // beaten by a stronger opp costs less
   if (info.outcome === 'win' && !info.solo && info.streak) d += Math.min(info.streak, 5) * 2;
+  if ((info.solo || info.vsBot) && d > 0 && rp >= 1400) d = rp >= 1500 ? 1 : Math.max(1, Math.round(d * (1500 - rp) / 100)); // PvE can't grind the top of the ranked board
   if (d < 0 && rp < 1100) d = Math.round(d * 0.5);                                                 // beginner protection
   const nrp = Math.max(RP_FLOOR, rp + d);
   return { delta: nrp - rp, rp: nrp };

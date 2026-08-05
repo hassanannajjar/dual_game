@@ -28,6 +28,16 @@ html[data-mode="light"] .glass-card {
 /* Prevent accidental text selection / callout on rapid tapping of game cells. */
 button { -webkit-tap-highlight-color: transparent; user-select: none; }
 
+/* Keyboard focus: visible outline (was invisible before). */
+button:focus-visible, a:focus-visible, select:focus-visible, [tabindex]:focus-visible {
+  outline: 2px solid var(--acc2, #6366f1); outline-offset: 2px; border-radius: 6px;
+}
+
+/* Screen enter transition (applied by show()). */
+@keyframes screenEnter { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.screen-enter { animation: screenEnter 0.22s ease-out; }
+@media (prefers-reduced-motion: reduce) { .screen-enter { animation: none; } }
+
 /* ---------- Theme accent ---------- recolor the indigo accent per data-theme.
    Attribute-scoped selectors outrank Tailwind's plain utilities, so no markup changes. */
 html[data-theme="indigo"]  { --acc:#4f46e5; --acc2:#6366f1; --acc-t:#818cf8; }

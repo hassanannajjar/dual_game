@@ -2,18 +2,18 @@
 // drives phases: home -> connect -> lobby -> [setup] -> [toss] -> play -> over,
 // and handles pause / disconnect-reconnect / refresh-resume.
 // Depends on the global `Peer` (PeerJS, loaded via CDN).
-import { t, initLang, onLangChange, getLang } from './i18n.js?v=32';
-import { rpRank } from './logic.js?v=32';
-import { sound, setMusicScene, musicSwell, setMusicNotify } from './sound.js?v=32';
-import { initPrefs, getName, setName, haptic } from './prefs.js?v=32';
-import { demo } from './demos.js?v=32';
-import { goOnline as presenceOnline, onBoard as onPresenceBoard, publishScore, setPresence, isOnline } from './presence.js?v=32';
-import { recordResult, getRating, overallRating, openProfile, closeProfile, initProfile, getAvatar, shareStats, currentSeason } from './profile.js?v=32';
-import { claimDaily, getLevel, getCoins, setNotify } from './loyalty.js?v=32';
-import { getUid, getGuestName } from './identity.js?v=32';
-import { isFav, toggleFav, getFavs } from './favorites.js?v=32';
-import { getFriends, addFriend } from './friends.js?v=32';
-import { hasTutorial, getTutorial } from './tutorials.js?v=32';
+import { t, initLang, onLangChange, getLang } from './i18n.js?v=33';
+import { rpRank, romanDiv } from './logic.js?v=33';
+import { sound, setMusicScene, musicSwell, setMusicNotify } from './sound.js?v=33';
+import { initPrefs, getName, setName, haptic } from './prefs.js?v=33';
+import { demo } from './demos.js?v=33';
+import { goOnline as presenceOnline, onBoard as onPresenceBoard, publishScore, setPresence, isOnline } from './presence.js?v=33';
+import { recordResult, getRating, overallRating, openProfile, closeProfile, initProfile, getAvatar, shareStats, currentSeason } from './profile.js?v=33';
+import { claimDaily, getLevel, getCoins, setNotify } from './loyalty.js?v=33';
+import { getUid, getGuestName } from './identity.js?v=33';
+import { isFav, toggleFav, getFavs } from './favorites.js?v=33';
+import { getFriends, addFriend } from './friends.js?v=33';
+import { hasTutorial, getTutorial } from './tutorials.js?v=33';
 
 // ---------- DOM helpers ----------
 const $ = (id) => document.getElementById(id);
@@ -30,14 +30,24 @@ function stopHowto() { if (S.demoStop) { S.demoStop(); S.demoStop = null; } }
 function show(name) {
   if (name !== 'connect') stopHowto();
   for (const s of SCREENS) $('screen-' + s).classList.toggle('hidden', s !== name);
+  const scr = $('screen-' + name);
+  if (scr) { scr.classList.remove('screen-enter'); void scr.offsetWidth; scr.classList.add('screen-enter'); }   // fade/slide in
 }
 function setStatus(msg) { $('status').textContent = msg || ''; }
-export function toast(msg) {
-  const n = $('toast');
-  n.textContent = msg;
+const toastQ = [];
+export function toast(msg) {                       // queued so bursts don't clobber each other
+  if (msg == null) return;
+  toastQ.push(String(msg));
+  if (!toast._draining) drainToasts();
+}
+function drainToasts() {
+  const n = $('toast'); if (!n) return;
+  if (!toastQ.length) { toast._draining = false; n.classList.add('hidden'); return; }
+  toast._draining = true;
+  n.textContent = toastQ.shift();
   n.classList.remove('hidden');
   clearTimeout(toast._t);
-  toast._t = setTimeout(() => n.classList.add('hidden'), 1800);
+  toast._t = setTimeout(drainToasts, 1500);
 }
 
 // ---------- registry ----------
@@ -111,7 +121,7 @@ function onDisconnect() {
   if (S.leaving) return;
   if (S.conn && S.conn.open) return;      // ignore stale close/error from a replaced connection
   if (!S.inPlay) { setStatus(t('disconnected')); return; }
-  if (S.game && S.game.realtime) { endGame('lose', t('opp_left')); return; } // live games can't pause/rejoin
+  if (S.game && S.game.realtime) { endGame('nocontest', t('opp_left')); return; } // live games can't pause/rejoin; don't penalize the staying player
   pauseGame('disconnect');
   startReconnect();
 }
@@ -136,7 +146,7 @@ function createRoom() {
   S.working = defaultConfig();
   const code = randomCode();
   S.peer = new Peer(code);
-  setStatus('Creating room…');
+  setStatus(t('creating_room'));
   S.peer.on('open', (id) => { S.roomCode = id; enterHostLobby(); setStatus(t('waiting_opp')); });
   S.peer.on('connection', wireConn);
   S.peer.on('error', (err) => {
@@ -145,11 +155,11 @@ function createRoom() {
   });
 }
 function joinRoom(code) {
-  if (!code) { toast('Enter a room code'); return; }
+  if (!code) { toast(t('enter_code_first')); return; }
   S.isHost = false; S.vsBot = false; S.solo = false;
   S.roomCode = code.toUpperCase();
   S.peer = new Peer();
-  setStatus('Joining ' + S.roomCode + '…');
+  setStatus(t('joining', { code: S.roomCode }));
   S.peer.on('open', () => wireConn(S.peer.connect(S.roomCode, { reliable: true })));
   S.peer.on('error', (err) =>
     setStatus(err.type === 'peer-unavailable' ? t('room_not_found') : 'Error: ' + err.type));
@@ -168,6 +178,7 @@ function onData(msg) {
   switch (msg.type) {
     case 'config':
       S.game = gameById(msg.gameId) || S.game;
+      if (!S.game) return;                                  // unknown game id (version mismatch) — ignore
       S.config = msg.config;
       if (msg.rating != null) S.oppRating = msg.rating;
       proceedAfterConfig();
@@ -206,6 +217,9 @@ function onData(msg) {
       S.oppName = (msg.name || '').slice(0, 16);
       S.oppUid = msg.uid || null; S.oppAvatar = msg.avatar || '🎮';
       if (!$('screen-play').classList.contains('hidden')) updateTurnLabel();
+      break;
+    case 'forfeit':
+      if (S.inPlay && !S.over) endGame('win', t('opp_forfeit'));   // opponent quit → you win
       break;
     case 'changegame':
       teardownGame();
@@ -824,20 +838,22 @@ function endGame(outcome, msg) {
   clearInterval(S.reconnectTimer);
   if (S.game && S.game.stop) S.game.stop();
   S.inPlay = false; S.paused = false; S.over = true; S.myTurn = false;
-  if (outcome === 'win') S.lastLoserIsHost = !S.isHost;
-  else if (outcome === 'lose') S.lastLoserIsHost = S.isHost;
+  const record = outcome !== 'nocontest';
+  if (record && outcome === 'win') S.lastLoserIsHost = !S.isHost;
+  else if (record && outcome === 'lose') S.lastLoserIsHost = S.isHost;
   clearSession();
-  if (firstEnd && S.game) recordAndSeries(outcome);
+  if (firstEnd && S.game && record) recordAndSeries(outcome);
+  else { const rs = $('result-summary'); if (rs) rs.classList.add('hidden'); }   // no-contest: no rewards
   // Stay on the play screen so the board/history remain visible; swap the
   // turn bar for a result header carrying the actions.
   $('pause-overlay').classList.add('hidden');
   $('turn-bar').classList.add('hidden');
-  const title = { win: t('you_win'), lose: t('you_lose'), draw: t('draw') }[outcome] || t('you_lose');
+  const title = { win: t('you_win'), lose: t('you_lose'), draw: t('draw'), nocontest: t('no_contest') }[outcome] || t('you_lose');
   const online = !(S.vsBot || S.solo);
-  const series = (online && (S.series.me || S.series.opp)) ? '  ·  ' + t('series', { me: S.series.me, opp: S.series.opp, name: S.oppName || t('opponent') }) : '';
+  const series = (record && online && (S.series.me || S.series.opp)) ? '  ·  ' + t('series', { me: S.series.me, opp: S.series.opp, name: S.oppName || t('opponent') }) : '';
   $('result-text').textContent = title + (msg ? ` — ${msg}` : '') + series;
   $('result-bar').classList.remove('hidden');
-  sound(outcome === 'win' ? 'win' : outcome === 'draw' ? 'draw' : 'lose');
+  sound(outcome === 'win' ? 'win' : outcome === 'draw' ? 'draw' : outcome === 'nocontest' ? 'toggle' : 'lose');
   if (outcome === 'win') musicSwell();                           // warm music lift on a win
   haptic(outcome === 'win' ? [40, 40, 80] : 60);
   S.game && S.game.onTurn && S.game.onTurn(false, ctx);   // make board/keypad inert
@@ -845,7 +861,8 @@ function endGame(outcome, msg) {
 function recordAndSeries(outcome) {
   const online = !(S.vsBot || S.solo);
   if (online) {
-    if (S.series.key !== (S.oppName || '?')) { S.series.me = 0; S.series.opp = 0; S.series.key = S.oppName || '?'; }
+    const key = S.oppUid || S.oppName || '?';
+    if (S.series.key !== key) { S.series.me = 0; S.series.opp = 0; S.series.key = key; }
     if (outcome === 'win') S.series.me++;
     else if (outcome === 'lose') S.series.opp++;
   }
@@ -854,14 +871,33 @@ function recordAndSeries(outcome) {
     gameId: S.game.id, outcome, category: S.game.category, oppName: S.oppName,
     vsBot: S.vsBot, solo: S.solo, botLevel: S.botLevel, oppRating: S.oppRating,
   });
-  for (const id of res.unlocked) toast(t('new_badge', { name: t('ach_' + id) }));
-  for (const q of (res.questsDone || [])) toast(t('quest_done', { name: t('quest_' + q.id) }));
-  if ((res.questsDone || []).length) sound('quest');
-  if (res.weeklyDone) { toast(t('weekly_done')); sound('quest'); }
-  if (res.chestFromQuests || res.chestsGranted) { toast(t('chest_earned')); sound('chest'); }
-  if (res.leveledUp) { toast(t('level_up', { n: res.level, tier: t('tier_' + res.tier.key) })); sound('levelup'); haptic([40, 40, 80]); }
-  else if (res.xpGain) { toast(t('earned_rp', { rp: (res.rpGain >= 0 ? '+' : '') + res.rpGain, xp: res.xpGain, coins: res.coinGain })); sound('coin'); }
+  if ((res.questsDone || []).length) sound('quest');                    // sounds only — visuals go in the summary
+  if (res.chestFromQuests || res.chestsGranted) sound('chest');
+  if (res.leveledUp) { sound('levelup'); haptic([40, 40, 80]); }
+  else if (res.rpGain) sound('coin');
+  buildResultSummary(res);
   publishScore({ level: getLevel(), rating: overallRating(), coins: getCoins() });
+}
+// A single durable post-match summary (replaces the toast dump that clobbered itself).
+function buildResultSummary(res) {
+  const box = $('result-summary'); if (!box) return;
+  const newRP = overallRating(), prevRP = newRP - (res.rpGain || 0);
+  const after = rpRank(newRP), before = rpRank(prevRP);
+  const rankedUp = (res.rpGain || 0) > 0 && (after.key !== before.key || after.division !== before.division);
+  const chip = (cls, html) => `<span class="px-2 py-1 rounded-lg text-[11px] ${cls}">${html}</span>`;
+  const parts = [];
+  parts.push(chip('bg-slate-800 text-indigo-300 font-semibold', `${(res.rpGain || 0) >= 0 ? '+' : ''}${res.rpGain || 0} RP`));
+  parts.push(chip('bg-slate-800', `${after.emoji} ${t('rank_' + after.key)}${after.division ? ' ' + romanDiv(after.division) : ''}`));
+  if (res.xpGain) parts.push(chip('bg-slate-800 text-emerald-300', `+${res.xpGain} XP`));
+  if (res.coinGain) parts.push(chip('bg-slate-800 text-amber-300', `+${res.coinGain} 🪙`));
+  if ((res.streak || 0) >= 2) parts.push(chip('bg-slate-800 text-rose-300', `🔥 ${t('streak_n', { n: res.streak })}`));
+  if (res.leveledUp) parts.push(chip('bg-violet-600/30 text-violet-200', `⭐ ${t('level')} ${res.level}`));
+  for (const id of (res.unlocked || [])) parts.push(chip('bg-indigo-600/30 text-indigo-200', `🏅 ${t('ach_' + id)}`));
+  for (const q of (res.questsDone || [])) parts.push(chip('bg-emerald-600/30 text-emerald-200', `✅ ${t('quest_' + q.id)}`));
+  if (res.weeklyDone) parts.push(chip('bg-amber-500/30 text-amber-200', `🏆 ${t('weekly_challenge')}`));
+  box.innerHTML = `<div class="flex flex-wrap gap-1.5 justify-center">${parts.join('')}</div>` +
+    (rankedUp ? `<p class="text-center text-xs text-amber-300 font-semibold mt-1.5">${t('rank_up', { tier: t('rank_' + after.key) + (after.division ? ' ' + romanDiv(after.division) : '') })}</p>` : '');
+  box.classList.remove('hidden');
 }
 function restartMatch(initiator) {
   S.rematchGuard = true;
@@ -872,6 +908,12 @@ function restartMatch(initiator) {
 }
 function goHome() {
   S.leaving = true;
+  if (S.inPlay && !S.over && S.game) {                     // quitting a live match counts as a loss
+    if (!(S.vsBot || S.solo)) sys('forfeit');              // hand the win to a real opponent
+    const res = recordResult({ gameId: S.game.id, outcome: 'lose', category: S.game.category, oppName: S.oppName, vsBot: S.vsBot, solo: S.solo, botLevel: S.botLevel, oppRating: S.oppRating });
+    publishScore({ level: getLevel(), rating: overallRating(), coins: getCoins() });
+    toast(t('forfeit_lost', { n: res.rpGain }));
+  }
   if (S.game && S.game.stop) S.game.stop();
   S.inPlay = false; S.paused = false; S.vsBot = false; S.solo = false;
   S.series = { me: 0, opp: 0, key: null }; S.oppRating = null;
@@ -957,6 +999,14 @@ export function boot() {
   $('btn-preview-close').onclick = closePreview;
   $('btn-preview-close2').onclick = closePreview;
   $('preview-panel').addEventListener('click', (e) => { if (e.target === $('preview-panel')) closePreview(); });
+  document.addEventListener('keydown', (e) => {                 // Escape closes the top-most open overlay
+    if (e.key !== 'Escape') return;
+    if (!$('preview-panel').classList.contains('hidden')) return closePreview();
+    if (!$('tutorial-panel').classList.contains('hidden')) return closeTutorial();
+    for (const id of ['picker-panel', 'help-panel', 'chat-panel', 'profile-panel', 'prefs-panel']) {
+      const p = $(id); if (p && !p.classList.contains('hidden')) { p.classList.add('hidden'); return; }
+    }
+  });
   if ($('btn-tut-next')) $('btn-tut-next').onclick = tutNext;
   if ($('btn-tut-prev')) $('btn-tut-prev').onclick = tutPrev;
   if ($('btn-tut-close')) $('btn-tut-close').onclick = closeTutorial;

@@ -11,6 +11,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Arcade" />
+  <script>/* set theme/mode before first paint to avoid a flash */try{var d=document.documentElement,m=localStorage.getItem('arcade:mode'),th=localStorage.getItem('arcade:theme');d.dataset.mode=m==='light'?'light':'dark';d.dataset.theme=th||'indigo';}catch(e){}</script>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
   <script src="https://unpkg.com/mqtt@5.7.0/dist/mqtt.min.js"></script>
@@ -39,7 +40,7 @@
           style="padding-top: max(0.75rem, env(safe-area-inset-top));">
     <button id="btn-home" class="font-display font-extrabold text-lg tracking-tight text-indigo-400 flex items-center gap-1.5"><span class="inline-block w-4 h-4 rotate-45 rounded-[3px] bg-gradient-to-br from-indigo-400 to-cyan-400"></span>ARCADE</button>
     <div class="flex items-center gap-2">
-      <span id="status" class="text-xs text-slate-400 hidden sm:inline"></span>
+      <span id="status" class="text-xs text-slate-400 max-w-[38vw] truncate"></span>
       <button id="btn-install" class="hidden text-sm px-3 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 font-semibold" data-i18n="install">Install</button>
       <button id="btn-presence" class="flex items-center gap-1.5 px-2 py-1.5 rounded-lg bg-slate-800/70 hover:bg-slate-700 text-xs transition active:scale-95" title="Players online" aria-label="Players online">
         <span id="hdr-avatar" class="text-sm leading-none">🦊</span>
@@ -162,6 +163,7 @@
       <!-- result header (shown in place of the turn bar when the match ends; board stays below) -->
       <div id="result-bar" class="hidden bg-slate-900 rounded-xl p-3 border border-slate-700 space-y-2">
         <p id="result-text" class="text-center text-lg font-bold"></p>
+        <div id="result-summary" class="hidden"></div>
         <div class="grid grid-cols-2 gap-2">
           <button id="btn-rematch" class="py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 font-semibold transition" data-i18n="rematch">Rematch</button>
           <button id="btn-result-change" class="py-2.5 rounded-lg bg-slate-700 hover:bg-slate-600 font-semibold transition" data-i18n="change_game">Change game</button>
@@ -398,7 +400,7 @@
     <button id="ios-install-close" class="text-slate-400 hover:text-slate-200 text-lg leading-none px-1">✕</button>
   </div>
 
-  <div id="toast" class="hidden fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-800 text-sm px-4 py-2 rounded-lg shadow-lg border border-slate-700 z-40"></div>
+  <div id="toast" role="status" aria-live="polite" class="hidden fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-800 text-sm px-4 py-2 rounded-lg shadow-lg border border-slate-700 z-40"></div>
 
   <script>
     // PWA: register service worker + install prompt
@@ -422,6 +424,6 @@
       });
     })();
   </script>
-  <script type="module" src="js/app.js?v=32"></script>
+  <script type="module" src="js/app.js?v=33"></script>
 </body>
 </html>

@@ -171,6 +171,10 @@ const DICT = {
     profile_totals_np: '{w} wins · {p} played', rp_to_next: '{n} RP to {tier}', rp_caption: 'Ranked Points — win matches to climb.',
     earned_rp: '{rp} RP · +{xp} XP · +{coins} 🪙',
     rp: 'RP', rp_full: 'Ranked Points', rp_legend: 'Number = Ranked Points. Everyone starts at 1000 (Bronze) — win matches to climb.',
+    no_contest: 'No contest', opp_forfeit: 'Opponent forfeited', forfeit_lost: 'Left the match ({n} RP)',
+    streak_n: '{n} in a row', rank_up: '⬆ Ranked up to {tier}!',
+    tier_rookie: 'Rookie', tier_apprentice: 'Apprentice', tier_pro: 'Pro', tier_veteran: 'Veteran', tier_champion: 'Champion',
+    creating_room: 'Creating room…', joining: 'Joining {code}…', enter_code_first: 'Enter a room code',
   },
   ar: {
     tagline: 'لاعبان · اتصال مباشر · بدون تسجيل',
@@ -332,6 +336,10 @@ const DICT = {
     profile_totals_np: '{w} فوزًا · {p} مباراة', rp_to_next: '{n} نقطة للوصول إلى {tier}', rp_caption: 'نقاط التصنيف — افز بالمباريات لترتقي.',
     earned_rp: '{rp} نقطة تصنيف · +{xp} خبرة · +{coins} 🪙',
     rp: 'نقطة', rp_full: 'نقاط التصنيف', rp_legend: 'الرقم = نقاط التصنيف. يبدأ الجميع من 1000 (برونزي) — افز بالمباريات لترتقي.',
+    no_contest: 'بلا نتيجة', opp_forfeit: 'انسحب الخصم', forfeit_lost: 'غادرت المباراة ({n} نقطة)',
+    streak_n: '{n} متتالية', rank_up: '⬆ ترقيت إلى {tier}!',
+    tier_rookie: 'مبتدئ', tier_apprentice: 'متمرّس', tier_pro: 'محترف', tier_veteran: 'خبير', tier_champion: 'بطل',
+    creating_room: 'جارٍ إنشاء الغرفة…', joining: 'جارٍ الانضمام إلى {code}…', enter_code_first: 'أدخل رمز الغرفة',
   },
 };
 

@@ -1,11 +1,11 @@
 // Player profile + progression — stats, per-game rating, achievements. All localStorage.
-import { t } from './i18n.js?v=32';
-import { sound } from './sound.js?v=32';
-import { getName, setName } from './prefs.js?v=32';
-import { evalAchievements, ACHIEVEMENTS, historyPush, seasonId, softResetRating, rpDelta, rpRank, romanDiv } from './logic.js?v=32';
-import { earnForResult, grantAchievement, questEvent, getLevel, getStreak, renderLevelHeader, renderShop, renderQuests, renderWeekly, renderStreak, renderGifts, owns, equip, REWARDS } from './loyalty.js?v=32';
-import { getToken } from './identity.js?v=32';
-import { getFavs } from './favorites.js?v=32';
+import { t } from './i18n.js?v=33';
+import { sound } from './sound.js?v=33';
+import { getName, setName } from './prefs.js?v=33';
+import { evalAchievements, ACHIEVEMENTS, historyPush, seasonId, softResetRating, rpDelta, rpRank, romanDiv } from './logic.js?v=33';
+import { earnForResult, grantAchievement, questEvent, getLevel, getStreak, renderLevelHeader, renderShop, renderQuests, renderWeekly, renderStreak, renderGifts, owns, equip, REWARDS } from './loyalty.js?v=33';
+import { getToken } from './identity.js?v=33';
+import { getFavs } from './favorites.js?v=33';
 
 const $ = (id) => document.getElementById(id);
 const AVATARS = ['🦊', '🐼', '🐸', '🦁', '🐙', '🦄', '🐧', '🐳', '🤖', '👾', '🎲', '⚡'];
@@ -51,7 +51,7 @@ export function recordResult(info) {
 
   // Achievements — evaluated with the post-earn level + login streak; each new one pays out.
   const had = loadAch();
-  const now = evalAchievements(s, { level: getLevel(), streakDays: getStreak(), favs: getFavs().length });
+  const now = evalAchievements(s, { level: getLevel(), streakDays: getStreak(), favs: getFavs().length, rp: s.rp || 1000 });
   const unlocked = now.filter((id) => !had.includes(id));
   if (unlocked.length) { write('arcade:ach', now); sound('badge'); const ar = grantAchievement(unlocked.length); earn.coinGain += ar.coins; }
 
@@ -61,7 +61,7 @@ export function recordResult(info) {
     beatBot: info.vsBot && info.outcome === 'win', gameId: info.gameId, coins: earn.coinGain, winStreak: g.streak,
   });
 
-  return Object.assign({ delta: rpRes.delta, rpGain: rpRes.delta, unlocked, questsDone: q.completed, chestFromQuests: q.grantedChest, weeklyDone: q.weeklyDone }, earn);
+  return Object.assign({ delta: rpRes.delta, rpGain: rpRes.delta, streak: g.streak, unlocked, questsDone: q.completed, chestFromQuests: q.grantedChest, weeklyDone: q.weeklyDone }, earn);
 }
 
 // ---------- ranked seasons ---------- soft-reset ratings at each new calendar-month season.

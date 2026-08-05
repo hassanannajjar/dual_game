@@ -257,7 +257,8 @@ assert.ok(evalAchievements({ games: { ttt: { w: 10, l: 0, d: 0, bestStreak: 1, r
 assert.ok(evalAchievements({ games: { ttt: { w: 5, l: 0, d: 0, bestStreak: 5, rating: 1000 } }, botWins: {}, cats: [] }).includes('streak_5'), 'ach streak at 5');
 assert.ok(evalAchievements({ games: {}, botWins: { hard: 1 }, cats: [] }).includes('bot_hard'), 'ach beat hard bot');
 assert.ok(evalAchievements({ games: {}, botWins: {}, cats: ['classic', 'strategy', 'puzzle', 'arcade', 'luck', 'word'] }).includes('explorer'), 'ach all categories');
-assert.ok(evalAchievements({ games: { chess: { w: 1, l: 0, d: 0, bestStreak: 1, rating: 1200 } }, botWins: {}, cats: [] }).includes('rated_1200'), 'ach rated 1200');
+assert.ok(evalAchievements({ games: {}, botWins: {}, cats: [] }, { rp: 1200 }).includes('rated_1200'), 'ach rated 1200 via account RP');
+assert.ok(!evalAchievements({ games: {}, botWins: {}, cats: [] }, { rp: 1199 }).includes('rated_1200'), 'ach rated 1200 not below threshold');
 
 // ---- Loyalty: levels / tiers / earning ----
 import { levelForXp, tierForLevel, xpCoinsForResult, TIERS } from './js/logic.js';
@@ -266,10 +267,10 @@ assert.strictEqual(levelForXp(99).level, 1, 'still level 1 below 100');
 assert.strictEqual(levelForXp(100).level, 2, 'level 2 at 100 xp');
 { const li = levelForXp(100); assert.strictEqual(li.into, 0, 'into resets at boundary'); assert.strictEqual(li.need, 140, 'need grows: 100+(2-1)*40'); }
 { let xp = 0; for (let L = 1; L <= 10; L++) xp += 100 + (L - 1) * 40; assert.strictEqual(levelForXp(xp).level, 11, 'cumulative curve reaches level 11'); }
-assert.strictEqual(tierForLevel(1).key, 'bronze', 'tier bronze at 1');
-assert.strictEqual(tierForLevel(4).key, 'bronze', 'tier bronze at 4');
-assert.strictEqual(tierForLevel(5).key, 'silver', 'tier silver at 5');
-assert.strictEqual(tierForLevel(10).key, 'gold', 'tier gold at 10');
+assert.strictEqual(tierForLevel(1).key, 'rookie', 'tier rookie at 1');
+assert.strictEqual(tierForLevel(4).key, 'rookie', 'tier rookie at 4');
+assert.strictEqual(tierForLevel(5).key, 'apprentice', 'tier apprentice at 5');
+assert.strictEqual(tierForLevel(10).key, 'pro', 'tier pro at 10');
 assert.strictEqual(tierForLevel(40).key, 'legend', 'tier legend at 40');
 assert.strictEqual(tierForLevel(999).key, 'legend', 'tier caps at legend');
 { const w = xpCoinsForResult('win', 0), l = xpCoinsForResult('lose', 0), d = xpCoinsForResult('draw', 0);
@@ -358,22 +359,19 @@ assert.ok(/^\d{4}-W\d{2}$/.test(isoWeekKey(new Date(Date.UTC(2026, 0, 15)))), 'i
 { const a = pickWeekly('2026-W05'), b = pickWeekly('2026-W05'); assert.deepStrictEqual(a, b, 'weekly deterministic per week'); assert.ok(WEEKLY_POOL.some((w) => w.id === a.id), 'weekly comes from the pool'); }
 assert.ok(evalAchievements({ games: { a: { w: 250, l: 0, d: 0, bestStreak: 1, rating: 1000 } }, botWins: {}, cats: [] }).includes('wins_250'), 'ach wins_250');
 assert.ok(evalAchievements({ games: { a: { w: 1, l: 0, d: 0, bestStreak: 10, rating: 1000 } }, botWins: {}, cats: [] }).includes('streak_10'), 'ach streak_10');
-assert.ok(evalAchievements({ games: { a: { w: 1, l: 0, d: 0, bestStreak: 1, rating: 1600 } }, botWins: {}, cats: [] }).includes('rated_1600'), 'ach rated_1600');
+assert.ok(evalAchievements({ games: { a: { w: 1, l: 0, d: 0, bestStreak: 1 } }, botWins: {}, cats: [] }, { rp: 1600 }).includes('rated_1600'), 'ach rated_1600 via account RP');
 assert.ok(evalAchievements({ games: {}, botWins: {}, cats: [] }, { level: 40 }).includes('level_40'), 'ach level_40 via extra');
 assert.ok(evalAchievements({ games: {}, botWins: {}, cats: [] }, { favs: 5 }).includes('favs_5'), 'ach favs_5 via extra');
 { const games = {}; for (let i = 0; i < 10; i++) games['g' + i] = { w: 1, l: 0, d: 0, bestStreak: 1, rating: 1000 };
   assert.ok(evalAchievements({ games, botWins: {}, cats: [] }).includes('games_10'), 'ach games_10 counts distinct played'); }
 
 // ---- Phase 3 helpers: history / seasons / rank / friends ----
-import { historyPush, seasonId, softResetRating, rankTier, upsertFriend } from './js/logic.js';
+import { historyPush, seasonId, softResetRating, upsertFriend } from './js/logic.js';
 { let h = []; for (let i = 0; i < 40; i++) h = historyPush(h, { i }); assert.strictEqual(h.length, 30, 'history capped at 30'); assert.strictEqual(h[0].i, 39, 'history newest-first'); }
 assert.strictEqual(seasonId(new Date(Date.UTC(2026, 7, 4))), '2026-08', 'seasonId YYYY-MM');
 assert.strictEqual(softResetRating(1400), 1200, 'soft reset pulls halfway to 1000');
 assert.strictEqual(softResetRating(800), 900, 'soft reset raises low ratings halfway too');
 assert.strictEqual(softResetRating(1000), 1000, 'soft reset keeps 1000');
-assert.strictEqual(rankTier(1000).key, 'bronze', 'rank bronze at 1000');
-assert.strictEqual(rankTier(1150).key, 'gold', 'rank gold at 1150');
-assert.strictEqual(rankTier(1800).key, 'master', 'rank master at 1800');
 { let f = upsertFriend([], { uid: 'a', name: 'Al' }); f = upsertFriend(f, { uid: 'b', name: 'Bo' }); f = upsertFriend(f, { uid: 'a', name: 'Al2' });
   assert.strictEqual(f.length, 2, 'friends dedup by uid'); assert.strictEqual(f[0].uid, 'a', 'friends re-upsert moves to front'); assert.strictEqual(f[0].name, 'Al2', 'friends upsert updates fields'); }
 assert.deepStrictEqual(upsertFriend([{ uid: 'a' }], { name: 'no-uid' }), [{ uid: 'a' }], 'friends ignore entries without uid');
@@ -393,6 +391,10 @@ assert.strictEqual(rpDelta({ outcome: 'lose' }, 800).rp, RP_FLOOR, 'RP cannot dr
 { const flat = rpDelta({ outcome: 'win' }, 1500).delta;
   const upset = rpDelta({ outcome: 'win', oppRating: 1900 }, 1500).delta;
   assert.ok(upset > flat, 'beating a higher-RP opponent gives an underdog bonus'); }
+{ const lowBot = rpDelta({ outcome: 'win', vsBot: true, botLevel: 'hard' }, 1000).delta;
+  const highBot = rpDelta({ outcome: 'win', vsBot: true, botLevel: 'hard' }, 1600).delta;
+  assert.ok(highBot <= 1 && lowBot > highBot, 'PvE win is capped near the top of the ladder (no farming)');
+  assert.ok(rpDelta({ outcome: 'win' }, 1600).delta >= 20, 'online win is NOT capped at high RP'); }
 { const s0 = rpDelta({ outcome: 'win' }, 1500).delta, s5 = rpDelta({ outcome: 'win', streak: 5 }, 1500).delta;
   assert.strictEqual(s5 - s0, 10, 'win streak adds up to +10'); }
 { const lo = rpDelta({ outcome: 'lose' }, 1000).delta, hi = rpDelta({ outcome: 'lose' }, 1500).delta;

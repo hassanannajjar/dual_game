@@ -1,4 +1,4 @@
-import { makeRack, isWord, canBuild, wordScore, WORD_LIST } from '../logic.js?v=32';
+import { makeRack, isWord, canBuild, wordScore, WORD_LIST } from '../logic.js?v=33';
 
 // Word Race (simultaneous): both players get the SAME letter rack + a shared countdown.
 // Build as many valid words (3+ letters) as you can from the rack. Highest total score wins.

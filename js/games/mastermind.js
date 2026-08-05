@@ -1,4 +1,4 @@
-import { evaluate, mastermindCodes, mastermindConsistent } from '../logic.js?v=32';
+import { evaluate, mastermindCodes, mastermindConsistent } from '../logic.js?v=33';
 
 // Code-breaking duel: each player sets a secret colour code; you race to crack the OTHER
 // player's code with exact/partial peg feedback. First to all-exact wins. (Turn-based; mirrors Wordle Duel.)
