@@ -1,6 +1,6 @@
-import { lineWinner } from '../logic.js?v=36';
+import { lineWinner } from '../logic.js?v=37';
 
-const N = 13;
+let N = 13;
 const M = { board: [], mine: 'B', opp: 'W', cells: [] };
 const empty = () => Array.from({ length: N }, () => Array(N).fill(null));
 const full = (b) => b.every((row) => row.every(Boolean));
@@ -55,7 +55,11 @@ function play(ctx, x, y) {
 
 export default {
   id: 'gomoku', name: 'Gomoku', emoji: '⚫', blurb: 'Five in a row',
+  options: [
+    { key: 'size', label: 'Board size', choices: [{ label: '13×13', value: 13 }, { label: '15×15', value: 15 }, { label: '19×19', value: 19 }], default: 13 },
+  ],
   start(ctx, { iAmFirst }) {
+    N = Math.max(9, Math.min(19, ctx.config.size || 13));
     M.board = empty();
     M.mine = iAmFirst ? 'B' : 'W';
     M.opp = iAmFirst ? 'W' : 'B';
@@ -99,5 +103,5 @@ export default {
     return { type: 'move', x: best[0], y: best[1] };
   },
   getState() { return { board: M.board, mine: M.mine, opp: M.opp }; },
-  restore(state, ctx) { M.board = state.board; M.mine = state.mine; M.opp = state.opp; build(ctx); },
+  restore(state, ctx) { M.board = state.board; N = state.board.length; M.mine = state.mine; M.opp = state.opp; build(ctx); },
 };

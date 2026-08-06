@@ -1,44 +1,49 @@
-import { register, boot } from './platform.js?v=36';
-import numberDuel from './games/number-duel.js?v=36';
-import ticTacToe from './games/tic-tac-toe.js?v=36';
-import connectFour from './games/connect-four.js?v=36';
-import rps from './games/rock-paper-scissors.js?v=36';
-import battleship from './games/battleship.js?v=36';
-import gomoku from './games/gomoku.js?v=36';
-import reversi from './games/reversi.js?v=36';
-import checkers from './games/checkers.js?v=36';
-import dots from './games/dots-boxes.js?v=36';
-import uttt from './games/ultimate-ttt.js?v=36';
-import mancala from './games/mancala.js?v=36';
-import memory from './games/memory.js?v=36';
-import morris from './games/nine-mens-morris.js?v=36';
-import chess from './games/chess.js?v=36';
-import hangman from './games/hangman.js?v=36';
-import snakes from './games/snakes.js?v=36';
-import pig from './games/pig.js?v=36';
-import go from './games/go.js?v=36';
-import order from './games/order-chaos.js?v=36';
-import nim from './games/nim.js?v=36';
-import yahtzee from './games/yahtzee.js?v=36';
-import hex from './games/hex.js?v=36';
-import ludo from './games/ludo.js?v=36';
-import backgammon from './games/backgammon.js?v=36';
-import chinesecheckers from './games/chinese-checkers.js?v=36';
-import g2048 from './games/2048.js?v=36';
-import tetris from './games/tetris.js?v=36';
-import airhockey from './games/airhockey.js?v=36';
-import tron from './games/tron.js?v=36';
-import minesweeper from './games/minesweeper.js?v=36';
-import snake from './games/snake.js?v=36';
-import sudoku from './games/sudoku.js?v=36';
-import sim from './games/sim.js?v=36';
-import wordleDuel from './games/wordle-duel.js?v=36';
-import farkle from './games/farkle.js?v=36';
-import quarto from './games/quarto.js?v=36';
-import mastermind from './games/mastermind.js?v=36';
-import dominoes from './games/dominoes.js?v=36';
-import wordRace from './games/word-race.js?v=36';
-import match3 from './games/match3.js?v=36';
+import { register, boot } from './platform.js?v=37';
+import numberDuel from './games/number-duel.js?v=37';
+import ticTacToe from './games/tic-tac-toe.js?v=37';
+import connectFour from './games/connect-four.js?v=37';
+import rps from './games/rock-paper-scissors.js?v=37';
+import battleship from './games/battleship.js?v=37';
+import gomoku from './games/gomoku.js?v=37';
+import reversi from './games/reversi.js?v=37';
+import checkers from './games/checkers.js?v=37';
+import dots from './games/dots-boxes.js?v=37';
+import uttt from './games/ultimate-ttt.js?v=37';
+import mancala from './games/mancala.js?v=37';
+import memory from './games/memory.js?v=37';
+import morris from './games/nine-mens-morris.js?v=37';
+import chess from './games/chess.js?v=37';
+import hangman from './games/hangman.js?v=37';
+import snakes from './games/snakes.js?v=37';
+import pig from './games/pig.js?v=37';
+import go from './games/go.js?v=37';
+import order from './games/order-chaos.js?v=37';
+import nim from './games/nim.js?v=37';
+import yahtzee from './games/yahtzee.js?v=37';
+import hex from './games/hex.js?v=37';
+import ludo from './games/ludo.js?v=37';
+import backgammon from './games/backgammon.js?v=37';
+import chinesecheckers from './games/chinese-checkers.js?v=37';
+import g2048 from './games/2048.js?v=37';
+import tetris from './games/tetris.js?v=37';
+import airhockey from './games/airhockey.js?v=37';
+import tron from './games/tron.js?v=37';
+import minesweeper from './games/minesweeper.js?v=37';
+import snake from './games/snake.js?v=37';
+import sudoku from './games/sudoku.js?v=37';
+import sim from './games/sim.js?v=37';
+import wordleDuel from './games/wordle-duel.js?v=37';
+import farkle from './games/farkle.js?v=37';
+import quarto from './games/quarto.js?v=37';
+import mastermind from './games/mastermind.js?v=37';
+import dominoes from './games/dominoes.js?v=37';
+import wordRace from './games/word-race.js?v=37';
+import match3 from './games/match3.js?v=37';
+import pentago from './games/pentago.js?v=37';
+import breakthrough from './games/breakthrough.js?v=37';
+import loa from './games/loa.js?v=37';
+import onitama from './games/onitama.js?v=37';
+import quoridor from './games/quoridor.js?v=37';
 
 // Single source of category / difficulty. category ∈ classic|strategy|puzzle|arcade|luck|word.
 const META = {
@@ -54,8 +59,9 @@ const META = {
   minesweeper: ['puzzle', 'medium'], snake: ['arcade', 'easy'], sudoku: ['puzzle', 'medium'],
   sim: ['strategy', 'medium'], wordle: ['word', 'medium'], farkle: ['luck', 'easy'], quarto: ['strategy', 'hard'],
   mastermind: ['strategy', 'medium'], dominoes: ['luck', 'medium'], 'word-race': ['word', 'medium'], match3: ['arcade', 'easy'],
+  pentago: ['strategy', 'medium'], breakthrough: ['strategy', 'medium'], loa: ['strategy', 'hard'], onitama: ['strategy', 'hard'], quoridor: ['strategy', 'hard'],
 };
-const BOT = new Set(['ttt', 'connect4', 'gomoku', 'reversi', 'checkers', 'order', 'nim', 'dots', 'rps', 'number-duel', 'snakes', 'pig', 'memory', 'ludo', 'mancala', 'uttt', 'yahtzee', 'morris', 'chess', 'go', 'hex', 'chinesecheckers', 'backgammon', 'battleship', 'hangman', 'tron', 'airhockey', 'sim', 'wordle', 'farkle', 'quarto', 'mastermind', 'dominoes', 'word-race', 'match3']);
+const BOT = new Set(['ttt', 'connect4', 'gomoku', 'reversi', 'checkers', 'order', 'nim', 'dots', 'rps', 'number-duel', 'snakes', 'pig', 'memory', 'ludo', 'mancala', 'uttt', 'yahtzee', 'morris', 'chess', 'go', 'hex', 'chinesecheckers', 'backgammon', 'battleship', 'hangman', 'tron', 'airhockey', 'sim', 'wordle', 'farkle', 'quarto', 'mastermind', 'dominoes', 'word-race', 'match3', 'pentago', 'breakthrough', 'loa', 'onitama', 'quoridor']);
 const SOLO = new Set(['2048', 'tetris', 'snake', 'minesweeper', 'sudoku', 'word-race', 'match3']);
 
 // Add a game: import it above and add it here.
@@ -63,7 +69,8 @@ const SOLO = new Set(['2048', 'tetris', 'snake', 'minesweeper', 'sudoku', 'word-
   mancala, memory, morris, chess, hangman, snakes, pig, go, order, nim, yahtzee,
   hex, ludo, backgammon, chinesecheckers, g2048, tetris, airhockey, tron,
   minesweeper, snake, sudoku, sim, wordleDuel, farkle, quarto,
-  mastermind, dominoes, wordRace, match3].forEach((g) => {
+  mastermind, dominoes, wordRace, match3,
+  pentago, breakthrough, loa, onitama, quoridor].forEach((g) => {
   const m = META[g.id]; if (m) { g.category = m[0]; g.difficulty = m[1]; }
   if (BOT.has(g.id)) g.bot = true;
   if (SOLO.has(g.id)) g.solo = true;

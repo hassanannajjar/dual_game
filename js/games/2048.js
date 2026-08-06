@@ -1,5 +1,5 @@
-import { move2048, has2048Move } from '../logic.js?v=36';
-import { getSkin } from '../loyalty.js?v=36';
+import { move2048, has2048Move } from '../logic.js?v=37';
+import { getSkin } from '../loyalty.js?v=37';
 
 const SKINS = {
   classic: { 0: 'bg-slate-800', 2: 'bg-slate-600', 4: 'bg-slate-500', 8: 'bg-amber-600', 16: 'bg-amber-500', 32: 'bg-orange-500', 64: 'bg-orange-600', 128: 'bg-yellow-500', 256: 'bg-yellow-400 text-slate-900', 512: 'bg-lime-500 text-slate-900', 1024: 'bg-emerald-500 text-slate-900', 2048: 'bg-indigo-500' },
@@ -8,7 +8,7 @@ const SKINS = {
   mono: { 0: 'bg-slate-800', 2: 'bg-slate-700', 4: 'bg-slate-600', 8: 'bg-slate-500', 16: 'bg-slate-400 text-slate-900', 32: 'bg-slate-300 text-slate-900', 64: 'bg-slate-200 text-slate-900', 128: 'bg-zinc-400 text-slate-900', 256: 'bg-zinc-300 text-slate-900', 512: 'bg-zinc-200 text-slate-900', 1024: 'bg-neutral-300 text-slate-900', 2048: 'bg-white text-slate-900' },
 };
 const palette = () => SKINS[getSkin()] || SKINS.classic;
-const M = { size: 4, board: [], best: 0, points: 0, oppBest: 0, oppPoints: 0, myDone: false, oppDone: false, cells: [], statusEl: null, timerEl: null, doneBtn: null, undoBtn: null, undo: null, keyHandler: null, timer: null, timeLeft: 0 };
+const M = { size: 4, board: [], best: 0, points: 0, oppBest: 0, oppPoints: 0, myDone: false, oppDone: false, cells: [], statusEl: null, timerEl: null, doneBtn: null, undoBtn: null, undos: [], undoCap: 3, keyHandler: null, timer: null, timeLeft: 0 };
 
 const emptyCells = (b) => { const e = [], n = b.length; for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) if (!b[y][x]) e.push([x, y]); return e; };
 const maxTile = () => Math.max(0, ...M.board.flat());
@@ -18,6 +18,9 @@ const fmt = (n) => n >= 1000 ? (n / 1000).toFixed(n >= 10000 ? 0 : 1) + 'k' : St
 const tileFont = () => M.size >= 6 ? 'text-sm sm:text-base' : M.size === 5 ? 'text-base sm:text-lg' : 'text-lg sm:text-xl';
 // Performance reward: bigger best tile → more bonus coins/XP, so a strong run pays out even on a loss.
 function perfBonus() { const bt = M.best; if (bt < 8) return null; const k = Math.floor(Math.log2(bt)); return { coins: (k - 2) * 3, xp: (k - 2) * 4 }; }
+// Undo stack: keep up to M.undoCap prior positions.
+function pushUndo() { M.undos.push({ board: M.board.map((r) => r.slice()), points: M.points }); if (M.undos.length > M.undoCap) M.undos.shift(); }
+function updateUndoBtn(ctx) { if (!M.undoBtn) return; const n = M.undos.length; M.undoBtn.disabled = !n || M.myDone; M.undoBtn.textContent = '↩ ' + ctx.t('undo') + (n ? ` (${n})` : ''); }
 
 function paint(ctx) {
   const pal = palette(), font = tileFont(), n = M.size;
@@ -27,7 +30,7 @@ function paint(ctx) {
     c.className = 'aspect-square rounded-lg flex items-center justify-center font-bold transition-colors ' + font + ' ' + (pal[v] || 'bg-indigo-600');
   }
   M.best = Math.max(M.best, maxTile());
-  if (M.undoBtn) M.undoBtn.disabled = !M.undo;
+  updateUndoBtn(ctx);
   if (!M.statusEl) return;
   if (ctx.solo) { M.statusEl.textContent = `Best: ${M.best}  ·  ${fmt(M.points)} pts`; return; }
   let s = `You: ${M.best} (${fmt(M.points)}) · Opp: ${M.oppBest} (${fmt(M.oppPoints)})`;
@@ -37,6 +40,7 @@ function paint(ctx) {
 }
 function build(ctx) {
   M.size = Math.max(4, Math.min(6, ctx.config.size || 4));
+  M.undoCap = Math.max(0, ctx.config.undos || 3);
   M.cells = [];
   const timed = ctx.config.endMode === 'timed';
   const manual = ctx.config.endMode === 'manual';
@@ -54,10 +58,10 @@ function build(ctx) {
   const btns = [];
   M.undoBtn = ctx.el('button', 'py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed font-semibold text-sm', '↩ ' + ctx.t('undo'));
   M.undoBtn.disabled = true;
-  M.undoBtn.onclick = () => { if (!M.undo || M.myDone) return; M.board = M.undo.board; M.points = M.undo.points; M.undo = null; ctx.sound('toggle'); paint(ctx); if (!ctx.solo) ctx.send('stat', { best: M.best, points: M.points }); ctx.save(); };
-  if (!timed) btns.push(M.undoBtn);
+  M.undoBtn.onclick = () => { if (!M.undos.length || M.myDone) return; const s = M.undos.pop(); M.board = s.board; M.points = s.points; ctx.sound('toggle'); paint(ctx); if (!ctx.solo) ctx.send('stat', { best: M.best, points: M.points }); ctx.save(); };
+  if (!timed && M.undoCap > 0) btns.push(M.undoBtn);
   const nb = ctx.el('button', 'py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 font-semibold text-sm', ctx.t(ctx.solo ? 'new_game' : 'new_board'));
-  nb.onclick = () => { if (ctx.solo) { M.best = 0; M.points = 0; M.myDone = false; } M.undo = null; freshBoard(); ctx.sound('drop'); paint(ctx); if (!ctx.solo) ctx.send('stat', { best: M.best, points: M.points }); ctx.save(); };
+  nb.onclick = () => { if (ctx.solo) { M.best = 0; M.points = 0; M.myDone = false; } M.undos = []; freshBoard(); ctx.sound('drop'); paint(ctx); if (!ctx.solo) ctx.send('stat', { best: M.best, points: M.points }); ctx.save(); };
   btns.push(nb);
   if (manual) {
     M.doneBtn = ctx.el('button', 'py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 font-semibold text-sm', ctx.t('im_done'));
@@ -122,13 +126,13 @@ function move(ctx, dir) {
   const snap = { board: M.board.map((r) => r.slice()), points: M.points };
   const r = move2048(M.board, dir);
   if (!r.moved) return;
-  M.undo = snap;
+  if (M.undoCap > 0) { M.undos.push(snap); if (M.undos.length > M.undoCap) M.undos.shift(); }
   M.board = r.board; M.points += r.score; spawn(); ctx.sound('click'); paint(ctx);
   const max = maxTile();
   if (ctx.solo) {
     if (max >= soloGoal(ctx)) return soloEnd(ctx, 'win', `Reached ${soloGoal(ctx)}! · ${fmt(M.points)} pts`);
     if (!has2048Move(M.board)) {
-      if (ctx.config.endMode === 'endless') { freshBoard(); M.undo = null; ctx.toast(ctx.t('board_kept')); ctx.sound('drop'); paint(ctx); ctx.save(); return; }
+      if (ctx.config.endMode === 'endless') { freshBoard(); M.undos = []; ctx.toast(ctx.t('board_kept')); ctx.sound('drop'); paint(ctx); ctx.save(); return; }
       if (ctx.config.endMode === 'manual') { ctx.save(); return; }   // stuck but manual: wait for "I'm done"
       return soloEnd(ctx, 'lose', `Best ${M.best} · ${fmt(M.points)} pts`);   // target/timed: game over when stuck
     }
@@ -137,7 +141,7 @@ function move(ctx, dir) {
   // duel
   ctx.send('stat', { best: M.best, points: M.points });
   if (ctx.config.endMode === 'target' && M.best >= (ctx.config.target || 1024)) { M.myDone = true; ctx.send('win', { best: M.best, points: M.points }); return ctx.endGame('win', `Reached ${ctx.config.target}!`, { perfBonus: perfBonus() }); }
-  if (!has2048Move(M.board)) { freshBoard(); M.undo = null; ctx.toast(ctx.t('board_kept')); ctx.sound('drop'); paint(ctx); }   // auto-restart, keep best+points
+  if (!has2048Move(M.board)) { freshBoard(); M.undos = []; ctx.toast(ctx.t('board_kept')); ctx.sound('drop'); paint(ctx); }   // auto-restart, keep best+points
   ctx.save();
 }
 
@@ -146,11 +150,12 @@ export default {
   options: [
     { key: 'endMode', label: 'How to end', choices: [{ label: 'Manual', value: 'manual' }, { label: 'Target', value: 'target' }, { label: 'Timed', value: 'timed' }, { label: 'Endless', value: 'endless' }], default: 'manual' },
     { key: 'size', label: 'Board size', choices: [{ label: '4×4', value: 4 }, { label: '5×5', value: 5 }, { label: '6×6', value: 6 }], default: 4 },
+    { key: 'undos', label: 'Undos', choices: [{ label: 'Off', value: 0 }, { label: '3', value: 3 }, { label: '∞', value: 99 }], default: 3 },
     { key: 'target', label: 'Target tile', choices: [{ label: '512', value: 512 }, { label: '1024', value: 1024 }, { label: '2048', value: 2048 }], default: 1024, when: (c) => c.endMode === 'target' },
     { key: 'time', label: 'Time limit', choices: [{ label: '1m', value: 60 }, { label: '2m', value: 120 }, { label: '3m', value: 180 }], default: 120, when: (c) => c.endMode === 'timed' },
   ],
   start(ctx) {
-    M.best = 0; M.points = 0; M.oppBest = 0; M.oppPoints = 0; M.myDone = false; M.oppDone = false; M.timer = null; M.undo = null;
+    M.best = 0; M.points = 0; M.oppBest = 0; M.oppPoints = 0; M.myDone = false; M.oppDone = false; M.timer = null; M.undos = [];
     M.size = Math.max(4, Math.min(6, ctx.config.size || 4));
     freshBoard(); build(ctx); startTimer(ctx);
     M.keyHandler = (e) => { const k = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down' }[e.key]; if (k) { e.preventDefault(); move(ctx, k); } };
@@ -162,11 +167,11 @@ export default {
     else if (msg.type === 'win') { M.oppBest = msg.best; M.oppPoints = msg.points; ctx.endGame('lose', 'Opponent hit the target'); }
   },
   stop() { clearInterval(M.timer); M.timer = null; if (M.keyHandler) { document.removeEventListener('keydown', M.keyHandler); M.keyHandler = null; } },
-  getState() { return { size: M.size, board: M.board, best: M.best, points: M.points, oppBest: M.oppBest, oppPoints: M.oppPoints, myDone: M.myDone, oppDone: M.oppDone, undo: M.undo }; },
+  getState() { return { size: M.size, board: M.board, best: M.best, points: M.points, oppBest: M.oppBest, oppPoints: M.oppPoints, myDone: M.myDone, oppDone: M.oppDone, undos: M.undos }; },
   restore(state, ctx) {
     M.size = state.size || (state.board ? state.board.length : 4);
     M.board = state.board; M.best = state.best || 0; M.points = state.points || 0; M.oppBest = state.oppBest || 0; M.oppPoints = state.oppPoints || 0;
-    M.myDone = !!state.myDone; M.oppDone = !!state.oppDone; M.timer = null; M.undo = state.undo || null;
+    M.myDone = !!state.myDone; M.oppDone = !!state.oppDone; M.timer = null; M.undos = state.undos || [];
     build(ctx); startTimer(ctx);
     M.keyHandler = (e) => { const k = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down' }[e.key]; if (k) { e.preventDefault(); move(ctx, k); } };
     document.addEventListener('keydown', M.keyHandler);

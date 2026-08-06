@@ -412,4 +412,26 @@ assert.strictEqual(rpRank(1000).division, 2, 'mid-bronze is division II');
 { const r = rpRank(1200); assert.strictEqual(r.key, 'silver', 'rp 1200 → silver'); assert.strictEqual(r.division, 3, 'silver entry = III'); assert.strictEqual(r.toNext, 300, 'silver→gold gap'); }
 { const m = rpRank(2500); assert.strictEqual(m.key, 'master', 'rp 2500 → master'); assert.strictEqual(m.division, 0, 'master has no division'); assert.strictEqual(m.nextKey, null, 'master is the top'); }
 
-console.log('PASS (all logic incl. bots/minesweeper/sudoku + rating/achievements + loyalty + quests/chests + hard-bots + new-games incl. mastermind/dominoes/word-race/match3 + weekly + history/seasons/rank/friends + RP + earlier)');
+// ---- New games: Pentago / Breakthrough / Lines of Action / Onitama / Quoridor ----
+import { pentagoRotate, pentagoWinner, breakthroughMoves, breakthroughWinner, loaMoves, loaConnected, loaWinner, onitamaStart, onitamaWinner, quoridorBlocked, quoridorPathExists } from './js/logic.js';
+const grid6 = () => Array.from({ length: 6 }, () => Array(6).fill(0));
+{ const b = grid6(); b[0][0] = 1; assert.strictEqual(pentagoRotate(b, 0, 'cw')[0][2], 1, 'pentago TL cw (0,0)->(2,0)'); }
+{ const b = grid6(); for (let x = 0; x < 5; x++) b[2][x] = 1; assert.strictEqual(pentagoWinner(b), 1, 'pentago five-in-row'); }
+assert.strictEqual(pentagoWinner(grid6()), null, 'pentago empty ongoing');
+{ const b = grid6(); b[2][2] = 1; const m = breakthroughMoves(b, 2, 2);
+  assert.ok(m.some(([x, y]) => x === 2 && y === 3), 'bt forward'); assert.ok(m.some(([x, y]) => x === 1 && y === 3), 'bt diagonal'); }
+{ const b = grid6(); b[3][2] = 1; b[4][2] = 2; assert.ok(!breakthroughMoves(b, 2, 3).some(([x, y]) => x === 2 && y === 4), 'bt no straight capture'); }
+{ const b = grid6(); b[3][2] = 1; b[4][3] = 2; assert.ok(breakthroughMoves(b, 2, 3).some(([x, y]) => x === 3 && y === 4), 'bt diagonal capture'); }
+{ const b = grid6(); b[5][0] = 1; assert.strictEqual(breakthroughWinner(b), 1, 'bt reach far row'); }
+{ const b = grid6(); b[2][2] = 1; b[2][4] = 1; assert.ok(loaMoves(b, 2, 2).some(([x, y]) => x === 0 && y === 2), 'loa moves k=2 along a 2-piece line'); }
+assert.strictEqual(loaConnected([[1, 1, 0], [0, 0, 0], [0, 0, 0]], 1), true, 'loa one group');
+assert.strictEqual(loaConnected([[1, 0, 1], [0, 0, 0], [0, 0, 0]], 1), false, 'loa two groups');
+assert.strictEqual(loaWinner([[1, 1, 0], [0, 0, 0], [0, 0, 0]], 1), 1, 'loa winner connected');
+assert.strictEqual(onitamaWinner(onitamaStart()), null, 'onitama ongoing');
+{ const b = onitamaStart(); b[4][2] = 0; assert.strictEqual(onitamaWinner(b), 2, 'onitama master captured'); }
+{ const b = onitamaStart(); b[0][2] = 2; assert.strictEqual(onitamaWinner(b), 1, 'onitama reach arch'); }
+{ const walls = { hw: new Set(), vw: new Set() }; assert.strictEqual(quoridorBlocked(walls, 4, 4, 4, 5), false, 'quoridor open edge');
+  walls.hw.add('4,4'); assert.strictEqual(quoridorBlocked(walls, 4, 4, 4, 5), true, 'quoridor h-wall blocks'); }
+assert.strictEqual(quoridorPathExists({ hw: new Set(), vw: new Set() }, 9, [4, 8], 0), true, 'quoridor path exists on open board');
+
+console.log('PASS (all logic incl. bots/minesweeper/sudoku + rating/achievements + loyalty + quests/chests + hard-bots + new-games incl. mastermind/dominoes/word-race/match3 + pentago/breakthrough/loa/onitama/quoridor + weekly + history/seasons/rank/friends + RP + earlier)');

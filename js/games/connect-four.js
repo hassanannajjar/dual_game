@@ -1,6 +1,6 @@
-import { connectFourWinner } from '../logic.js?v=36';
+import { connectFourWinner } from '../logic.js?v=37';
 
-const COLS = 7, ROWS = 6;
+let COLS = 7, ROWS = 6;
 const M = { grid: [], mine: 'R', opp: 'Y', cellEls: [], lastMove: null };
 
 function render(ctx) {
@@ -34,15 +34,20 @@ function drop(c, color, ctx) {
   render(ctx);
   const cell = M.cellEls[c] && M.cellEls[c][row];
   if (cell) { cell.classList.add('disc-drop'); setTimeout(() => cell.classList.remove('disc-drop'), 420); }
-  const w = connectFourWinner(M.grid, c, row);
+  const w = connectFourWinner(M.grid, c, row, ROWS);
   const boardFull = M.grid.every((col) => col.length >= ROWS);
   return { row, winner: w, boardFull };
 }
 
 export default {
   id: 'connect4', name: 'Connect Four', emoji: '🔴', blurb: 'Four in a row',
+  options: [
+    { key: 'c4size', label: 'Board size', choices: [{ label: '7×6', value: '7x6' }, { label: '9×7', value: '9x7' }], default: '7x6' },
+  ],
 
   start(ctx, { iAmFirst }) {
+    const [c, r] = (ctx.config.c4size || '7x6').split('x').map(Number);
+    COLS = c || 7; ROWS = r || 6;
     M.grid = Array.from({ length: COLS }, () => []);
     M.mine = iAmFirst ? 'R' : 'Y';
     M.opp = iAmFirst ? 'Y' : 'R';
@@ -63,7 +68,7 @@ export default {
     const valid = [];
     for (let c = 0; c < COLS; c++) if (M.grid[c].length < ROWS) valid.push(c);
     if (!valid.length) return null;
-    const winsAt = (c, color) => { const row = M.grid[c].length; if (row >= ROWS) return false; M.grid[c].push(color); const w = connectFourWinner(M.grid, c, row) === color; M.grid[c].pop(); return w; };
+    const winsAt = (c, color) => { const row = M.grid[c].length; if (row >= ROWS) return false; M.grid[c].push(color); const w = connectFourWinner(M.grid, c, row, ROWS) === color; M.grid[c].pop(); return w; };
     const center = (cols) => cols.slice().sort((a, b) => Math.abs(a - 3) - Math.abs(b - 3))[0];
     let c;
     if (level === 'easy') c = valid[Math.floor(Math.random() * valid.length)];
@@ -78,8 +83,8 @@ export default {
     }
     return { type: 'drop', c };
   },
-  getState() { return { grid: M.grid, mine: M.mine, opp: M.opp }; },
-  restore(state, ctx) { M.grid = state.grid; M.mine = state.mine; M.opp = state.opp; build(ctx); },
+  getState() { return { grid: M.grid, mine: M.mine, opp: M.opp, cols: COLS, rows: ROWS }; },
+  restore(state, ctx) { M.grid = state.grid; COLS = state.cols || state.grid.length; ROWS = state.rows || 6; M.mine = state.mine; M.opp = state.opp; build(ctx); },
 };
 
 function build(ctx) {

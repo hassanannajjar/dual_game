@@ -2,18 +2,18 @@
 // drives phases: home -> connect -> lobby -> [setup] -> [toss] -> play -> over,
 // and handles pause / disconnect-reconnect / refresh-resume.
 // Depends on the global `Peer` (PeerJS, loaded via CDN).
-import { t, initLang, onLangChange, getLang } from './i18n.js?v=36';
-import { rpRank, romanDiv } from './logic.js?v=36';
-import { sound, setMusicScene, musicSwell, setMusicNotify } from './sound.js?v=36';
-import { initPrefs, getName, setName, haptic } from './prefs.js?v=36';
-import { demo } from './demos.js?v=36';
-import { goOnline as presenceOnline, onBoard as onPresenceBoard, publishScore, setPresence, isOnline } from './presence.js?v=36';
-import { recordResult, getRating, overallRating, openProfile, closeProfile, initProfile, getAvatar, shareStats, shareResult, currentSeason, myProfileSummary, openPeerProfile } from './profile.js?v=36';
-import { claimDaily, getLevel, getCoins, setNotify } from './loyalty.js?v=36';
-import { getUid, getGuestName } from './identity.js?v=36';
-import { isFav, toggleFav, getFavs } from './favorites.js?v=36';
-import { getFriends, addFriend } from './friends.js?v=36';
-import { hasTutorial, getTutorial } from './tutorials.js?v=36';
+import { t, initLang, onLangChange, getLang } from './i18n.js?v=37';
+import { rpRank, romanDiv } from './logic.js?v=37';
+import { sound, setMusicScene, musicSwell, setMusicNotify } from './sound.js?v=37';
+import { initPrefs, getName, setName, haptic } from './prefs.js?v=37';
+import { demo } from './demos.js?v=37';
+import { goOnline as presenceOnline, onBoard as onPresenceBoard, publishScore, setPresence, isOnline } from './presence.js?v=37';
+import { recordResult, getRating, overallRating, openProfile, closeProfile, initProfile, getAvatar, shareStats, shareResult, currentSeason, myProfileSummary, openPeerProfile } from './profile.js?v=37';
+import { claimDaily, getLevel, getCoins, setNotify } from './loyalty.js?v=37';
+import { getUid, getGuestName } from './identity.js?v=37';
+import { isFav, toggleFav, getFavs } from './favorites.js?v=37';
+import { getFriends, addFriend } from './friends.js?v=37';
+import { hasTutorial, getTutorial } from './tutorials.js?v=37';
 
 // ---------- DOM helpers ----------
 const $ = (id) => document.getElementById(id);
@@ -437,8 +437,9 @@ function loopbackConn(withBot) { return { open: true, send: withBot ? loopbackSe
 function startSolo() {
   S.solo = true; S.vsBot = false; S.isHost = true; S.roomCode = 'SOLO';
   S.conn = loopbackConn(false);
-  S.config = Object.assign({}, defaultConfig());
-  proceedAfterConfig();
+  S.working = defaultConfig();
+  if ((S.game.options || []).length) enterHostLobby();          // let solo pick game options (target/board/undos…)
+  else { S.config = Object.assign({}, S.working); proceedAfterConfig(); }
 }
 function startBot() {
   S.vsBot = true; S.solo = false; S.isHost = true; S.botLevel = S.botLevelSel || 'medium'; S.roomCode = 'BOT';
@@ -617,7 +618,7 @@ function renderModes() {
 // ---------- lobby / config ----------
 function optionSchema() {
   const opts = (S.game.options || []).slice();
-  if (S.game.usesTurns !== false) {
+  if (S.game.usesTurns !== false && !S.solo) {   // turn timer / first-move are meaningless in solo
     opts.push({ key: 'timer', label: t('turn_timer'),
       choices: [{ label: '30s', value: 30 }, { label: '60s', value: 60 }, { label: t('off'), value: 0 }], default: 30 });
     opts.push({ key: 'firstMove', label: t('first_move'),
@@ -712,6 +713,7 @@ function runToss(iAmFirst) {
 }
 function preparePlayScreen() {
   if (S.game && S.game.stop) S.game.stop();   // halt any prior real-time loop before rebuilding
+  clearFx();                                  // drop any leftover win confetti/banner before a (re)start
   S.over = false;
   show('play');
   $('game-title').textContent = gameTitle(S.game);
@@ -835,18 +837,24 @@ function floatEmote(emoji) {
   setTimeout(() => n.remove(), 1600);
 }
 function sendEmote(emoji) { floatEmote(emoji); sys('emote', { emoji }); }
-// Win celebration: a short confetti burst. Pure DOM, auto-cleaned; CSS hides it under reduced-motion.
+// Remove any active win FX (confetti + banner). Called on every (re)start so nothing lingers over the new board.
+function clearFx() { const l = $('fx-layer'); if (l) l.remove(); }
+// Win celebration: a contained confetti burst + a "You win!" banner. Auto-cleaned; CSS suppresses it under reduced-motion.
 function celebrate() {
-  const EMO = ['🎉', '✨', '🎊', '⭐', '🏆', '💥'];
-  for (let i = 0; i < 24; i++) {
+  clearFx();
+  const layer = el('div', 'fx-layer'); layer.id = 'fx-layer';
+  const EMO = ['🎉', '✨', '🎊', '⭐', '🏆', '💫', '🎈'];
+  for (let i = 0; i < 28; i++) {
     const n = el('div', 'confetti-piece', EMO[i % EMO.length]);
     n.style.left = Math.random() * 100 + 'vw';
-    n.style.animationDuration = (1.6 + Math.random() * 1.4) + 's';
-    n.style.animationDelay = (Math.random() * 0.4) + 's';
-    n.style.fontSize = (0.9 + Math.random() * 1.1) + 'rem';
-    document.body.appendChild(n);
-    setTimeout(() => n.remove(), 3600);
+    n.style.animationDuration = (1.4 + Math.random() * 1.0) + 's';
+    n.style.animationDelay = (Math.random() * 0.5) + 's';
+    n.style.fontSize = (0.9 + Math.random() * 1.3) + 'rem';
+    layer.appendChild(n);
   }
+  layer.appendChild(el('div', 'win-banner', '🎉 ' + t('you_win')));
+  document.body.appendChild(layer);
+  setTimeout(() => { if ($('fx-layer') === layer) layer.remove(); }, 2600);
 }
 function openChat() { $('chat-panel').classList.remove('hidden'); S.unread = 0; updateChatBadge(); setTimeout(() => { const i = $('chat-input'); if (i) i.focus(); }, 50); }
 function closeChat() { $('chat-panel').classList.add('hidden'); }
@@ -952,6 +960,7 @@ function restartMatch(initiator) {
 }
 function goHome() {
   S.leaving = true;
+  clearFx();
   if (S.inPlay && !S.over && S.game) {                     // quitting a live match counts as a loss
     if (!(S.vsBot || S.solo)) sys('forfeit');              // hand the win to a real opponent
     const res = recordResult({ gameId: S.game.id, outcome: 'lose', category: S.game.category, oppName: S.oppName, vsBot: S.vsBot, solo: S.solo, botLevel: S.botLevel, oppRating: S.oppRating });

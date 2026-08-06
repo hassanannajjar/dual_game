@@ -34,8 +34,8 @@ export function ticTacToeWinner(cells) {
 }
 
 // Connect Four: grid = cols array (7) of column arrays filled bottom-up with 'R'|'Y'.
-export function connectFourWinner(grid, col, row) {
-  const cols = grid.length, rows = 6;
+export function connectFourWinner(grid, col, row, rows) {
+  const cols = grid.length; rows = rows || 6;
   const player = grid[col][row];
   if (!player) return null;
   const dirs = [[1, 0], [0, 1], [1, 1], [1, -1]];
@@ -1010,3 +1010,116 @@ export function rpDelta(info, curRp) {
   return { delta: nrp - rp, rp: nrp };
 }
 
+
+// ================= New games (pure rules) =================
+
+// ---------- Pentago ---------- 6x6 board [y][x] of 0/1/2. Place a marble, then rotate a 3x3 quadrant.
+export function pentagoRotate(board, q, dir) {           // q: 0=TL 1=TR 2=BL 3=BR ; dir: 'cw'|'ccw'
+  const b = board.map((r) => r.slice());
+  const oy = q < 2 ? 0 : 3, ox = (q % 2) ? 3 : 0;
+  for (let y = 0; y < 3; y++) for (let x = 0; x < 3; x++) {
+    const [sy, sx] = dir === 'cw' ? [2 - x, y] : [x, 2 - y];
+    b[oy + y][ox + x] = board[oy + sy][ox + sx];
+  }
+  return b;
+}
+export function pentagoWinner(board) {                   // 1|2 winner, 0 draw (full), null ongoing
+  const N = 6, dirs = [[1, 0], [0, 1], [1, 1], [1, -1]];
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    const p = board[y][x]; if (!p) continue;
+    for (const [dx, dy] of dirs) {
+      let c = 1, cx = x + dx, cy = y + dy;
+      while (cx >= 0 && cx < N && cy >= 0 && cy < N && board[cy][cx] === p) { c++; cx += dx; cy += dy; }
+      if (c >= 5) return p;
+    }
+  }
+  return board.every((r) => r.every(Boolean)) ? 0 : null;
+}
+
+// ---------- Breakthrough ---------- NxN [y][x] 0/1/2. P1 moves +y (goal row N-1), P2 moves -y (goal row 0).
+export function breakthroughMoves(board, x, y) {
+  const n = board.length, p = board[y][x]; if (!p) return [];
+  const dir = p === 1 ? 1 : -1, fy = y + dir, out = [];
+  if (fy < 0 || fy >= n) return out;
+  if (!board[fy][x]) out.push([x, fy]);                  // straight forward only into empty
+  for (const dx of [-1, 1]) { const fx = x + dx; if (fx >= 0 && fx < n) { const t = board[fy][fx]; if (!t || t !== p) out.push([fx, fy]); } }  // diagonal: empty or capture
+  return out;
+}
+export function breakthroughWinner(board) {
+  const n = board.length; let a = 0, b = 0;
+  for (let x = 0; x < n; x++) { if (board[n - 1][x] === 1) return 1; if (board[0][x] === 2) return 2; }
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) { if (board[y][x] === 1) a++; else if (board[y][x] === 2) b++; }
+  if (!a) return 2; if (!b) return 1; return null;
+}
+
+// ---------- Lines of Action ---------- NxN 0/1/2. Move exactly (#pieces on that line) squares; can't cross enemy; win = all your pieces in one 8-connected group.
+export function loaMoves(board, x, y) {
+  const n = board.length, p = board[y][x]; if (!p) return [];
+  const dirs = [[1, 0], [0, 1], [1, 1], [1, -1]], out = [];
+  for (const [dx, dy] of dirs) {
+    let k = 0;
+    for (let i = -(n - 1); i <= n - 1; i++) { const cx = x + dx * i, cy = y + dy * i; if (cx >= 0 && cx < n && cy >= 0 && cy < n && board[cy][cx]) k++; }
+    for (const s of [1, -1]) {
+      const tx = x + dx * s * k, ty = y + dy * s * k;
+      if (tx < 0 || tx >= n || ty < 0 || ty >= n) continue;
+      let blocked = false;
+      for (let j = 1; j < k; j++) { const mx = x + dx * s * j, my = y + dy * s * j; if (board[my][mx] && board[my][mx] !== p) { blocked = true; break; } }
+      if (blocked || board[ty][tx] === p) continue;
+      out.push([tx, ty]);
+    }
+  }
+  return out;
+}
+export function loaConnected(board, color) {
+  const n = board.length, cells = [];
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) if (board[y][x] === color) cells.push([x, y]);
+  if (cells.length <= 1) return cells.length === 1;
+  const key = (x, y) => y * n + x, seen = new Set([key(cells[0][0], cells[0][1])]), st = [cells[0]];
+  while (st.length) { const [cx, cy] = st.pop();
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { if (!dx && !dy) continue; const nx = cx + dx, ny = cy + dy; if (nx >= 0 && nx < n && ny >= 0 && ny < n && board[ny][nx] === color && !seen.has(key(nx, ny))) { seen.add(key(nx, ny)); st.push([nx, ny]); } }
+  }
+  return seen.size === cells.length;
+}
+export function loaWinner(board) { const a = loaConnected(board, 1), b = loaConnected(board, 2); if (a && b) return 1; if (a) return 1; if (b) return 2; return null; }
+
+// ---------- Onitama ---------- 5x5. codes: 0 empty,1 A-student,2 A-master,3 B-student,4 B-master. A moves toward y=0, arch (2,0); B toward y=4, arch (2,4).
+export const ONITAMA_CARDS = {
+  tiger: [[0, -2], [0, 1]], crab: [[0, -1], [-2, 0], [2, 0]], monkey: [[1, -1], [-1, -1], [1, 1], [-1, 1]],
+  crane: [[0, -1], [-1, 1], [1, 1]], mantis: [[-1, -1], [1, -1], [0, 1]],
+};
+export function onitamaStart() {
+  return [[3, 3, 4, 3, 3], [0, 0, 0, 0, 0], [0, 0, 0, 0, 0], [0, 0, 0, 0, 0], [1, 1, 2, 1, 1]];
+}
+export function onitamaWinner(board) {
+  let am = false, bm = false;
+  for (let y = 0; y < 5; y++) for (let x = 0; x < 5; x++) { if (board[y][x] === 2) am = true; if (board[y][x] === 4) bm = true; }
+  if (!am) return 2; if (!bm) return 1;
+  if (board[0][2] === 2) return 1;                       // A master reached B arch
+  if (board[4][2] === 4) return 2;                       // B master reached A arch
+  return null;
+}
+
+// ---------- Quoridor ---------- N x N cells; walls block edges. state = { hw:Set('x,y'), vw:Set('x,y') }.
+// hw 'x,y' blocks the edge between (x,y)-(x,y+1) and (x+1,y)-(x+1,y+1) [a horizontal wall spanning cols x,x+1 under row y].
+// vw 'x,y' blocks (x,y)-(x+1,y) and (x,y+1)-(x+1,y+1) [vertical wall spanning rows y,y+1 right of col x].
+export function quoridorBlocked(walls, x1, y1, x2, y2) {
+  if (y2 === y1 + 1) { return walls.hw.has((Math.min(x1, x1)) + ',' + y1) || walls.hw.has((x1 - 1) + ',' + y1); }         // moving down
+  if (y2 === y1 - 1) { return walls.hw.has(x1 + ',' + y2) || walls.hw.has((x1 - 1) + ',' + y2); }                          // moving up
+  if (x2 === x1 + 1) { return walls.vw.has(x1 + ',' + y1) || walls.vw.has(x1 + ',' + (y1 - 1)); }                          // moving right
+  if (x2 === x1 - 1) { return walls.vw.has(x2 + ',' + y1) || walls.vw.has(x2 + ',' + (y1 - 1)); }                          // moving left
+  return false;
+}
+export function quoridorPathExists(walls, n, start, goalY) {   // BFS: can (start) reach any cell with y===goalY?
+  const seen = new Set([start[0] + ',' + start[1]]), q = [start];
+  while (q.length) {
+    const [x, y] = q.shift();
+    if (y === goalY) return true;
+    for (const [dx, dy] of [[0, 1], [0, -1], [1, 0], [-1, 0]]) {
+      const nx = x + dx, ny = y + dy;
+      if (nx < 0 || nx >= n || ny < 0 || ny >= n) continue;
+      if (quoridorBlocked(walls, x, y, nx, ny)) continue;
+      const k = nx + ',' + ny; if (seen.has(k)) continue; seen.add(k); q.push([nx, ny]);
+    }
+  }
+  return false;
+}

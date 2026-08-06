@@ -1,4 +1,4 @@
-import { ludoStep, ludoAbs } from '../logic.js?v=36';
+import { ludoStep, ludoAbs } from '../logic.js?v=37';
 
 const PIPS = ['', '⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
 const M = { tokens: { me: [0, 0, 0, 0], opp: [0, 0, 0, 0] }, entryMe: 0, entryOpp: 26, pending: null,
