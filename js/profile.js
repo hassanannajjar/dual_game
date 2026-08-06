@@ -1,11 +1,11 @@
 // Player profile + progression — stats, per-game rating, achievements. All localStorage.
-import { t } from './i18n.js?v=35';
-import { sound } from './sound.js?v=35';
-import { getName, setName } from './prefs.js?v=35';
-import { evalAchievements, ACHIEVEMENTS, historyPush, seasonId, softResetRating, rpDelta, rpRank, romanDiv } from './logic.js?v=35';
-import { earnForResult, grantAchievement, questEvent, getLevel, getStreak, renderLevelHeader, renderShop, renderQuests, renderWeekly, renderStreak, renderGifts, owns, equip, REWARDS } from './loyalty.js?v=35';
-import { getToken } from './identity.js?v=35';
-import { getFavs } from './favorites.js?v=35';
+import { t } from './i18n.js?v=36';
+import { sound } from './sound.js?v=36';
+import { getName, setName } from './prefs.js?v=36';
+import { evalAchievements, ACHIEVEMENTS, historyPush, seasonId, softResetRating, rpDelta, rpRank, romanDiv } from './logic.js?v=36';
+import { earnForResult, grantAchievement, questEvent, getLevel, getStreak, renderLevelHeader, renderShop, renderQuests, renderWeekly, renderStreak, renderGifts, owns, equip, REWARDS } from './loyalty.js?v=36';
+import { getToken } from './identity.js?v=36';
+import { getFavs } from './favorites.js?v=36';
 
 const $ = (id) => document.getElementById(id);
 const AVATARS = ['🦊', '🐼', '🐸', '🦁', '🐙', '🦄', '🐧', '🐳', '🤖', '👾', '🎲', '⚡'];
@@ -86,6 +86,18 @@ export function shareStats(games) {
   const rp = getRP(), r = rpRank(rp);
   const url = location.origin + location.pathname;
   const text = t('share_text', { tier: r.emoji, rating: rp, wins: totW, games: played.length, url });
+  if (navigator.share) { navigator.share({ text }).catch(() => {}); return false; }
+  if (navigator.clipboard) { navigator.clipboard.writeText(text).catch(() => {}); return true; }
+  return false;
+}
+
+// Share a single match result (game + outcome + current RP). Returns true if it fell back to clipboard.
+export function shareResult(gameLabel, outcome, rpGain) {
+  const rp = getRP(), r = rpRank(rp);
+  const emoji = outcome === 'win' ? '🏆' : outcome === 'draw' ? '🤝' : '💪';
+  const delta = (rpGain >= 0 ? '+' : '') + (rpGain || 0);
+  const url = location.origin + location.pathname;
+  const text = t('share_result_text', { emoji, game: gameLabel, tier: r.emoji, rp, delta, url });
   if (navigator.share) { navigator.share({ text }).catch(() => {}); return false; }
   if (navigator.clipboard) { navigator.clipboard.writeText(text).catch(() => {}); return true; }
   return false;

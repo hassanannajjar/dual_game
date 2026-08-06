@@ -2,18 +2,18 @@
 // drives phases: home -> connect -> lobby -> [setup] -> [toss] -> play -> over,
 // and handles pause / disconnect-reconnect / refresh-resume.
 // Depends on the global `Peer` (PeerJS, loaded via CDN).
-import { t, initLang, onLangChange, getLang } from './i18n.js?v=35';
-import { rpRank, romanDiv } from './logic.js?v=35';
-import { sound, setMusicScene, musicSwell, setMusicNotify } from './sound.js?v=35';
-import { initPrefs, getName, setName, haptic } from './prefs.js?v=35';
-import { demo } from './demos.js?v=35';
-import { goOnline as presenceOnline, onBoard as onPresenceBoard, publishScore, setPresence, isOnline } from './presence.js?v=35';
-import { recordResult, getRating, overallRating, openProfile, closeProfile, initProfile, getAvatar, shareStats, currentSeason, myProfileSummary, openPeerProfile } from './profile.js?v=35';
-import { claimDaily, getLevel, getCoins, setNotify } from './loyalty.js?v=35';
-import { getUid, getGuestName } from './identity.js?v=35';
-import { isFav, toggleFav, getFavs } from './favorites.js?v=35';
-import { getFriends, addFriend } from './friends.js?v=35';
-import { hasTutorial, getTutorial } from './tutorials.js?v=35';
+import { t, initLang, onLangChange, getLang } from './i18n.js?v=36';
+import { rpRank, romanDiv } from './logic.js?v=36';
+import { sound, setMusicScene, musicSwell, setMusicNotify } from './sound.js?v=36';
+import { initPrefs, getName, setName, haptic } from './prefs.js?v=36';
+import { demo } from './demos.js?v=36';
+import { goOnline as presenceOnline, onBoard as onPresenceBoard, publishScore, setPresence, isOnline } from './presence.js?v=36';
+import { recordResult, getRating, overallRating, openProfile, closeProfile, initProfile, getAvatar, shareStats, shareResult, currentSeason, myProfileSummary, openPeerProfile } from './profile.js?v=36';
+import { claimDaily, getLevel, getCoins, setNotify } from './loyalty.js?v=36';
+import { getUid, getGuestName } from './identity.js?v=36';
+import { isFav, toggleFav, getFavs } from './favorites.js?v=36';
+import { getFriends, addFriend } from './friends.js?v=36';
+import { hasTutorial, getTutorial } from './tutorials.js?v=36';
 
 // ---------- DOM helpers ----------
 const $ = (id) => document.getElementById(id);
@@ -291,9 +291,22 @@ function gameCard(g, onPick) {
   card.append(main, controls);
   return card;
 }
+function recentGameIds() {                       // distinct game ids from match history, newest-first
+  try {
+    const h = JSON.parse(localStorage.getItem('arcade:history') || '[]');
+    const seen = new Set(), out = [];
+    for (const m of h) { if (m && m.gameId && !seen.has(m.gameId)) { seen.add(m.gameId); out.push(m.gameId); } }
+    return out;
+  } catch (e) { return []; }
+}
 function sectionGrid(list, onPick) {
   const grid = el('div', 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3');
-  for (const g of list) grid.appendChild(gameCard(g, onPick));
+  list.forEach((g, i) => {
+    const card = gameCard(g, onPick);
+    card.classList.add('card-in');
+    card.style.animationDelay = Math.min(i * 35, 400) + 'ms';   // gentle stagger, capped so long lists don't drag
+    grid.appendChild(card);
+  });
   return grid;
 }
 function buildSections(container, onPick, filterCat, q) {
@@ -307,6 +320,17 @@ function buildSections(container, onPick, filterCat, q) {
     return;
   }
   let any = false;
+  // recently-played strip on the default view (distinct, newest-first) — quick way back into a game
+  if ((!filterCat || filterCat === 'all') && !q) {
+    const recent = recentGameIds().map(gameById).filter(Boolean).slice(0, 6);
+    if (recent.length) {
+      any = true;
+      const sec = el('div', 'mb-5');
+      sec.appendChild(el('h2', 'text-xs font-bold uppercase tracking-wider text-slate-400 mb-2', '🕘 ' + t('recently_played')));
+      sec.appendChild(sectionGrid(recent, onPick));
+      container.appendChild(sec);
+    }
+  }
   // pinned favorites strip on the default "all" view (not while searching or filtering a category)
   if ((!filterCat || filterCat === 'all') && !q && getFavs().length) {
     const favs = getFavs().map(gameById).filter(Boolean);
@@ -811,6 +835,19 @@ function floatEmote(emoji) {
   setTimeout(() => n.remove(), 1600);
 }
 function sendEmote(emoji) { floatEmote(emoji); sys('emote', { emoji }); }
+// Win celebration: a short confetti burst. Pure DOM, auto-cleaned; CSS hides it under reduced-motion.
+function celebrate() {
+  const EMO = ['🎉', '✨', '🎊', '⭐', '🏆', '💥'];
+  for (let i = 0; i < 24; i++) {
+    const n = el('div', 'confetti-piece', EMO[i % EMO.length]);
+    n.style.left = Math.random() * 100 + 'vw';
+    n.style.animationDuration = (1.6 + Math.random() * 1.4) + 's';
+    n.style.animationDelay = (Math.random() * 0.4) + 's';
+    n.style.fontSize = (0.9 + Math.random() * 1.1) + 'rem';
+    document.body.appendChild(n);
+    setTimeout(() => n.remove(), 3600);
+  }
+}
 function openChat() { $('chat-panel').classList.remove('hidden'); S.unread = 0; updateChatBadge(); setTimeout(() => { const i = $('chat-input'); if (i) i.focus(); }, 50); }
 function closeChat() { $('chat-panel').classList.add('hidden'); }
 
@@ -851,13 +888,15 @@ function endGame(outcome, msg, opts) {
   // turn bar for a result header carrying the actions.
   $('pause-overlay').classList.add('hidden');
   $('turn-bar').classList.add('hidden');
+  S.lastOutcome = outcome; if (firstEnd) S.lastRpGain = 0;   // for the "Share result" button
   const title = { win: t('you_win'), lose: t('you_lose'), draw: t('draw'), nocontest: t('no_contest') }[outcome] || t('you_lose');
   const online = !(S.vsBot || S.solo);
   const series = (record && online && (S.series.me || S.series.opp)) ? '  ·  ' + t('series', { me: S.series.me, opp: S.series.opp, name: S.oppName || t('opponent') }) : '';
   $('result-text').textContent = title + (msg ? ` — ${msg}` : '') + series;
-  $('result-bar').classList.remove('hidden');
+  const rbar = $('result-bar');
+  rbar.classList.remove('hidden', 'pop-in'); void rbar.offsetWidth; rbar.classList.add('pop-in');
   sound(outcome === 'win' ? 'win' : outcome === 'draw' ? 'draw' : outcome === 'nocontest' ? 'toggle' : 'lose');
-  if (outcome === 'win') musicSwell();                           // warm music lift on a win
+  if (outcome === 'win') { musicSwell(); celebrate(); }          // warm music lift + confetti on a win
   haptic(outcome === 'win' ? [40, 40, 80] : 60);
   S.game && S.game.onTurn && S.game.onTurn(false, ctx);   // make board/keypad inert
 }
@@ -879,6 +918,7 @@ function recordAndSeries(outcome, opts) {
   if (res.chestFromQuests || res.chestsGranted) sound('chest');
   if (res.leveledUp) { sound('levelup'); haptic([40, 40, 80]); }
   else if (res.rpGain) sound('coin');
+  S.lastRpGain = res.rpGain || 0;
   buildResultSummary(res);
   publishScore(myProfile());
 }
@@ -987,6 +1027,7 @@ export function boot() {
     proceedAfterConfig();
   };
   $('btn-rematch').onclick = () => restartMatch(true);
+  if ($('btn-result-share')) $('btn-result-share').onclick = () => { if (S.game && shareResult(gameName(S.game), S.lastOutcome || 'draw', S.lastRpGain || 0)) toast(t('copied')); };
   const stopHelp = () => { if (S.helpDemoStop) { S.helpDemoStop(); S.helpDemoStop = null; } };
   const closeHelp = () => { stopHelp(); $('help-panel').classList.add('hidden'); };
   $('btn-help').onclick = () => {

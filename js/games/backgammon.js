@@ -1,4 +1,4 @@
-import { bgInitial, bgLegalMoves, bgApply, bgWon, bgBotMoves } from '../logic.js?v=35';
+import { bgInitial, bgLegalMoves, bgApply, bgWon, bgBotMoves } from '../logic.js?v=36';
 
 const PIPS = ['', '⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
 const M = { state: null, mine: 'w', opp: 'b', dice: [], sel: null, legalTo: [], ptEls: {}, els: {} };

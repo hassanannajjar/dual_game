@@ -1,4 +1,4 @@
-import { lineWinner } from '../logic.js?v=35';
+import { lineWinner } from '../logic.js?v=36';
 
 const N = 6;
 const M = { board: [], role: 'order', sym: 'X', cells: [], symBtns: {}, roleEl: null };

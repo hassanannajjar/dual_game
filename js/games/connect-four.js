@@ -1,7 +1,7 @@
-import { connectFourWinner } from '../logic.js?v=35';
+import { connectFourWinner } from '../logic.js?v=36';
 
 const COLS = 7, ROWS = 6;
-const M = { grid: [], mine: 'R', opp: 'Y', cellEls: [] };
+const M = { grid: [], mine: 'R', opp: 'Y', cellEls: [], lastMove: null };
 
 function render(ctx) {
   for (let c = 0; c < COLS; c++) {
@@ -12,6 +12,7 @@ function render(ctx) {
         (v === 'R' ? 'bg-rose-500 shadow-[0_0_10px] shadow-rose-500/60'
           : v === 'Y' ? 'bg-yellow-400 shadow-[0_0_10px] shadow-yellow-400/60'
           : 'bg-slate-900');
+      if (v && M.lastMove && M.lastMove[0] === c && M.lastMove[1] === r) cell.className += ' ring-2 ring-white/80';   // last-move marker
     }
   }
 }
@@ -29,7 +30,10 @@ function drop(c, color, ctx) {
   const row = M.grid[c].length;
   if (row >= ROWS) return { full: true };
   M.grid[c].push(color);
+  M.lastMove = [c, row];
   render(ctx);
+  const cell = M.cellEls[c] && M.cellEls[c][row];
+  if (cell) { cell.classList.add('disc-drop'); setTimeout(() => cell.classList.remove('disc-drop'), 420); }
   const w = connectFourWinner(M.grid, c, row);
   const boardFull = M.grid.every((col) => col.length >= ROWS);
   return { row, winner: w, boardFull };

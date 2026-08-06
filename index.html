@@ -168,6 +168,7 @@
           <button id="btn-rematch" class="py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 font-semibold transition" data-i18n="rematch">Rematch</button>
           <button id="btn-result-change" class="py-2.5 rounded-lg bg-slate-700 hover:bg-slate-600 font-semibold transition" data-i18n="change_game">Change game</button>
         </div>
+        <button id="btn-result-share" class="w-full py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-sm font-semibold transition" data-i18n="share_result">🔗 Share result</button>
         <button id="btn-result-home" class="w-full py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-sm transition" data-i18n="back_games">Back to games</button>
       </div>
 
@@ -333,10 +334,12 @@
   <!-- ONBOARDING (first run) -->
   <div id="onboarding-panel" class="hidden fixed inset-0 z-40 flex items-center justify-center bg-slate-950/85 backdrop-blur-sm p-4">
     <div class="w-full max-w-xs bg-slate-900 border border-slate-700 rounded-2xl p-6 text-center space-y-4">
-      <div class="text-5xl">🎮</div>
-      <h2 class="text-xl font-black" data-i18n="ob_title">Welcome to Arcade</h2>
-      <p class="text-sm text-slate-300 leading-relaxed" data-i18n="ob_body"></p>
-      <button id="btn-onboard-start" class="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 font-semibold" data-i18n="ob_start">Let's go</button>
+      <div id="ob-emoji" class="text-5xl">🎮</div>
+      <h2 id="ob-title" class="text-xl font-black">Welcome to Arcade</h2>
+      <p id="ob-body" class="text-sm text-slate-300 leading-relaxed"></p>
+      <div id="ob-dots" class="flex justify-center gap-1.5"></div>
+      <button id="btn-onboard-start" class="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 font-semibold">Let's go</button>
+      <button id="btn-onboard-skip" class="w-full text-xs text-slate-500 hover:text-slate-300">Skip</button>
     </div>
   </div>
 
@@ -446,6 +449,6 @@
       });
     })();
   </script>
-  <script type="module" src="js/app.js?v=35"></script>
+  <script type="module" src="js/app.js?v=36"></script>
 </body>
 </html>

@@ -1,7 +1,7 @@
 // Preferences: display name, theme/accent, haptics + the settings panel.
-import { applyLang, getLang, t, onLangChange } from './i18n.js?v=35';
-import { setSound, soundOn, setVolume, getVolume, setMusic, musicOn, setMusicMode, getMusicMode } from './sound.js?v=35';
-import { owns, buy } from './loyalty.js?v=35';
+import { applyLang, getLang, t, onLangChange } from './i18n.js?v=36';
+import { setSound, soundOn, setVolume, getVolume, setMusic, musicOn, setMusicMode, getMusicMode } from './sound.js?v=36';
+import { owns, buy } from './loyalty.js?v=36';
 
 const THEMES = ['indigo', 'emerald', 'rose', 'amber', 'sky', 'violet', 'teal'];
 const SWATCH = { indigo: '#6366f1', emerald: '#10b981', rose: '#f43f5e', amber: '#f59e0b', sky: '#0ea5e9', violet: '#8b5cf6', teal: '#14b8a6' };
@@ -107,12 +107,30 @@ export function initPrefs() {
   $('btn-haptics-toggle').onclick = () => { setHaptics(!hapticsOn()); refresh(); };
   $('pref-name').oninput = (e) => setName(e.target.value.slice(0, 16));
 
-  // First-run onboarding (once).
+  // First-run onboarding (once) — short multi-step tour.
   if (get('arcade:onboarded', '') !== '1') {
     const ob = $('onboarding-panel');
     if (ob) {
+      const steps = [
+        { emoji: '🎮', title: 'ob_title', body: 'ob_body' },
+        { emoji: '🌍', title: 'ob_t2', body: 'ob_b2' },
+        { emoji: '🏆', title: 'ob_t3', body: 'ob_b3' },
+      ];
+      let i = 0;
+      const done = () => { ob.classList.add('hidden'); set('arcade:onboarded', '1'); };
+      const paint = () => {
+        const s = steps[i];
+        $('ob-emoji').textContent = s.emoji;
+        $('ob-title').textContent = t(s.title);
+        $('ob-body').textContent = t(s.body);
+        $('btn-onboard-start').textContent = i < steps.length - 1 ? t('ob_next') : t('ob_start');
+        const dots = $('ob-dots');
+        if (dots) dots.innerHTML = steps.map((_, k) => `<span class="w-2 h-2 rounded-full ${k === i ? 'bg-indigo-400' : 'bg-slate-600'}"></span>`).join('');
+      };
+      $('btn-onboard-start').onclick = () => { if (i < steps.length - 1) { i++; paint(); } else done(); };
+      if ($('btn-onboard-skip')) { $('btn-onboard-skip').textContent = t('ob_skip'); $('btn-onboard-skip').onclick = done; }
+      paint();
       ob.classList.remove('hidden');
-      $('btn-onboard-start').onclick = () => { ob.classList.add('hidden'); set('arcade:onboarded', '1'); };
     }
   }
 

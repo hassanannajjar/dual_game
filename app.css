@@ -38,6 +38,30 @@ button:focus-visible, a:focus-visible, select:focus-visible, [tabindex]:focus-vi
 .screen-enter { animation: screenEnter 0.22s ease-out; }
 @media (prefers-reduced-motion: reduce) { .screen-enter { animation: none; } }
 
+/* Staggered card entrance on the home grid (delay set inline per index). */
+@keyframes cardIn { from { opacity: 0; transform: translateY(10px) scale(0.98); } to { opacity: 1; transform: none; } }
+.card-in { animation: cardIn 0.32s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+/* Result bar / summary pop-in. */
+@keyframes popIn { from { opacity: 0; transform: translateY(8px) scale(0.97); } to { opacity: 1; transform: none; } }
+.pop-in { animation: popIn 0.3s cubic-bezier(0.22, 1, 0.36, 1); }
+
+/* Win celebration — confetti fall (spawned by the engine on a win, then auto-removed). */
+@keyframes confettiFall {
+  0% { transform: translateY(-10vh) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(110vh) rotate(720deg); opacity: 0; }
+}
+.confetti-piece { position: fixed; top: 0; z-index: 60; pointer-events: none; font-size: 1.4rem; animation: confettiFall linear forwards; }
+
+/* Connect Four disc drop (applied to the just-placed cell). */
+@keyframes discDrop { 0% { transform: translateY(-450%); } 70% { transform: translateY(0); } 84% { transform: translateY(-11%); } 100% { transform: translateY(0); } }
+.disc-drop { animation: discDrop 0.4s cubic-bezier(0.3, 0.7, 0.4, 1); }
+
+@media (prefers-reduced-motion: reduce) {
+  .card-in, .pop-in, .disc-drop { animation: none; }
+  .confetti-piece { display: none; }
+}
+
 /* ---------- Theme accent ---------- recolor the indigo accent per data-theme.
    Attribute-scoped selectors outrank Tailwind's plain utilities, so no markup changes. */
 html[data-theme="indigo"]  { --acc:#4f46e5; --acc2:#6366f1; --acc-t:#818cf8; }
