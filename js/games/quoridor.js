@@ -1,4 +1,4 @@
-import { quoridorBlocked, quoridorPathExists } from '../logic.js?v=37';
+import { quoridorBlocked, quoridorPathExists } from '../logic.js?v=38';
 
 // 9x9. Side A (indigo) starts bottom-center, reaches row 0 to win. Side B (rose) starts top-center, reaches row 8.
 // On your turn: move your pawn one step, or place a 2-length wall to lengthen your opponent's route (walls can't fully trap either pawn).

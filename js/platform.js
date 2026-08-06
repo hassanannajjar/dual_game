@@ -2,18 +2,18 @@
 // drives phases: home -> connect -> lobby -> [setup] -> [toss] -> play -> over,
 // and handles pause / disconnect-reconnect / refresh-resume.
 // Depends on the global `Peer` (PeerJS, loaded via CDN).
-import { t, initLang, onLangChange, getLang } from './i18n.js?v=37';
-import { rpRank, romanDiv } from './logic.js?v=37';
-import { sound, setMusicScene, musicSwell, setMusicNotify } from './sound.js?v=37';
-import { initPrefs, getName, setName, haptic } from './prefs.js?v=37';
-import { demo } from './demos.js?v=37';
-import { goOnline as presenceOnline, onBoard as onPresenceBoard, publishScore, setPresence, isOnline } from './presence.js?v=37';
-import { recordResult, getRating, overallRating, openProfile, closeProfile, initProfile, getAvatar, shareStats, shareResult, currentSeason, myProfileSummary, openPeerProfile } from './profile.js?v=37';
-import { claimDaily, getLevel, getCoins, setNotify } from './loyalty.js?v=37';
-import { getUid, getGuestName } from './identity.js?v=37';
-import { isFav, toggleFav, getFavs } from './favorites.js?v=37';
-import { getFriends, addFriend } from './friends.js?v=37';
-import { hasTutorial, getTutorial } from './tutorials.js?v=37';
+import { t, initLang, onLangChange, getLang } from './i18n.js?v=38';
+import { rpRank, romanDiv } from './logic.js?v=38';
+import { sound, setMusicScene, musicSwell, setMusicNotify } from './sound.js?v=38';
+import { initPrefs, getName, setName, haptic } from './prefs.js?v=38';
+import { demo } from './demos.js?v=38';
+import { goOnline as presenceOnline, onBoard as onPresenceBoard, publishScore, setPresence, isOnline } from './presence.js?v=38';
+import { recordResult, getRating, overallRating, openProfile, closeProfile, initProfile, getAvatar, shareStats, shareResult, currentSeason, myProfileSummary, openPeerProfile } from './profile.js?v=38';
+import { claimDaily, getLevel, getCoins, setNotify } from './loyalty.js?v=38';
+import { getUid, getGuestName } from './identity.js?v=38';
+import { isFav, toggleFav, getFavs } from './favorites.js?v=38';
+import { getFriends, addFriend } from './friends.js?v=38';
+import { hasTutorial, getTutorial } from './tutorials.js?v=38';
 
 // ---------- DOM helpers ----------
 const $ = (id) => document.getElementById(id);

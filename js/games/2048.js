@@ -1,11 +1,11 @@
-import { move2048, has2048Move } from '../logic.js?v=37';
-import { getSkin } from '../loyalty.js?v=37';
+import { move2048, has2048Move } from '../logic.js?v=38';
+import { getSkin } from '../loyalty.js?v=38';
 
 const SKINS = {
-  classic: { 0: 'bg-slate-800', 2: 'bg-slate-600', 4: 'bg-slate-500', 8: 'bg-amber-600', 16: 'bg-amber-500', 32: 'bg-orange-500', 64: 'bg-orange-600', 128: 'bg-yellow-500', 256: 'bg-yellow-400 text-slate-900', 512: 'bg-lime-500 text-slate-900', 1024: 'bg-emerald-500 text-slate-900', 2048: 'bg-indigo-500' },
-  neon: { 0: 'bg-slate-800', 2: 'bg-fuchsia-700', 4: 'bg-fuchsia-600', 8: 'bg-pink-500', 16: 'bg-rose-500', 32: 'bg-purple-500', 64: 'bg-violet-500', 128: 'bg-indigo-500', 256: 'bg-cyan-400 text-slate-900', 512: 'bg-emerald-400 text-slate-900', 1024: 'bg-lime-400 text-slate-900', 2048: 'bg-yellow-300 text-slate-900' },
-  pastel: { 0: 'bg-slate-800', 2: 'bg-slate-700', 4: 'bg-teal-300 text-slate-900', 8: 'bg-emerald-300 text-slate-900', 16: 'bg-sky-300 text-slate-900', 32: 'bg-indigo-300 text-slate-900', 64: 'bg-violet-300 text-slate-900', 128: 'bg-pink-300 text-slate-900', 256: 'bg-rose-300 text-slate-900', 512: 'bg-amber-300 text-slate-900', 1024: 'bg-lime-300 text-slate-900', 2048: 'bg-fuchsia-300 text-slate-900' },
-  mono: { 0: 'bg-slate-800', 2: 'bg-slate-700', 4: 'bg-slate-600', 8: 'bg-slate-500', 16: 'bg-slate-400 text-slate-900', 32: 'bg-slate-300 text-slate-900', 64: 'bg-slate-200 text-slate-900', 128: 'bg-zinc-400 text-slate-900', 256: 'bg-zinc-300 text-slate-900', 512: 'bg-zinc-200 text-slate-900', 1024: 'bg-neutral-300 text-slate-900', 2048: 'bg-white text-slate-900' },
+  classic: { 0: 'bg-slate-800', 2: 'bg-slate-600', 4: 'bg-slate-500', 8: 'bg-amber-600', 16: 'bg-amber-500', 32: 'bg-orange-500', 64: 'bg-orange-600', 128: 'bg-yellow-500', 256: 'bg-yellow-400 text-slate-900', 512: 'bg-lime-500 text-slate-900', 1024: 'bg-emerald-500 text-slate-900', 2048: 'bg-indigo-500', 4096: 'bg-purple-600', 8192: 'bg-fuchsia-600', 16384: 'bg-rose-600', 32768: 'bg-red-600' },
+  neon: { 0: 'bg-slate-800', 2: 'bg-fuchsia-700', 4: 'bg-fuchsia-600', 8: 'bg-pink-500', 16: 'bg-rose-500', 32: 'bg-purple-500', 64: 'bg-violet-500', 128: 'bg-indigo-500', 256: 'bg-cyan-400 text-slate-900', 512: 'bg-emerald-400 text-slate-900', 1024: 'bg-lime-400 text-slate-900', 2048: 'bg-yellow-300 text-slate-900', 4096: 'bg-orange-400 text-slate-900', 8192: 'bg-red-400 text-slate-900', 16384: 'bg-pink-400 text-slate-900', 32768: 'bg-white text-slate-900' },
+  pastel: { 0: 'bg-slate-800', 2: 'bg-slate-700', 4: 'bg-teal-300 text-slate-900', 8: 'bg-emerald-300 text-slate-900', 16: 'bg-sky-300 text-slate-900', 32: 'bg-indigo-300 text-slate-900', 64: 'bg-violet-300 text-slate-900', 128: 'bg-pink-300 text-slate-900', 256: 'bg-rose-300 text-slate-900', 512: 'bg-amber-300 text-slate-900', 1024: 'bg-lime-300 text-slate-900', 2048: 'bg-fuchsia-300 text-slate-900', 4096: 'bg-purple-400 text-slate-900', 8192: 'bg-orange-300 text-slate-900', 16384: 'bg-red-300 text-slate-900', 32768: 'bg-white text-slate-900' },
+  mono: { 0: 'bg-slate-800', 2: 'bg-slate-700', 4: 'bg-slate-600', 8: 'bg-slate-500', 16: 'bg-slate-400 text-slate-900', 32: 'bg-slate-300 text-slate-900', 64: 'bg-slate-200 text-slate-900', 128: 'bg-zinc-400 text-slate-900', 256: 'bg-zinc-300 text-slate-900', 512: 'bg-zinc-200 text-slate-900', 1024: 'bg-neutral-300 text-slate-900', 2048: 'bg-white text-slate-900', 4096: 'bg-indigo-400 text-slate-900', 8192: 'bg-violet-400 text-slate-900', 16384: 'bg-fuchsia-400 text-slate-900', 32768: 'bg-rose-400 text-slate-900' },
 };
 const palette = () => SKINS[getSkin()] || SKINS.classic;
 const M = { size: 4, board: [], best: 0, points: 0, oppBest: 0, oppPoints: 0, myDone: false, oppDone: false, cells: [], statusEl: null, timerEl: null, doneBtn: null, undoBtn: null, undos: [], undoCap: 3, keyHandler: null, timer: null, timeLeft: 0 };
@@ -151,7 +151,7 @@ export default {
     { key: 'endMode', label: 'How to end', choices: [{ label: 'Manual', value: 'manual' }, { label: 'Target', value: 'target' }, { label: 'Timed', value: 'timed' }, { label: 'Endless', value: 'endless' }], default: 'manual' },
     { key: 'size', label: 'Board size', choices: [{ label: '4×4', value: 4 }, { label: '5×5', value: 5 }, { label: '6×6', value: 6 }], default: 4 },
     { key: 'undos', label: 'Undos', choices: [{ label: 'Off', value: 0 }, { label: '3', value: 3 }, { label: '∞', value: 99 }], default: 3 },
-    { key: 'target', label: 'Target tile', choices: [{ label: '512', value: 512 }, { label: '1024', value: 1024 }, { label: '2048', value: 2048 }], default: 1024, when: (c) => c.endMode === 'target' },
+    { key: 'target', label: 'Target tile', choices: [{ label: '512', value: 512 }, { label: '1024', value: 1024 }, { label: '2048', value: 2048 }, { label: '4096', value: 4096 }, { label: '8192', value: 8192 }, { label: '16384', value: 16384 }], default: 1024, when: (c) => c.endMode === 'target' },
     { key: 'time', label: 'Time limit', choices: [{ label: '1m', value: 60 }, { label: '2m', value: 120 }, { label: '3m', value: 180 }], default: 120, when: (c) => c.endMode === 'timed' },
   ],
   start(ctx) {
