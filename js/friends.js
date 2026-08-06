@@ -1,5 +1,5 @@
 // Recent players ("friends") — remembered by stable uid so you can rematch them. No backend.
-import { upsertFriend } from './logic.js?v=34';
+import { upsertFriend } from './logic.js?v=35';
 
 const KEY = 'arcade:friends';
 const read = () => { try { const s = localStorage.getItem(KEY); return s ? JSON.parse(s) : []; } catch (e) { return []; } };
