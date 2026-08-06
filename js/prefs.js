@@ -54,20 +54,31 @@ function refresh() {
   buildSwatches();
 }
 // Theme swatches, gated by ownership: locked themes show 🔒 and route to a coin purchase.
+// The first chip resets to the built-in default accent; clicking the active colour toggles back to it.
 function buildSwatches() {
   const box = $('theme-swatches'); if (!box) return;
   box.innerHTML = '';
+  const cur = getTheme();
+  const def = document.createElement('button');
+  def.dataset.themeSwatch = 'default';
+  def.title = t('theme_default');
+  def.className = 'relative w-9 h-9 rounded-full grid place-items-center text-sm font-bold bg-slate-700 text-slate-200 ring-offset-2 ring-offset-slate-900 ' + (cur === 'indigo' ? 'ring-2 ring-white' : '');
+  def.textContent = '⌀';
+  def.onclick = () => { applyTheme('indigo'); refresh(); };
+  box.appendChild(def);
   for (const th of THEMES) {
-    const has = owns('theme:' + th), active = th === getTheme();
+    if (th === 'indigo') continue;                       // indigo is the default — represented by the ⌀ chip above
+    const has = owns('theme:' + th), active = th === cur;
     const b = document.createElement('button');
     b.dataset.themeSwatch = th;
     b.className = 'relative w-9 h-9 rounded-full ring-offset-2 ring-offset-slate-900 ' + (active ? 'ring-2 ring-white' : '');
     b.style.background = SWATCH[th];
     if (!has) b.innerHTML = '<span class="absolute inset-0 flex items-center justify-center text-xs">🔒</span>';
     b.onclick = () => {
+      if (active) { applyTheme('indigo'); refresh(); return; }   // toggle off → back to default accent
       if (has) { applyTheme(th); refresh(); return; }
       const res = buy('theme:' + th);
-      if (res.ok) { applyTheme(th); }
+      if (res.ok) applyTheme(th);
       refresh();
     };
     box.appendChild(b);

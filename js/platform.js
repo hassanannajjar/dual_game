@@ -8,7 +8,7 @@ import { sound, setMusicScene, musicSwell, setMusicNotify } from './sound.js?v=3
 import { initPrefs, getName, setName, haptic } from './prefs.js?v=34';
 import { demo } from './demos.js?v=34';
 import { goOnline as presenceOnline, onBoard as onPresenceBoard, publishScore, setPresence, isOnline } from './presence.js?v=34';
-import { recordResult, getRating, overallRating, openProfile, closeProfile, initProfile, getAvatar, shareStats, currentSeason } from './profile.js?v=34';
+import { recordResult, getRating, overallRating, openProfile, closeProfile, initProfile, getAvatar, shareStats, currentSeason, myProfileSummary, openPeerProfile } from './profile.js?v=34';
 import { claimDaily, getLevel, getCoins, setNotify } from './loyalty.js?v=34';
 import { getUid, getGuestName } from './identity.js?v=34';
 import { isFav, toggleFav, getFavs } from './favorites.js?v=34';
@@ -435,7 +435,7 @@ function scheduleBotMove() {
 // ---------- online lobby (presence over MQTT) + invites ----------
 const esc = (s) => String(s).replace(/[<>&"]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c]));
 function effectiveName() { return (getName() || getGuestName()).slice(0, 16); }
-function myProfile() { return { level: getLevel(), rating: overallRating(), coins: getCoins(), avatar: getAvatar() }; }
+function myProfile() { return { level: getLevel(), rating: overallRating(), coins: getCoins(), avatar: getAvatar(), prof: myProfileSummary() }; }
 function ensureLobbyPeer(cb) {
   if (S.lobbyPeer && S.lobbyPeer.open) { cb(S.lobbyPeer.id); return; }
   S.lobbyPeer = new Peer();
@@ -464,17 +464,19 @@ function renderBoard(list) {
   box.innerHTML = '';
   if (!list.length) { box.appendChild(el('li', 'text-center text-slate-500 text-sm py-6', t('lb_empty'))); return; }
   list.slice(0, 40).forEach((p, i) => {
-    const li = el('li', 'flex items-center justify-between gap-2 rounded-xl px-3 py-2 text-sm ' + (p.isMe ? 'bg-indigo-600/20 ring-1 ring-indigo-500/50' : 'bg-slate-800'));
+    const li = el('li', 'flex items-center justify-between gap-2 rounded-xl px-3 py-2 text-sm transition ' + (p.isMe ? 'bg-indigo-600/20 ring-1 ring-indigo-500/50' : 'bg-slate-800 hover:bg-slate-700/70'));
     const pos = i === 0
       ? '<span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-400 text-slate-900 font-black text-xs shrink-0">1</span>'
       : `<span class="inline-block w-6 text-center text-slate-500 font-semibold shrink-0">${i + 1}</span>`;
     const dot = `<span class="${p.online ? 'text-emerald-400' : 'text-slate-600'}">●</span>`;
     const rk = rpRank(p.rating);
-    const left = el('span', 'flex items-center gap-1.5 truncate');
+    const left = el('span', 'flex items-center gap-1.5 truncate cursor-pointer');
     left.innerHTML = `${pos}<span class="text-base">${p.avatar || '🎮'}</span>${dot}<span class="truncate font-semibold">${esc(p.name)}</span><span class="text-[10px] text-slate-500 shrink-0 px-1 rounded bg-slate-700/60">${t('lvl')}${p.level || 1}</span>`;
+    left.title = t('view_profile');
+    left.onclick = () => { if (p.isMe) openProfile(games); else openPeerProfile(p, games); };   // tap a player to see their profile
     li.appendChild(left);
     const right = el('span', 'flex items-center gap-2 shrink-0');
-    right.innerHTML = `<span title="${t('rank_' + rk.key)}">${rk.emoji}</span><span class="font-mono text-indigo-400" title="${t('rp_full')}">${p.rating}</span><span class="text-[9px] text-slate-500 -ms-1">${t('rp')}</span><span class="font-mono text-amber-400 text-xs">🪙${p.coins || 0}</span>`;
+    right.innerHTML = `<span title="${t('rank_' + rk.key)}">${rk.emoji}</span><span class="font-mono text-indigo-400" title="${t('rp_full')}">${p.rating}</span><span class="text-[9px] text-slate-500 -ms-1">${t('rp')}</span>`;
     if (!p.isMe && p.online && p.peerId) {
       const canInvite = !p.dnd && !p.busy && !(S.conn && S.conn.open);
       const b = el('button', 'px-3 py-1 rounded-lg text-xs font-semibold transition active:scale-95 ' + (canInvite ? 'bg-indigo-600 hover:bg-indigo-500' : 'bg-slate-700 text-slate-500'), p.busy ? t('busy') : p.dnd ? t('dnd_short') : t('invite'));
@@ -608,6 +610,7 @@ function renderOptions() {
   const box = $('lobby-options');
   box.innerHTML = '';
   for (const o of optionSchema()) {
+    if (o.when && !o.when(S.working)) continue;   // conditional option — only show when its predicate holds
     box.appendChild(el('label', 'block text-sm text-slate-400 mb-1', o.label));
     const row = el('div', 'grid grid-cols-3 gap-2 mb-4');
     for (const ch of o.choices) {
@@ -832,7 +835,7 @@ function reconnect() {
 }
 
 // ---------- game over / rematch / home ----------
-function endGame(outcome, msg) {
+function endGame(outcome, msg, opts) {
   const firstEnd = !S.over;
   clearInterval(S.timerId);
   clearInterval(S.reconnectTimer);
@@ -842,7 +845,7 @@ function endGame(outcome, msg) {
   if (record && outcome === 'win') S.lastLoserIsHost = !S.isHost;
   else if (record && outcome === 'lose') S.lastLoserIsHost = S.isHost;
   clearSession();
-  if (firstEnd && S.game && record) recordAndSeries(outcome);
+  if (firstEnd && S.game && record) recordAndSeries(outcome, opts);
   else { const rs = $('result-summary'); if (rs) rs.classList.add('hidden'); }   // no-contest: no rewards
   // Stay on the play screen so the board/history remain visible; swap the
   // turn bar for a result header carrying the actions.
@@ -858,7 +861,7 @@ function endGame(outcome, msg) {
   haptic(outcome === 'win' ? [40, 40, 80] : 60);
   S.game && S.game.onTurn && S.game.onTurn(false, ctx);   // make board/keypad inert
 }
-function recordAndSeries(outcome) {
+function recordAndSeries(outcome, opts) {
   const online = !(S.vsBot || S.solo);
   if (online) {
     const key = S.oppUid || S.oppName || '?';
@@ -870,13 +873,14 @@ function recordAndSeries(outcome) {
   const res = recordResult({
     gameId: S.game.id, outcome, category: S.game.category, oppName: S.oppName,
     vsBot: S.vsBot, solo: S.solo, botLevel: S.botLevel, oppRating: S.oppRating,
+    close: !!(opts && opts.close), perfBonus: opts && opts.perfBonus,
   });
   if ((res.questsDone || []).length) sound('quest');                    // sounds only — visuals go in the summary
   if (res.chestFromQuests || res.chestsGranted) sound('chest');
   if (res.leveledUp) { sound('levelup'); haptic([40, 40, 80]); }
   else if (res.rpGain) sound('coin');
   buildResultSummary(res);
-  publishScore({ level: getLevel(), rating: overallRating(), coins: getCoins() });
+  publishScore(myProfile());
 }
 // A single durable post-match summary (replaces the toast dump that clobbered itself).
 function buildResultSummary(res) {
@@ -911,7 +915,7 @@ function goHome() {
   if (S.inPlay && !S.over && S.game) {                     // quitting a live match counts as a loss
     if (!(S.vsBot || S.solo)) sys('forfeit');              // hand the win to a real opponent
     const res = recordResult({ gameId: S.game.id, outcome: 'lose', category: S.game.category, oppName: S.oppName, vsBot: S.vsBot, solo: S.solo, botLevel: S.botLevel, oppRating: S.oppRating });
-    publishScore({ level: getLevel(), rating: overallRating(), coins: getCoins() });
+    publishScore(myProfile());
     toast(t('forfeit_lost', { n: res.rpGain }));
   }
   if (S.game && S.game.stop) S.game.stop();

@@ -308,6 +308,28 @@
     </div>
   </div>
 
+  <!-- PEER PROFILE (read-only, opened from a leaderboard row) -->
+  <div id="peer-panel" class="hidden fixed inset-0 z-30 flex items-end sm:items-center justify-center bg-slate-950/70 backdrop-blur-sm p-4">
+    <div class="w-full max-w-sm max-h-[88vh] overflow-y-auto bg-slate-900 border border-slate-700 rounded-2xl p-5 space-y-4">
+      <div class="flex items-center justify-between">
+        <h2 class="text-lg font-bold" data-i18n="player_profile">Player</h2>
+        <button id="btn-peer-close" class="text-slate-400 hover:text-slate-200 text-xl leading-none">✕</button>
+      </div>
+      <div id="peer-header" class="rounded-xl bg-slate-800/60 border border-slate-700 p-3"></div>
+      <div id="peer-rank" class="rounded-xl bg-indigo-600/15 border border-indigo-500/40 p-3"></div>
+      <p id="peer-note" class="text-[11px] text-slate-500"></p>
+      <div>
+        <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-1" data-i18n="stats">Stats</h3>
+        <div id="peer-stats"></div>
+      </div>
+      <div>
+        <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2" data-i18n="achievements">Achievements</h3>
+        <div id="peer-ach" class="grid grid-cols-4 gap-2"></div>
+      </div>
+      <button id="btn-peer-close2" class="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 font-semibold" data-i18n="close">Close</button>
+    </div>
+  </div>
+
   <!-- ONBOARDING (first run) -->
   <div id="onboarding-panel" class="hidden fixed inset-0 z-40 flex items-center justify-center bg-slate-950/85 backdrop-blur-sm p-4">
     <div class="w-full max-w-xs bg-slate-900 border border-slate-700 rounded-2xl p-6 text-center space-y-4">

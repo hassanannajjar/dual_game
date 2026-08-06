@@ -61,12 +61,13 @@ export function getChests() { return load().chests || 0; }
 export function getBooster() { return load().boosterMatches || 0; }
 
 // Match reward: base xp/coins + 2x booster (coins only) + level-up coin gifts (chest every 5 levels).
-export function earnForResult(outcome, streak) {
+export function earnForResult(outcome, streak, bonus) {
   const s = load();
   const before = levelForXp(s.xp).level;
   const g = xpCoinsForResult(outcome, streak);
   let xp = g.xp, coins = g.coins, boosterUsed = false;
   if (s.boosterMatches > 0) { coins *= 2; s.boosterMatches--; boosterUsed = true; }
+  if (bonus) { xp += Math.max(0, bonus.xp || 0); coins += Math.max(0, bonus.coins || 0); }   // per-game performance bonus (e.g. 2048 best tile) — rewards a strong run even on a loss
   s.xp += xp;
   const after = levelForXp(s.xp).level;
   let chestsGranted = 0;

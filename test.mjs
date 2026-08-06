@@ -204,6 +204,13 @@ assert.strictEqual(r2.moved, true, '2048 moved');
 assert.strictEqual(move2048([[2, 4, 2, 4], [4, 2, 4, 2], [2, 4, 2, 4], [4, 2, 4, 2]], 'left').moved, false, '2048 no move on checker board');
 assert.strictEqual(has2048Move([[2, 4, 2, 4], [4, 2, 4, 2], [2, 4, 2, 4], [4, 2, 4, 2]]), false, '2048 board full no merges');
 assert.strictEqual(has2048Move([[2, 2, 0, 4], [4, 8, 16, 2], [2, 4, 8, 16], [4, 2, 4, 8]]), true, '2048 has a merge');
+// board-size generalization: move2048/has2048Move derive N from board.length (5x5, 6x6)
+{ const r5 = move2048([[2, 2, 0, 0, 0], [0, 0, 0, 0, 0], [0, 0, 0, 0, 0], [0, 0, 0, 0, 0], [0, 0, 0, 0, 0]], 'left');
+  assert.strictEqual(r5.board[0].length, 5, '5x5 rows stay length 5');
+  assert.strictEqual(r5.board[0][0], 4, '5x5 merges left'); assert.strictEqual(r5.moved, true, '5x5 moved'); }
+{ const full6 = Array.from({ length: 6 }, (_, y) => Array.from({ length: 6 }, (_, x) => ((x + y) % 2 ? 2 : 4)));
+  assert.strictEqual(has2048Move(full6), false, '6x6 checker board has no move');
+  assert.strictEqual(move2048(full6, 'up').moved, false, '6x6 checker board cannot move'); }
 
 // ---- Tetris ----
 const tg = Array.from({ length: 6 }, () => Array(6).fill(0));

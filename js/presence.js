@@ -9,9 +9,9 @@ const BEAT = 15000, LB_BEAT = 20000, STALE = 45000, LB_STALE = 30 * 24 * 3600 * 
 
 const P = {
   client: null, onBoard: null,
-  self: { uid: '', name: 'Player', peerId: '', dnd: false, busy: false, level: 1, rating: 1000, coins: 0, avatar: '🦊' },
+  self: { uid: '', name: 'Player', peerId: '', dnd: false, busy: false, level: 1, rating: 1000, coins: 0, avatar: '🦊', prof: null },
   online: new Map(),   // uid -> { name, peerId, dnd, busy, level, avatar, ts }
-  scores: new Map(),   // uid -> { name, level, rating, coins, ts }  (retained)
+  scores: new Map(),   // uid -> { name, level, rating, coins, avatar, prof, ts }  (retained)
   hb: null, lbHb: null, prune: null,
 };
 const topicPresence = () => `${PREFIX}/global/presence/${P.self.uid}`;
@@ -21,11 +21,11 @@ export function onBoard(cb) { P.onBoard = cb; }
 function emitBoard() {
   if (!P.onBoard) return;
   const now = Date.now(), byUid = new Map();
-  for (const [uid, v] of P.scores) { if (v.ts && now - v.ts > LB_STALE) continue; byUid.set(uid, { uid, name: v.name, level: v.level, rating: v.rating, coins: v.coins, online: false }); }
+  for (const [uid, v] of P.scores) { if (v.ts && now - v.ts > LB_STALE) continue; byUid.set(uid, { uid, name: v.name, level: v.level, rating: v.rating, coins: v.coins, avatar: v.avatar, prof: v.prof, online: false }); }
   for (const [uid, v] of P.online) {
     if (now - v.ts > STALE) continue;
     const e = byUid.get(uid) || { uid, name: v.name, level: v.level || 1, rating: 1000, coins: 0 };
-    Object.assign(e, { online: true, peerId: v.peerId, dnd: !!v.dnd, busy: !!v.busy, avatar: v.avatar, name: v.name || e.name, level: v.level || e.level });
+    Object.assign(e, { online: true, peerId: v.peerId, dnd: !!v.dnd, busy: !!v.busy, avatar: v.avatar || e.avatar, name: v.name || e.name, level: v.level || e.level });
     byUid.set(uid, e);
   }
   const list = [...byUid.values()].map((e) => Object.assign(e, { isMe: e.uid === P.self.uid }));
@@ -42,7 +42,7 @@ export function publishScore(score) {
   if (score) Object.assign(P.self, score);
   if (!P.client || !P.client.connected) return;
   const s = P.self;
-  P.client.publish(topicScore(), JSON.stringify({ name: s.name, level: s.level, rating: s.rating, coins: s.coins, ts: Date.now() }), { retain: true, qos: 0 });
+  P.client.publish(topicScore(), JSON.stringify({ name: s.name, level: s.level, rating: s.rating, coins: s.coins, avatar: s.avatar, prof: s.prof || undefined, ts: Date.now() }), { retain: true, qos: 0 });
 }
 // Merge a patch into our identity/status and re-announce immediately (dnd, busy, peerId, name, ...).
 export function setPresence(patch) {
@@ -78,7 +78,7 @@ export function goOnline(uid, name, peerId, profile, dnd) {
       try { const v = JSON.parse(s); P.online.set(id, { name: v.name || 'Player', peerId: v.peerId, dnd: !!v.dnd, busy: !!v.busy, level: v.level || 1, avatar: v.avatar || '🦊', ts: v.ts || Date.now() }); emitBoard(); } catch (e) {}
     } else if (kind === 'lb') {
       if (!s) { P.scores.delete(id); emitBoard(); return; }
-      try { const v = JSON.parse(s); P.scores.set(id, { name: v.name || 'Player', level: v.level || 1, rating: v.rating || 1000, coins: v.coins || 0, ts: v.ts || 0 }); emitBoard(); } catch (e) {}
+      try { const v = JSON.parse(s); P.scores.set(id, { name: v.name || 'Player', level: v.level || 1, rating: v.rating || 1000, coins: v.coins || 0, avatar: v.avatar || '🎮', prof: v.prof || null, ts: v.ts || 0 }); emitBoard(); } catch (e) {}
     }
   });
   P.client.on('error', () => {});

@@ -517,16 +517,16 @@ export function sudokuGen(rng, clues) {              // rng() -> [0,1); returns 
   return { puzzle, solution };
 }
 
-// ---------- 2048 ---------- board = 4x4 [y][x] of number (0 = empty). dir: 'left'|'right'|'up'|'down'.
+// ---------- 2048 ---------- board = NxN [y][x] of number (0 = empty). dir: 'left'|'right'|'up'|'down'.
 function slideRow(row) {                              // collapse one row to the left, return {row, gained}
-  const nums = row.filter((n) => n);
+  const n = row.length;
+  const nums = row.filter((v) => v);
   let gained = 0;
   for (let i = 0; i < nums.length - 1; i++) if (nums[i] === nums[i + 1]) { nums[i] *= 2; gained += nums[i]; nums.splice(i + 1, 1); }
-  while (nums.length < 4) nums.push(0);
+  while (nums.length < n) nums.push(0);
   return { row: nums, gained };
 }
 export function move2048(board, dir) {
-  const n = 4;
   let g = board.map((r) => r.slice());
   const rev = (m) => m.map((r) => r.slice().reverse());
   const transpose = (m) => m[0].map((_, x) => m.map((r) => r[x]));
@@ -543,10 +543,11 @@ export function move2048(board, dir) {
   return { board: g, moved, score, max };
 }
 export function has2048Move(board) {                  // any merge or empty cell available
-  for (let y = 0; y < 4; y++) for (let x = 0; x < 4; x++) {
+  const n = board.length;
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
     if (!board[y][x]) return true;
-    if (x < 3 && board[y][x] === board[y][x + 1]) return true;
-    if (y < 3 && board[y][x] === board[y + 1][x]) return true;
+    if (x < n - 1 && board[y][x] === board[y][x + 1]) return true;
+    if (y < n - 1 && board[y][x] === board[y + 1][x]) return true;
   }
   return false;
 }
@@ -995,13 +996,14 @@ export function rpDelta(info, curRp) {
   const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
   const rp = Math.max(RP_FLOOR, curRp || 1000);
   const diffMult = info.botLevel === 'hard' ? 1.5 : info.botLevel === 'easy' ? 0.5 : 1;
+  const outcome = (info.close && info.outcome === 'lose') ? 'draw' : info.outcome;   // a close loss is scored like a draw — no RP lost
   let d;
-  if (info.solo) d = info.outcome === 'win' ? 6 : info.outcome === 'draw' ? 2 : -2;
-  else if (info.vsBot) d = info.outcome === 'win' ? Math.round(12 * diffMult) : info.outcome === 'draw' ? 2 : -6;
-  else if (info.outcome === 'win') { d = 22; if (info.oppRating) d += clamp(Math.round((info.oppRating - rp) / 50), 0, 10); }
-  else if (info.outcome === 'draw') d = 4;
-  else { d = -14; if (info.oppRating) d += clamp(Math.round((info.oppRating - rp) / 50), 0, 8); }  // beaten by a stronger opp costs less
-  if (info.outcome === 'win' && !info.solo && info.streak) d += Math.min(info.streak, 5) * 2;
+  if (info.solo) d = outcome === 'win' ? 6 : outcome === 'draw' ? 2 : 0;             // solo/practice never costs RP
+  else if (info.vsBot) d = outcome === 'win' ? Math.round(12 * diffMult) : outcome === 'draw' ? 2 : 0;
+  else if (outcome === 'win') { d = 22; if (info.oppRating) d += clamp(Math.round((info.oppRating - rp) / 50), 0, 10); }
+  else if (outcome === 'draw') d = 4;
+  else { d = -8; if (info.oppRating) d += clamp(Math.round((info.oppRating - rp) / 50), 0, 8); }   // softer online loss (beaten by a stronger opp costs even less)
+  if (outcome === 'win' && !info.solo && info.streak) d += Math.min(info.streak, 5) * 2;
   if ((info.solo || info.vsBot) && d > 0 && rp >= 1400) d = rp >= 1500 ? 1 : Math.max(1, Math.round(d * (1500 - rp) / 100)); // PvE can't grind the top of the ranked board
   if (d < 0 && rp < 1100) d = Math.round(d * 0.5);                                                 // beginner protection
   const nrp = Math.max(RP_FLOOR, rp + d);
