@@ -8,7 +8,7 @@ const PREFIX = 'dualarcade/v1';
 const BEAT = 15000, LB_BEAT = 20000, STALE = 45000, LB_STALE = 30 * 24 * 3600 * 1000;
 
 const P = {
-  client: null, onBoard: null,
+  client: null, onBoard: null, last: [],
   self: { uid: '', name: 'Player', peerId: '', dnd: false, busy: false, level: 1, rating: 1000, coins: 0, avatar: '🦊', prof: null },
   online: new Map(),   // uid -> { name, peerId, dnd, busy, level, avatar, ts }
   scores: new Map(),   // uid -> { name, level, rating, coins, avatar, prof, ts }  (retained)
@@ -30,8 +30,10 @@ function emitBoard() {
   }
   const list = [...byUid.values()].map((e) => Object.assign(e, { isMe: e.uid === P.self.uid }));
   list.sort((a, b) => (b.rating - a.rating) || (b.level - a.level) || (b.coins - a.coins));   // rank by RP → level → coins
+  P.last = list;
   P.onBoard(list);
 }
+export function getBoard() { return P.last || []; }   // last merged board on demand (e.g. in-game leaderboards)
 
 function publishBeacon() {
   if (!P.client || !P.client.connected) return;

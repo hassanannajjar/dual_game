@@ -1,7 +1,7 @@
 // Preferences: display name, theme/accent, haptics + the settings panel.
-import { applyLang, getLang, t, onLangChange } from './i18n.js?v=45';
-import { setSound, soundOn, setVolume, getVolume, setMusic, musicOn, setMusicMode, getMusicMode } from './sound.js?v=45';
-import { owns, buy } from './loyalty.js?v=45';
+import { applyLang, getLang, t, onLangChange } from './i18n.js?v=46';
+import { setSound, soundOn, setVolume, getVolume, setMusic, musicOn, setMusicMode, getMusicMode } from './sound.js?v=46';
+import { owns, buy } from './loyalty.js?v=46';
 
 const THEMES = ['indigo', 'emerald', 'rose', 'amber', 'sky', 'violet', 'teal'];
 const SWATCH = { indigo: '#6366f1', emerald: '#10b981', rose: '#f43f5e', amber: '#f59e0b', sky: '#0ea5e9', violet: '#8b5cf6', teal: '#14b8a6' };

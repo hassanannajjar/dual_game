@@ -1,4 +1,4 @@
-import { move2048Tracked } from '../logic.js?v=45';
+import { move2048Tracked } from '../logic.js?v=46';
 
 // Shared animated 2048 tile board. The GAME stays authoritative over the value grid; this renderer is a
 // visual mirror. Layout is 100% responsive: percentage positions + aspect-ratio square + container-query

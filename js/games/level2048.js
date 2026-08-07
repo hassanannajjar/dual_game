@@ -1,6 +1,10 @@
-import { move2048Tracked, has2048MoveWalls, level2048Config, stars2048 } from '../logic.js?v=45';
-import { earnForResult, questEvent, getCoins, spendCoins } from '../loyalty.js?v=45';
-import { makeTileBoard } from './tileboard.js?v=45';
+import { move2048Tracked, has2048MoveWalls, level2048Config, stars2048 } from '../logic.js?v=46';
+import { earnForResult, questEvent, getCoins, spendCoins } from '../loyalty.js?v=46';
+import { makeTileBoard } from './tileboard.js?v=46';
+import { getBoard, publishScore, isOnline } from '../presence.js?v=46';
+import { myProfileSummary, openPeerProfile } from '../profile.js?v=46';
+
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 // 2048 Levels — campaign (1000+ generated levels) + head-to-head race. Solo owns ctx.root across views.
 const KEY = 'arcade:2048campaign';
@@ -50,7 +54,8 @@ const DEFAULT_TOOLS = { undo: 3, swap: 1, delete: 1, move: 1, add: 1, double: 1,
 
 const M = { view: 'select', n: 1, cfg: null, pal: null, board: [], wallSet: new Set(), frozenSet: new Set(), score: 0, moves: 0, best: 0,
   timeLeft: 0, timer: null, tb: null, infoEl: null, powersEl: null, chapterView: null,
-  tools: {}, milestones: new Set(), powerMode: null, selCell: null, undoSnap: null, _shop: null,
+  tools: {}, milestones: new Set(), powerMode: null, selCell: null, undoSnap: null, _shop: null, _card: null,
+  startTs: 0, toolsUsed: 0, champShowAll: false,
   failed: false, failEl: null, myDone: false, oppBest: 0, oppScore: 0, oppDone: false, ctx: null, keyHandler: null };
 
 const readProg = () => { try { const s = localStorage.getItem(KEY); return s ? JSON.parse(s) : null; } catch (e) { return null; } };
@@ -59,10 +64,21 @@ const progress = () => readProg() || { unlocked: 1, score: 0, totalStars: 0, lev
 const getTools = () => Object.assign({}, DEFAULT_TOOLS, progress().tools || {});
 function saveTools() { const p = progress(); p.tools = Object.assign({}, M.tools); writeProg(p); }
 const toolCount = (k) => M.tools[k] || 0;
-function consume(k) { M.tools[k] = Math.max(0, (M.tools[k] || 0) - 1); saveTools(); }
+function consume(k) { M.tools[k] = Math.max(0, (M.tools[k] || 0) - 1); M.toolsUsed++; saveTools(); }
 const fmt = (v) => v >= 1000 ? (v / 1000).toFixed(v >= 10000 ? 0 : 1) + 'k' : String(v);
 const starStr = (s) => '★★★'.slice(0, s) + '☆☆☆'.slice(0, 3 - s);
 function perfBonus() { if (M.best < 8) return null; const k = Math.floor(Math.log2(M.best)); return { coins: (k - 2) * 3, xp: (k - 2) * 4 }; }
+const mmss = (s) => (s == null || s >= 1e9) ? '—' : Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+// Players by 2048 campaign progress: the presence board (peers who broadcast c2048) + always-me from local progress.
+function champList() {
+  const board = (getBoard() || []).map((e) => Object.assign({}, e));
+  const mine = progress(), myC = { last: mine.unlocked || 1, stars: mine.totalStars || 0 };
+  const me = board.find((e) => e.isMe);
+  if (me) me.prof = Object.assign({}, me.prof, { c2048: myC });
+  else board.push({ isMe: true, name: M.ctx ? M.ctx.t('lvl_you') : 'You', avatar: '🎮', online: isOnline(), prof: { c2048: myC } });
+  return board.filter((e) => e.prof && e.prof.c2048)
+    .sort((a, b) => (b.prof.c2048.last - a.prof.c2048.last) || (b.prof.c2048.stars - a.prof.c2048.stars));
+}
 
 function emptySpawnCells() { const e = [], n = M.cfg.size; for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) if (!M.board[y][x] && !M.wallSet.has(x + ',' + y)) e.push([x, y]); return e; }
 function spawnCell() { const e = emptySpawnCells(); if (!e.length) return null; const [x, y] = e[Math.floor(Math.random() * e.length)]; const v = Math.random() < (M.cfg.spawnFour || 0.1) ? 4 : 2; M.board[y][x] = v; return [x, y, v]; }
@@ -76,6 +92,7 @@ function resetPlay() {
   for (const p of c.preset) if (!M.wallSet.has(p.x + ',' + p.y)) b[p.y][p.x] = p.v;
   for (const p of (c.frozen || [])) if (!M.wallSet.has(p.x + ',' + p.y)) b[p.y][p.x] = p.v;
   M.board = b; M.score = 0; M.moves = 0; M.myDone = false; M.failed = false;
+  M.startTs = Date.now(); M.toolsUsed = 0;
   M.tools = getTools(); M.milestones = new Set(); M.powerMode = null; M.selCell = null; M.undoSnap = null;
   spawnCell(); spawnCell(); M.best = maxTile();
   M.timeLeft = c.limitType === 'time' ? c.limit : 0;
@@ -124,11 +141,12 @@ function mountBoard(ctx, mount) {
 }
 
 function renderSelect(ctx) {
-  clearTimer(); destroyBoard(); closeShop();
+  clearTimer(); destroyBoard(); closeShop(); closeLevelCard();
   const p = progress(), root = ctx.root; root.innerHTML = '';
   if (M.chapterView == null) M.chapterView = Math.floor((p.unlocked - 1) / 25);
   const wrap = ctx.el('div', 'max-w-md mx-auto space-y-3');
   wrap.appendChild(ctx.el('div', 'text-center text-sm text-slate-400', ctx.t('lvl_progress', { lvl: p.unlocked, stars: p.totalStars, score: fmt(p.score || 0) })));
+  wrap.appendChild(renderChampions(ctx));
   const nav = ctx.el('div', 'flex items-center justify-between gap-2');
   const prev = ctx.el('button', 'px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-40 font-semibold', '◀');
   const next = ctx.el('button', 'px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 font-semibold', '▶');
@@ -145,7 +163,7 @@ function renderSelect(ctx) {
     const b = ctx.el('button', 'aspect-square rounded-lg flex flex-col items-center justify-center text-sm font-bold transition ' + (locked ? 'text-slate-600' : '') + (boss ? ' ring-1 ring-amber-300/70' : ''));
     if (!locked) { b.style.background = st.bg; b.style.color = st.fg; } else b.style.background = 'rgba(148,163,184,0.08)';
     b.innerHTML = locked ? '🔒' : `<span>${n}</span>${rec ? `<span class="text-[9px] leading-none opacity-80">${starStr(rec.stars)}</span>` : ''}`;
-    if (!locked) b.onclick = () => startLevel(ctx, n);
+    if (!locked) b.onclick = () => openLevelCard(ctx, n);
     grid.appendChild(b);
   }
   wrap.appendChild(grid);
@@ -240,10 +258,93 @@ function openShop() {
 }
 function closeShop() { if (M._shop) { M._shop.remove(); M._shop = null; } }
 
+// ---------- Champions board (select screen) ----------
+function champRow(ctx, e, i, small) {
+  const c = e.prof.c2048;
+  const row = ctx.el('button', 'w-full flex items-center gap-2 rounded-xl px-2.5 py-1.5 text-sm transition ' + (e.isMe ? 'bg-indigo-600/20 ring-1 ring-indigo-500/50' : 'bg-slate-800 hover:bg-slate-700'));
+  const pos = i === 0
+    ? '<span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-amber-400 text-slate-900 font-black text-[11px] shrink-0">1</span>'
+    : `<span class="inline-block w-5 text-center text-slate-500 font-semibold text-xs shrink-0">${i + 1}</span>`;
+  const dot = e.online ? '<span class="text-emerald-400 text-xs">●</span>' : '';
+  row.innerHTML = `${pos}<span class="text-base">${e.avatar || '🎮'}</span>${dot}<span class="truncate flex-1 text-left font-semibold">${esc(e.name || ctx.t('lvl_you'))}</span><span class="text-[11px] text-slate-300 shrink-0 tabular-nums">${ctx.t('lvl')}${c.last} · ⭐${c.stars}</span>`;
+  if (!e.isMe) { row.onclick = () => openPeerProfile(e, []); row.title = ctx.t('view_profile'); }
+  return row;
+}
+function renderChampions(ctx) {
+  const list = champList();
+  const card = ctx.el('div', 'rounded-2xl bg-slate-900/60 border border-slate-800 p-3 space-y-1.5');
+  card.appendChild(ctx.el('p', 'font-display font-bold text-sm', '🏆 ' + ctx.t('lvl_champions')));
+  const shown = M.champShowAll ? list : list.slice(0, 5);
+  shown.forEach((e, i) => card.appendChild(champRow(ctx, e, i, true)));
+  if (list.length > 5) {
+    const t = ctx.el('button', 'w-full text-center text-xs text-indigo-300 hover:text-indigo-200 font-semibold pt-1', M.champShowAll ? ctx.t('lvl_show_less') : ctx.t('lvl_show_all', { n: list.length }));
+    t.onclick = () => { M.champShowAll = !M.champShowAll; renderSelect(ctx); };
+    card.appendChild(t);
+  }
+  if (!isOnline()) card.appendChild(ctx.el('p', 'text-[11px] text-slate-600 text-center pt-0.5', ctx.t('lvl_go_online')));
+  return card;
+}
+
+// ---------- level detail card (tap a level) ----------
+function closeLevelCard() { if (M._card) { M._card.remove(); M._card = null; } }
+function openLevelCard(ctx, n) {
+  closeLevelCard();
+  const p = progress(), rec = p.levels[n] || {}, cfg = level2048Config(n);
+  const ov = ctx.el('div', 'fixed inset-0 z-40 flex items-end sm:items-center justify-center bg-slate-950/70 backdrop-blur-sm p-4'); M._card = ov;
+  const box = ctx.el('div', 'w-full max-w-sm bg-slate-900 border border-slate-700 rounded-2xl p-4 space-y-3 max-h-[88vh] overflow-y-auto');
+  const st = tileStyleFor(paletteFor(n))(16);
+  const obj = cfg.limitType === 'moves' ? `🎯 ${fmt(cfg.target)} · ⟳ ${cfg.limit}` : cfg.limitType === 'time' ? `🎯 ${fmt(cfg.target)} · ⏱ ${mmss(cfg.limit)}` : `🎯 ${fmt(cfg.target)}`;
+  const head = ctx.el('div', 'text-center space-y-1');
+  const badge = ctx.el('div', 'w-14 h-14 mx-auto rounded-xl flex items-center justify-center font-black text-xl'); badge.style.background = st.bg; badge.style.color = st.fg; badge.textContent = n;
+  head.append(badge, ctx.el('p', 'font-display font-bold', `${ctx.t('lvl_level')} ${n} · ${cfg.name}${cfg.boss ? ' 👑' : ''}`), ctx.el('p', 'text-xs text-slate-400', obj));
+  if (rec.cleared) head.appendChild(ctx.el('div', 'text-2xl text-amber-400', starStr(rec.stars || 0)));
+  box.appendChild(head);
+
+  box.appendChild(ctx.el('p', 'text-[11px] uppercase tracking-wide text-slate-500 font-semibold', ctx.t('lvl_card_stats')));
+  const stats = ctx.el('div', 'grid grid-cols-3 gap-2 text-center');
+  const stat = (val, label) => { const c = ctx.el('div', 'bg-slate-800/60 rounded-xl py-2'); c.append(ctx.el('div', 'text-sm font-bold tabular-nums', String(val)), ctx.el('div', 'text-[10px] text-slate-400', label)); return c; };
+  const num = (v) => (v != null && v < 1e9) ? v : '—';
+  stats.append(
+    stat(rec.tries || 0, ctx.t('lvl_attempts')),
+    stat(rec.bestScore != null ? fmt(rec.bestScore) : '—', ctx.t('lvl_best_score')),
+    stat(num(rec.bestMoves), ctx.t('lvl_best_moves')),
+    stat(mmss(rec.bestTime), ctx.t('lvl_time')),
+    stat(num(rec.bestTools), ctx.t('lvl_tools_used')),
+    stat('★ ' + (rec.stars || 0), ctx.t('lvl_stars')),
+  );
+  box.appendChild(stats);
+
+  const onLvl = champList().filter((e) => (e.prof.c2048.last || 1) >= n);
+  box.appendChild(ctx.el('p', 'text-[11px] uppercase tracking-wide text-slate-500 font-semibold pt-1', `👥 ${ctx.t('lvl_on_level')} · ${onLvl.length}`));
+  if (!onLvl.length) box.appendChild(ctx.el('p', 'text-xs text-slate-600', ctx.t('lvl_none_here')));
+  else {
+    const chips = ctx.el('div', 'flex flex-wrap gap-1.5');
+    for (const e of onLvl.slice(0, 12)) {
+      const chip = ctx.el('button', 'flex items-center gap-1 px-2 py-1 rounded-full text-xs ' + (e.isMe ? 'bg-indigo-600/30 ring-1 ring-indigo-500/50' : 'bg-slate-800 hover:bg-slate-700'));
+      chip.innerHTML = `<span>${e.avatar || '🎮'}</span><span class="truncate max-w-[6rem]">${esc(e.name || ctx.t('lvl_you'))}</span>`;
+      if (!e.isMe) chip.onclick = () => openPeerProfile(e, []);
+      chips.appendChild(chip);
+    }
+    box.appendChild(chips);
+  }
+
+  const play = ctx.el('button', 'w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 font-bold active:scale-95 transition', rec.cleared ? '↻ ' + ctx.t('lvl_retry') : '▶ ' + ctx.t('lvl_play'));
+  play.onclick = () => { closeLevelCard(); startLevel(ctx, n); };
+  box.appendChild(play);
+  const close = ctx.el('button', 'w-full py-2 rounded-xl bg-slate-800 hover:bg-slate-700 font-semibold text-sm', ctx.t('close'));
+  close.onclick = () => closeLevelCard();
+  box.appendChild(close);
+  ov.appendChild(box); ov.addEventListener('click', (e) => { if (e.target === ov) closeLevelCard(); }); document.body.appendChild(ov);
+}
+
 // ---------- flow ----------
 function clearTimer() { if (M.timer) { clearInterval(M.timer); M.timer = null; } }
 function startTimer(ctx) { clearTimer(); if (M.cfg.limitType !== 'time' || M.timeLeft <= 0) return; M.timer = setInterval(() => { M.timeLeft--; paintInfo(); if (M.timeLeft <= 0) { clearTimer(); failNow(ctx, 'time'); } }, 1000); }
-function startLevel(ctx, n) { closeShop(); M.n = Math.max(1, n); M.cfg = level2048Config(M.n); resetPlay(); renderPlay(ctx); startTimer(ctx); }
+function startLevel(ctx, n) {
+  closeShop(); closeLevelCard(); M.n = Math.max(1, n); M.cfg = level2048Config(M.n); resetPlay();
+  const p = progress(), rec = p.levels[M.n] || {}; rec.tries = (rec.tries || 0) + 1; p.levels[M.n] = rec; writeProg(p);
+  renderPlay(ctx); startTimer(ctx);
+}
 function thawAround(x, y) { for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const k = (x + dx) + ',' + (y + dy); if (M.frozenSet.has(k)) { M.frozenSet.delete(k); if (M.tb) M.tb.thaw(x + dx, y + dy); } } }
 function giftMilestones() {
   for (const t of TOOLS) if (t.milestone && !M.milestones.has(t.milestone) && M.best >= t.milestone) {
@@ -352,13 +453,22 @@ function onWin(ctx) {
   if (!ctx.solo) { ctx.send('win', { best: M.best, score: M.score }); return ctx.endGame('win', `${ctx.t('lvl_target')} ${fmt(M.cfg.target)}!`, { perfBonus: perfBonus() }); }
   ctx.sound('win');
   const stars = stars2048(M.cfg.par, M.moves);
-  const p = progress(), prev = p.levels[M.n], firstClear = !prev;
-  p.levels[M.n] = { stars: Math.max(prev ? prev.stars : 0, stars), bestScore: Math.max(prev ? prev.bestScore : 0, M.score), bestMoves: prev ? Math.min(prev.bestMoves || 1e9, M.moves) : M.moves };
+  const p = progress(), prev = p.levels[M.n] || {}, firstClear = !prev.cleared;
+  const time = Math.round((Date.now() - M.startTs) / 1000);
+  p.levels[M.n] = {
+    cleared: true, tries: prev.tries || 1,
+    stars: Math.max(prev.stars || 0, stars),
+    bestScore: Math.max(prev.bestScore || 0, M.score),
+    bestMoves: Math.min(prev.bestMoves != null ? prev.bestMoves : 1e9, M.moves),
+    bestTime: Math.min(prev.bestTime != null ? prev.bestTime : 1e9, time),
+    bestTools: Math.min(prev.bestTools != null ? prev.bestTools : 1e9, M.toolsUsed),
+  };
   p.unlocked = Math.max(p.unlocked || 1, M.n + 1);
   p.totalStars = Object.values(p.levels).reduce((a, l) => a + (l.stars || 0), 0);
   if (firstClear) { p.score = (p.score || 0) + M.score; M.tools.undo = (M.tools.undo || 0) + 1; if (stars >= 3) { const bonus = ['swap', 'move', 'double', 'bomb'][M.n % 4]; M.tools[bonus] = (M.tools[bonus] || 0) + 1; } }
   p.tools = Object.assign({}, M.tools);
   writeProg(p);
+  try { if (isOnline()) publishScore({ prof: myProfileSummary() }); } catch (e) {}   // update Champions board for peers
   let reward = null;
   if (firstClear) { const coins = 12 + M.cfg.exp * 3 + stars * 6, xp = 8 + M.cfg.exp * 2 + stars * 4; reward = earnForResult('win', 0, { coins, xp }); try { questEvent({ played: 1, win: true, gameId: 'level2048' }); } catch (e) {} }
   setTimeout(() => renderResult(ctx, true, stars, reward), 320);
@@ -390,6 +500,6 @@ export default {
     else if (msg.type === 'done') { M.oppDone = true; M.oppBest = msg.best; M.oppScore = msg.score || 0; resolveRace(ctx); }
     else if (msg.type === 'win') { M.oppBest = msg.best; M.oppScore = msg.score; ctx.endGame('lose', ctx.t('lvl_opp_won')); }
   },
-  stop() { clearTimer(); closeShop(); destroyBoard(); if (M.keyHandler) { document.removeEventListener('keydown', M.keyHandler); M.keyHandler = null; } },
+  stop() { clearTimer(); closeShop(); closeLevelCard(); destroyBoard(); if (M.keyHandler) { document.removeEventListener('keydown', M.keyHandler); M.keyHandler = null; } },
   getState() { return null; },
 };

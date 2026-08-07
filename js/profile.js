@@ -1,11 +1,11 @@
 // Player profile + progression — stats, per-game rating, achievements. All localStorage.
-import { t } from './i18n.js?v=45';
-import { sound } from './sound.js?v=45';
-import { getName, setName } from './prefs.js?v=45';
-import { evalAchievements, ACHIEVEMENTS, historyPush, seasonId, softResetRating, rpDelta, rpRank, romanDiv } from './logic.js?v=45';
-import { earnForResult, grantAchievement, questEvent, getLevel, getStreak, renderLevelHeader, renderShop, renderQuests, renderWeekly, renderStreak, renderGifts, owns, equip, REWARDS } from './loyalty.js?v=45';
-import { getToken } from './identity.js?v=45';
-import { getFavs } from './favorites.js?v=45';
+import { t } from './i18n.js?v=46';
+import { sound } from './sound.js?v=46';
+import { getName, setName } from './prefs.js?v=46';
+import { evalAchievements, ACHIEVEMENTS, historyPush, seasonId, softResetRating, rpDelta, rpRank, romanDiv } from './logic.js?v=46';
+import { earnForResult, grantAchievement, questEvent, getLevel, getStreak, renderLevelHeader, renderShop, renderQuests, renderWeekly, renderStreak, renderGifts, owns, equip, REWARDS } from './loyalty.js?v=46';
+import { getToken } from './identity.js?v=46';
+import { getFavs } from './favorites.js?v=46';
 
 const $ = (id) => document.getElementById(id);
 const AVATARS = ['🦊', '🐼', '🐸', '🦁', '🐙', '🦄', '🐧', '🐳', '🤖', '👾', '🎲', '⚡'];
@@ -122,7 +122,9 @@ export function closeProfile() { const p = $('profile-panel'); if (p) p.classLis
 export function myProfileSummary() {
   const s = loadStats(); const games = {};
   for (const id in s.games) { const g = s.games[id]; const p = (g.w || 0) + (g.l || 0) + (g.d || 0); if (p) games[id] = `${g.w || 0}-${g.l || 0}-${g.d || 0}`; }
-  return { games, ach: loadAch() };
+  const out = { games, ach: loadAch() };
+  try { const c = JSON.parse(localStorage.getItem('arcade:2048campaign') || 'null'); if (c && c.unlocked > 1) out.c2048 = { last: c.unlocked, stars: c.totalStars || 0 }; } catch (e) {}
+  return out;
 }
 
 // ---------- read-only peer profile (opened from a leaderboard row) ----------

@@ -1,4 +1,4 @@
-import { loaMoves, loaWinner } from '../logic.js?v=45';
+import { loaMoves, loaWinner } from '../logic.js?v=46';
 
 // Lines of Action. Player 1 (indigo) sits on the top & bottom edges, player 2 (amber) on the left & right edges.
 // A piece moves exactly as many squares as there are pieces on that line; connect all your pieces into one group to win.
