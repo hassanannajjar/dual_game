@@ -1,6 +1,6 @@
-import { move2048Tracked, has2048MoveWalls, level2048Config, stars2048 } from '../logic.js?v=44';
-import { earnForResult, questEvent, getCoins, spendCoins } from '../loyalty.js?v=44';
-import { makeTileBoard } from './tileboard.js?v=44';
+import { move2048Tracked, has2048MoveWalls, level2048Config, stars2048 } from '../logic.js?v=45';
+import { earnForResult, questEvent, getCoins, spendCoins } from '../loyalty.js?v=45';
+import { makeTileBoard } from './tileboard.js?v=45';
 
 // 2048 Levels — campaign (1000+ generated levels) + head-to-head race. Solo owns ctx.root across views.
 const KEY = 'arcade:2048campaign';
@@ -51,7 +51,7 @@ const DEFAULT_TOOLS = { undo: 3, swap: 1, delete: 1, move: 1, add: 1, double: 1,
 const M = { view: 'select', n: 1, cfg: null, pal: null, board: [], wallSet: new Set(), frozenSet: new Set(), score: 0, moves: 0, best: 0,
   timeLeft: 0, timer: null, tb: null, infoEl: null, powersEl: null, chapterView: null,
   tools: {}, milestones: new Set(), powerMode: null, selCell: null, undoSnap: null, _shop: null,
-  myDone: false, oppBest: 0, oppScore: 0, oppDone: false, ctx: null, keyHandler: null };
+  failed: false, failEl: null, myDone: false, oppBest: 0, oppScore: 0, oppDone: false, ctx: null, keyHandler: null };
 
 const readProg = () => { try { const s = localStorage.getItem(KEY); return s ? JSON.parse(s) : null; } catch (e) { return null; } };
 const writeProg = (v) => { try { localStorage.setItem(KEY, JSON.stringify(v)); } catch (e) {} };
@@ -75,7 +75,7 @@ function resetPlay() {
   M.frozenSet = new Set((c.frozen || []).map((p) => p.x + ',' + p.y));
   for (const p of c.preset) if (!M.wallSet.has(p.x + ',' + p.y)) b[p.y][p.x] = p.v;
   for (const p of (c.frozen || [])) if (!M.wallSet.has(p.x + ',' + p.y)) b[p.y][p.x] = p.v;
-  M.board = b; M.score = 0; M.moves = 0; M.myDone = false;
+  M.board = b; M.score = 0; M.moves = 0; M.myDone = false; M.failed = false;
   M.tools = getTools(); M.milestones = new Set(); M.powerMode = null; M.selCell = null; M.undoSnap = null;
   spawnCell(); spawnCell(); M.best = maxTile();
   M.timeLeft = c.limitType === 'time' ? c.limit : 0;
@@ -166,6 +166,7 @@ function renderPlay(ctx) {
   const obj = M.cfg.limitType === 'moves' ? `🎯 ${fmt(M.cfg.target)} · ⟳ ${M.cfg.limit}` : M.cfg.limitType === 'time' ? `🎯 ${fmt(M.cfg.target)} · ⏱ ${mmss(M.cfg.limit)}` : `🎯 ${fmt(M.cfg.target)}`;
   wrap.appendChild(ctx.el('p', 'text-center text-slate-400 text-xs', obj));
   M.infoEl = ctx.el('p', 'text-xs text-slate-400 px-1'); wrap.appendChild(M.infoEl);
+  M.failEl = ctx.el('div', 'hidden rounded-xl bg-rose-900/40 border border-rose-500/40 p-2 text-center'); wrap.appendChild(M.failEl);
   const mount = ctx.el('div', ''); wrap.appendChild(mount);
   const pwWrap = ctx.el('div', 'max-w-sm mx-auto');
   M.powersEl = ctx.el('div', 'flex gap-2 overflow-x-auto pb-1'); pwWrap.appendChild(M.powersEl);
@@ -241,7 +242,7 @@ function closeShop() { if (M._shop) { M._shop.remove(); M._shop = null; } }
 
 // ---------- flow ----------
 function clearTimer() { if (M.timer) { clearInterval(M.timer); M.timer = null; } }
-function startTimer(ctx) { clearTimer(); if (M.cfg.limitType !== 'time') return; M.timer = setInterval(() => { M.timeLeft--; paintInfo(); if (M.timeLeft <= 0) { clearTimer(); onFail(ctx); } }, 1000); }
+function startTimer(ctx) { clearTimer(); if (M.cfg.limitType !== 'time' || M.timeLeft <= 0) return; M.timer = setInterval(() => { M.timeLeft--; paintInfo(); if (M.timeLeft <= 0) { clearTimer(); failNow(ctx, 'time'); } }, 1000); }
 function startLevel(ctx, n) { closeShop(); M.n = Math.max(1, n); M.cfg = level2048Config(M.n); resetPlay(); renderPlay(ctx); startTimer(ctx); }
 function thawAround(x, y) { for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const k = (x + dx) + ',' + (y + dy); if (M.frozenSet.has(k)) { M.frozenSet.delete(k); if (M.tb) M.tb.thaw(x + dx, y + dy); } } }
 function giftMilestones() {
@@ -250,11 +251,26 @@ function giftMilestones() {
     M.ctx.toast('+' + M.ctx.t('lvl_pw_' + t.key)); M.ctx.sound('badge'); renderTray();
   }
 }
+function playable() { return has2048MoveWalls(M.board, M.cfg.walls, M.frozenSet) && !(M.cfg.limitType === 'moves' && M.moves >= M.cfg.limit); }
 function afterToolChecks() {
   if (M.myDone) return;
   if (M.best >= M.cfg.target) return onWin(M.ctx);
-  if (!has2048MoveWalls(M.board, M.cfg.walls, M.frozenSet)) return onFail(M.ctx);
+  if (M.failed && playable()) { clearFail(); return; }
+  if (!M.failed && !playable()) softFail(M.cfg.limitType === 'moves' && M.moves >= M.cfg.limit ? 'moves' : 'stuck');
 }
+// Soft fail (solo): keep the board + tools so the player can rescue; only ends via Retry/Levels or a win.
+function failNow(ctx, reason) { if (ctx.solo) softFail(reason); else onFail(ctx); }
+function softFail(reason) {
+  if (M.failed || M.myDone) return;
+  M.failed = true; clearTimer(); M.ctx.sound('lose');
+  if (M.failEl) {
+    const t = M.ctx.t, msg = reason === 'moves' ? t('lvl_out_moves') : reason === 'time' ? t('lvl_out_time') : t('lvl_stuck');
+    M.failEl.innerHTML = `<p class="text-sm font-semibold text-rose-200">💥 ${msg}</p><p class="text-[11px] text-slate-300">${t('lvl_use_tool')}</p>`;
+    M.failEl.classList.remove('hidden');
+  }
+  renderTray();
+}
+function clearFail() { M.failed = false; if (M.failEl) M.failEl.classList.add('hidden'); if (M.cfg.limitType === 'time' && M.timeLeft > 0) startTimer(M.ctx); renderTray(); }
 function endMode() { M.powerMode = null; M.selCell = null; if (M.tb) M.tb.clearHighlights(); renderTray(); }
 
 // ---------- tools ----------
@@ -268,7 +284,7 @@ function toggleTool(key) {
 function useUndo() {
   if (toolCount('undo') <= 0 || !M.undoSnap) return;
   const s = M.undoSnap; M.board = s.board.map((r) => r.slice()); M.score = s.score; M.moves = s.moves; M.best = s.best; M.frozenSet = new Set(s.frozen);
-  M.undoSnap = null; consume('undo'); syncBoard(); M.ctx.sound('toggle'); paintInfo(); renderTray();
+  M.undoSnap = null; consume('undo'); syncBoard(); M.ctx.sound('toggle'); paintInfo(); renderTray(); afterToolChecks();
 }
 function useShuffle() {
   if (toolCount('shuffle') <= 0) return;
@@ -315,7 +331,7 @@ function targetTap(x, y) {
 }
 function move(dir) {
   const ctx = M.ctx;
-  if (M.view !== 'play' || M.myDone || M.powerMode) return;
+  if (M.view !== 'play' || M.myDone || M.powerMode || M.failed) return;
   const res = move2048Tracked(M.board, dir, M.cfg.walls, M.frozenSet);
   if (!res.moved) return;
   M.undoSnap = { board: M.board.map((r) => r.slice()), score: M.score, moves: M.moves, best: M.best, frozen: [...M.frozenSet] };
@@ -328,8 +344,8 @@ function move(dir) {
   giftMilestones(); paintInfo(); renderTray();
   if (!ctx.solo) ctx.send('stat', { best: M.best, score: M.score });
   if (M.best >= M.cfg.target) return onWin(ctx);
-  if (M.cfg.limitType === 'moves' && M.moves >= M.cfg.limit) return onFail(ctx);
-  if (!has2048MoveWalls(M.board, M.cfg.walls, M.frozenSet)) return onFail(ctx);
+  if (M.cfg.limitType === 'moves' && M.moves >= M.cfg.limit) return failNow(ctx, 'moves');
+  if (!has2048MoveWalls(M.board, M.cfg.walls, M.frozenSet)) return failNow(ctx, 'stuck');
 }
 function onWin(ctx) {
   M.myDone = true; clearTimer();
@@ -347,10 +363,9 @@ function onWin(ctx) {
   if (firstClear) { const coins = 12 + M.cfg.exp * 3 + stars * 6, xp = 8 + M.cfg.exp * 2 + stars * 4; reward = earnForResult('win', 0, { coins, xp }); try { questEvent({ played: 1, win: true, gameId: 'level2048' }); } catch (e) {} }
   setTimeout(() => renderResult(ctx, true, stars, reward), 320);
 }
-function onFail(ctx) {
+function onFail(ctx) {   // online race only — a race must resolve
   M.myDone = true; clearTimer();
-  if (!ctx.solo) { ctx.send('done', { best: M.best, score: M.score }); return resolveRace(ctx); }
-  ctx.sound('lose'); setTimeout(() => renderResult(ctx, false, 0, null), 220);
+  ctx.send('done', { best: M.best, score: M.score }); resolveRace(ctx);
 }
 function resolveRace(ctx) {
   if (!(M.myDone && M.oppDone)) return;
