@@ -1,7 +1,7 @@
 // Loyalty economy — XP/levels, spendable coins, a cosmetics shop, daily bonus. All localStorage.
-import { levelForXp, tierForLevel, xpCoinsForResult, levelRewardCoins, dailyReward, pickDailyQuests, chestRoll, isoWeekKey, pickWeekly } from './logic.js?v=42';
-import { t } from './i18n.js?v=42';
-import { sound } from './sound.js?v=42';
+import { levelForXp, tierForLevel, xpCoinsForResult, levelRewardCoins, dailyReward, pickDailyQuests, chestRoll, isoWeekKey, pickWeekly } from './logic.js?v=43';
+import { t } from './i18n.js?v=43';
+import { sound } from './sound.js?v=43';
 
 const read = (k, d) => { try { const s = localStorage.getItem(k); return s ? JSON.parse(s) : d; } catch (e) { return d; } };
 const write = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
@@ -44,6 +44,8 @@ const byId = (id) => REWARDS.find((r) => r.id === id);
 // ---------- queries ----------
 export function getXp() { return load().xp; }
 export function getCoins() { return load().coins; }
+// Spend coins (e.g. the 2048 Levels tool shop). Returns true if affordable + deducted.
+export function spendCoins(n) { const s = load(); if ((s.coins || 0) < n) return false; s.coins -= n; save(s); return true; }
 export function getLevel() { return levelForXp(load().xp).level; }
 export function getLevelInfo() { const s = load(); const li = levelForXp(s.xp); return Object.assign(li, { tier: tierForLevel(li.level), coins: s.coins }); }
 export function owns(id) { return FREE.has(id) || load().owned.includes(id); }

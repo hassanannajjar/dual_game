@@ -1,4 +1,4 @@
-import { move2048Tracked } from '../logic.js?v=42';
+import { move2048Tracked } from '../logic.js?v=43';
 
 // Shared animated 2048 tile board. The GAME stays authoritative over the value grid; this renderer is a
 // visual mirror. Layout is 100% responsive: percentage positions + aspect-ratio square + container-query
@@ -79,12 +79,27 @@ export function makeTileBoard(ctx, opts) {
   function spawnAt(x, y, value) { setTimeout(() => addTile(x, y, value, false, true), SLIDE + 10); }
   function thaw(x, y) { const t = grid[y] && grid[y][x]; if (t && t.frozen) { t.frozen = false; frozen.delete(x + ',' + y); paintTile(t); pop(t); } }
 
+  // ---------- tool effects ----------
+  const centerPct = (x, y) => [pos(x) + cellPct / 2, pos(y) + cellPct / 2];
+  function ringAt(x, y, color) { const [cx, cy] = centerPct(x, y); const e = ctx.el('div', 'fx-ring'); e.style.left = cx + '%'; e.style.top = cy + '%'; e.style.width = cellPct + '%'; e.style.height = cellPct + '%'; e.style.borderColor = color || '#fff'; layer.appendChild(e); setTimeout(() => e.remove(), 540); }
+  function starsAt(x, y) { const [cx, cy] = centerPct(x, y); for (let i = 0; i < 6; i++) { const a = (i / 6) * 6.28, r = cellPct * 0.5, e = ctx.el('div', 'fx-star', '✦'); e.style.left = (cx + Math.cos(a) * r) + '%'; e.style.top = (cy + Math.sin(a) * r) + '%'; e.style.color = ['#ffd54a', '#fff', '#ffb84a'][i % 3]; layer.appendChild(e); setTimeout(() => e.remove(), 660); } }
+  function fragAt(x, y, color) { const [cx, cy] = centerPct(x, y); for (let i = 0; i < 8; i++) { const e = ctx.el('div', 'fx-frag'); e.style.left = cx + '%'; e.style.top = cy + '%'; e.style.width = '6cqw'; e.style.height = '6cqw'; e.style.background = color || '#f87171'; layer.appendChild(e); requestAnimationFrame(() => { const a = Math.random() * 6.28, d = cellPct * (0.6 + Math.random()); e.style.transition = 'left .5s ease-out, top .5s ease-out, opacity .5s ease-out'; e.style.left = (cx + Math.cos(a) * d) + '%'; e.style.top = (cy + Math.sin(a) * d) + '%'; e.style.opacity = '0'; }); setTimeout(() => e.remove(), 560); } }
+  function glide(fx, fy, tx, ty, cb) { const t = grid[fy] && grid[fy][fx]; if (!t) { cb && cb(); return; } t.el.style.zIndex = '5'; t.in.classList.add('fx-glow'); place(t.el, tx, ty); setTimeout(() => { t.in.classList.remove('fx-glow'); t.el.style.zIndex = ''; ringAt(tx, ty, '#a5f3fc'); cb && cb(); }, SLIDE + 40); }
+  function addFx(x, y) { const t = grid[y] && grid[y][x]; if (t) { t.in.classList.add('fx-aura'); setTimeout(() => t.in.classList.remove('fx-aura'), 520); } ringAt(x, y, '#ffffff'); }
+  function doubleFx(x, y) { const t = grid[y] && grid[y][x]; if (t) { t.in.classList.add('fx-flip'); setTimeout(() => t.in.classList.remove('fx-flip'), 320); } ringAt(x, y, '#ffd54a'); starsAt(x, y); }
+  function bombFx(cells) { if (cells[0]) ringAt(cells[0][0], cells[0][1], '#f87171'); for (const [x, y] of cells) fragAt(x, y, '#f87171'); }
+  function vortex(cb) {
+    for (const t of tiles.values()) { t.el.style.transition = 'left .28s ease-in, top .28s ease-in, transform .28s ease-in'; t.el.style.left = (50 - cellPct / 2) + '%'; t.el.style.top = (50 - cellPct / 2) + '%'; t.el.style.transform = 'scale(0.3) rotate(200deg)'; }
+    setTimeout(() => { cb && cb(); }, 300);
+  }
+
   buildBg();
 
   return {
     el: board,
     move(dir, gameBoard) { const res = move2048Tracked(gameBoard, dir, walls, frozen); if (res.moved) animate(res.moves); return res; },
     animate, sync, spawnAt, thaw,
+    glide, addFx, doubleFx, bombFx, vortex,
     setFrozen(cells) { frozen = cells instanceof Set ? new Set(cells) : new Set((cells || []).map(([x, y]) => x + ',' + y)); },
     isFrozen: (x, y) => frozen.has(x + ',' + y),
     cellAt(clientX, clientY) {

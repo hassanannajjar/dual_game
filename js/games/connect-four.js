@@ -1,4 +1,4 @@
-import { connectFourWinner } from '../logic.js?v=42';
+import { connectFourWinner } from '../logic.js?v=43';
 
 let COLS = 7, ROWS = 6;
 const M = { grid: [], mine: 'R', opp: 'Y', cellEls: [], lastMove: null };
