@@ -1128,6 +1128,21 @@ export function quoridorPathExists(walls, n, start, goalY) {   // BFS: can (star
 function lvlHash(x) { x = x | 0; x = Math.imul(x ^ (x >>> 15), 0x2c1b3c6d); x ^= x >>> 12; x = Math.imul(x ^ (x >>> 7), 0x297a2d39); x ^= x >>> 15; return x >>> 0; }
 function lvlRng(seed) { let s = (lvlHash(seed) || 1) >>> 0; return () => { s = (Math.imul(s, 1664525) + 1013904223) >>> 0; return s / 4294967296; }; }
 const LVL_CHAPTERS = ['Sprout', 'Foothills', 'Rapids', 'Foundry', 'Aurora', 'Tempest', 'Clockwork', 'Obsidian', 'Nebula', 'Mirage'];
+// Deterministic wall patterns — deliberate shapes instead of random scatter, so each level's board reads distinctly.
+function shapeWalls(shape, n) {
+  const mid = Math.floor(n / 2), out = [], add = (x, y) => { if (x >= 0 && x < n && y >= 0 && y < n) out.push([x, y]); };
+  switch (shape) {
+    case 'corners': add(0, 0); add(n - 1, 0); add(0, n - 1); add(n - 1, n - 1); break;
+    case 'innerCorners': add(1, 1); add(n - 2, 1); add(1, n - 2); add(n - 2, n - 2); break;
+    case 'center': if (n % 2) add(mid, mid); else { add(mid - 1, mid - 1); add(mid, mid - 1); add(mid - 1, mid); add(mid, mid); } break;
+    case 'diagonal': for (let i = 1; i < n - 1; i++) add(i, i); break;
+    case 'antidiagonal': for (let i = 1; i < n - 1; i++) add(i, n - 1 - i); break;
+    case 'pillars': for (let y = 1; y < n - 1; y += 2) add(mid, y); break;
+    case 'edges': add(mid, 0); add(mid, n - 1); add(0, mid); add(n - 1, mid); break;
+  }
+  return out;
+}
+export const LVL_SHAPES = ['none', 'corners', 'innerCorners', 'center', 'diagonal', 'antidiagonal', 'pillars', 'edges'];
 
 // Deterministic level generator: same n → same config on every device (needed for the head-to-head race).
 export function level2048Config(n) {
@@ -1147,16 +1162,25 @@ export function level2048Config(n) {
   const par = Math.max(20, Math.round(exp * 14 * (size / 4)));
   const limit = limitType === 'moves' ? Math.round(par * 1.7) : limitType === 'time' ? Math.round(par * 3) : 0;
   const spawnFour = boss ? 0.05 : [0.0, 0.1, 0.15, 0.2][Math.floor(rnd() * 4)];
-  const wallCount = (size >= 5 && n > 30) ? Math.min(size >= 6 ? 6 : 4, 1 + Math.floor((n - 30) / 50) + (boss ? 1 : 0)) : 0;
-  let presetCount = n > 15 ? Math.floor(rnd() * 3) : 0;
-  const cells = []; for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) cells.push([x, y]);
-  for (let i = cells.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); const t = cells[i]; cells[i] = cells[j]; cells[j] = t; }
-  const walls = [], preset = [], used = new Set();
-  for (const [x, y] of cells) { if (walls.length >= wallCount) break; walls.push([x, y]); used.add(x + ',' + y); }
-  for (const [x, y] of cells) { if (preset.length >= presetCount) break; const k = x + ',' + y; if (used.has(k)) continue; preset.push({ x, y, v: rnd() < 0.7 ? 2 : 4 }); used.add(k); }
-  while (preset.length && size * size - walls.length - preset.length < 3) preset.pop();
-  while (walls.length && size * size - walls.length - preset.length < 3) walls.pop();
-  return { n, chapter, name, boss, size, target, exp, limitType, limit, par, spawnFour, walls, preset };
+  // Patterned walls (deterministic shape), capped so at least ~half the board stays free.
+  let shape = 'none';
+  if (n > 12) { shape = LVL_SHAPES[1 + Math.floor(rnd() * (LVL_SHAPES.length - 1))]; if (boss && rnd() < 0.5) shape = 'center'; }
+  let walls = shapeWalls(shape, size);
+  const maxWalls = Math.max(0, size * size - Math.max(6, Math.ceil(size * size * 0.55)));
+  if (walls.length > maxWalls) { shape = 'none'; walls = []; }
+  const used = new Set(walls.map(([x, y]) => x + ',' + y));
+  const free = [];
+  for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) if (!used.has(x + ',' + y)) free.push([x, y]);
+  for (let i = free.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); const t = free[i]; free[i] = free[j]; free[j] = t; }
+  // Frozen tiles (special mechanic) from chapter 4+: immovable until an adjacent merge thaws them.
+  const frozen = [], frozenCount = chapter >= 4 ? (boss ? 2 : 1) : 0;
+  for (const [x, y] of free) { if (frozen.length >= frozenCount) break; frozen.push({ x, y, v: rnd() < 0.7 ? 2 : 4 }); used.add(x + ',' + y); }
+  const preset = [], presetCount = n > 15 ? Math.floor(rnd() * 3) : 0;
+  for (const [x, y] of free) { const k = x + ',' + y; if (used.has(k)) continue; if (preset.length >= presetCount) break; preset.push({ x, y, v: rnd() < 0.7 ? 2 : 4 }); used.add(k); }
+  while (size * size - walls.length - frozen.length - preset.length < 3 && preset.length) preset.pop();
+  while (size * size - walls.length - frozen.length - preset.length < 3 && frozen.length) frozen.pop();
+  const theme = chapter % LVL_CHAPTERS.length;
+  return { n, chapter, name, boss, size, target, exp, limitType, limit, par, spawnFour, shape, theme, walls, preset, frozen };
 }
 
 // Wall-aware 2048 slide: walls (array of [x,y] or a Set of 'x,y') act as immovable barriers that split each line.
@@ -1196,15 +1220,63 @@ export function move2048Walls(board, dir, walls) {
   let max = 0; for (const row of g) for (const v of row) if (v > max) max = v;
   return { board: g, moved, score, max };
 }
-export function has2048MoveWalls(board, walls) {
+export function has2048MoveWalls(board, walls, frozen) {
   const n = board.length;
   const wset = walls instanceof Set ? walls : new Set((walls || []).map(([x, y]) => x + ',' + y));
+  const fset = frozen instanceof Set ? frozen : new Set((frozen || []).map(([x, y]) => x + ',' + y));
+  const bar = (x, y) => wset.has(x + ',' + y) || fset.has(x + ',' + y);
   for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
-    if (wset.has(x + ',' + y)) continue;
+    if (bar(x, y)) continue;
     if (!board[y][x]) return true;
-    if (x < n - 1 && !wset.has((x + 1) + ',' + y) && board[y][x] === board[y][x + 1]) return true;
-    if (y < n - 1 && !wset.has(x + ',' + (y + 1)) && board[y][x] === board[y + 1][x]) return true;
+    if (x < n - 1 && !bar(x + 1, y) && board[y][x] === board[y][x + 1]) return true;
+    if (y < n - 1 && !bar(x, y + 1) && board[y][x] === board[y + 1][x]) return true;
   }
   return false;
+}
+// Tracked slide: like move2048Walls but records each tile's from→to + merges (for animation).
+// walls = empty barriers; frozen = occupied immovable barriers (a tile that can't move/merge until thawed).
+export function move2048Tracked(board, dir, walls, frozen) {
+  const n = board.length;
+  const wset = walls instanceof Set ? walls : new Set((walls || []).map(([x, y]) => x + ',' + y));
+  const fset = frozen instanceof Set ? frozen : new Set((frozen || []).map(([x, y]) => x + ',' + y));
+  const g = board.map((r) => r.slice()); let score = 0; const moves = [];
+  for (let l = 0; l < n; l++) {
+    const cells = [];
+    for (let k = 0; k < n; k++) {
+      let x, y;
+      if (dir === 'left') { x = k; y = l; } else if (dir === 'right') { x = n - 1 - k; y = l; }
+      else if (dir === 'up') { x = l; y = k; } else { x = l; y = n - 1 - k; }
+      cells.push([x, y]);
+    }
+    const isBar = cells.map(([x, y]) => wset.has(x + ',' + y) || fset.has(x + ',' + y));
+    const vals = cells.map(([x, y]) => g[y][x]);
+    const out = new Array(n).fill(0);
+    let i = 0;
+    while (i < n) {
+      if (isBar[i]) { out[i] = vals[i]; i++; continue; }   // wall (0) or frozen (keeps value) — no motion
+      let j = i; const seg = [];
+      while (j < n && !isBar[j]) { if (vals[j]) seg.push({ v: vals[j], idx: j }); j++; }
+      let write = i, s = 0;
+      while (s < seg.length) {
+        const src = cells[seg[s].idx];
+        if (s + 1 < seg.length && seg[s].v === seg[s + 1].v) {
+          const nv = seg[s].v * 2; out[write] = nv; score += nv;
+          const dst = cells[write], src2 = cells[seg[s + 1].idx];
+          moves.push({ fromX: src[0], fromY: src[1], toX: dst[0], toY: dst[1], value: seg[s].v, merged: true });
+          moves.push({ fromX: src2[0], fromY: src2[1], toX: dst[0], toY: dst[1], value: seg[s + 1].v, merged: true });
+          write++; s += 2;
+        } else {
+          out[write] = seg[s].v; const dst = cells[write];
+          if (src[0] !== dst[0] || src[1] !== dst[1]) moves.push({ fromX: src[0], fromY: src[1], toX: dst[0], toY: dst[1], value: seg[s].v, merged: false });
+          write++; s++;
+        }
+      }
+      i = j;
+    }
+    for (let k = 0; k < n; k++) { const [x, y] = cells[k]; g[y][x] = out[k]; }
+  }
+  const moved = JSON.stringify(g) !== JSON.stringify(board);
+  let max = 0; for (const row of g) for (const v of row) if (v > max) max = v;
+  return { board: g, moved, score, max, moves };
 }
 export function stars2048(par, used) { if (used <= Math.ceil(par * 0.6)) return 3; if (used <= Math.ceil(par * 0.85)) return 2; return 1; }

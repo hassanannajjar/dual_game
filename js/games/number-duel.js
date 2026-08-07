@@ -1,4 +1,4 @@
-import { evaluate } from '../logic.js?v=39';
+import { evaluate } from '../logic.js?v=40';
 
 // Per-match state (singleton; reset on setup/start/restore).
 const M = { secret: null, guessNo: 0, oppNo: 0, you: [], opp: [], tab: 'you', pad: null, histEl: null, tabEls: {} };
