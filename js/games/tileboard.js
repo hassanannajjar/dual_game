@@ -1,4 +1,4 @@
-import { move2048Tracked } from '../logic.js?v=43';
+import { move2048Tracked } from '../logic.js?v=44';
 
 // Shared animated 2048 tile board. The GAME stays authoritative over the value grid; this renderer is a
 // visual mirror. Layout is 100% responsive: percentage positions + aspect-ratio square + container-query
@@ -24,6 +24,11 @@ export function makeTileBoard(ctx, opts) {
   const tiles = new Map();
   let grid = emptyGrid();
   function emptyGrid() { return Array.from({ length: size }, () => Array(size).fill(null)); }
+  // Deferred visuals (merge collapse, spawn) run via schedule(); flush() settles them instantly so a fast
+  // next move never reads an unsettled grid (fixes "merge sometimes doesn't work").
+  let pending = [];
+  function schedule(fn, ms) { const id = setTimeout(() => { const i = pending.findIndex((p) => p.id === id); if (i >= 0) pending.splice(i, 1); fn(); }, ms); pending.push({ id, fn }); }
+  function flush() { const ps = pending; pending = []; for (const p of ps) { clearTimeout(p.id); p.fn(); } }
   function place(el, x, y) { el.style.left = pos(x) + '%'; el.style.top = pos(y) + '%'; el.style.width = cellPct + '%'; el.style.height = cellPct + '%'; }
   function paintTile(t) {
     if (opts.tileStyle) { const s = opts.tileStyle(t.value) || {}; t.in.className = 'tb-tile-in' + (t.frozen ? ' tb-frozen' : ''); t.in.style.background = s.bg || ''; t.in.style.color = s.fg || '#f8fafc'; }
@@ -50,6 +55,7 @@ export function makeTileBoard(ctx, opts) {
     return t;
   }
   function sync(vgrid, frozenCells) {
+    flush();
     if (frozenCells) frozen = frozenCells instanceof Set ? new Set(frozenCells) : new Set(frozenCells.map(([x, y]) => x + ',' + y));
     layer.innerHTML = ''; tiles.clear(); grid = emptyGrid(); buildBg();
     for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
@@ -58,6 +64,7 @@ export function makeTileBoard(ctx, opts) {
     }
   }
   function animate(moves) {
+    flush();
     const byDest = new Map();
     for (const m of moves) { const k = m.toX + ',' + m.toY; if (!byDest.has(k)) byDest.set(k, []); byDest.get(k).push(m); }
     const movedIds = new Set(), ng = emptyGrid();
@@ -66,9 +73,9 @@ export function makeTileBoard(ctx, opts) {
       const src = group.map((m) => grid[m.fromY] && grid[m.fromY][m.fromX]).filter(Boolean);
       for (const t of src) { movedIds.add(t.id); t.x = tx; t.y = ty; place(t.el, tx, ty); }
       if (group.length > 1 || group[0].merged) {
-        const val = group[0].value * 2, keep = src[0]; ng[ty][tx] = keep;
-        setTimeout(() => {
-          for (let i = 1; i < src.length; i++) { src[i].el.remove(); tiles.delete(src[i].id); }
+        const val = group[0].value * 2, keep = src[0], extra = src.slice(1); ng[ty][tx] = keep;
+        schedule(() => {
+          for (const s of extra) { s.el.remove(); tiles.delete(s.id); }
           if (keep) { keep.value = val; paintTile(keep); bump(keep); }
         }, SLIDE);
       } else if (src[0]) ng[ty][tx] = src[0];
@@ -76,7 +83,7 @@ export function makeTileBoard(ctx, opts) {
     for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) { const t = grid[y][x]; if (t && !movedIds.has(t.id)) ng[t.y][t.x] = t; }
     grid = ng;
   }
-  function spawnAt(x, y, value) { setTimeout(() => addTile(x, y, value, false, true), SLIDE + 10); }
+  function spawnAt(x, y, value) { schedule(() => { if (!grid[y][x]) addTile(x, y, value, false, true); }, SLIDE + 10); }
   function thaw(x, y) { const t = grid[y] && grid[y][x]; if (t && t.frozen) { t.frozen = false; frozen.delete(x + ',' + y); paintTile(t); pop(t); } }
 
   // ---------- tool effects ----------
@@ -110,6 +117,6 @@ export function makeTileBoard(ctx, opts) {
     },
     highlight(x, y, on) { const t = grid[y] && grid[y][x]; if (t) t.in.classList.toggle('tb-tile-sel', !!on); },
     clearHighlights() { for (const t of tiles.values()) t.in.classList.remove('tb-tile-sel'); },
-    destroy() { board.remove(); },
+    destroy() { for (const p of pending) clearTimeout(p.id); pending = []; board.remove(); },
   };
 }

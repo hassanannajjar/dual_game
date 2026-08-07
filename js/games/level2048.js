@@ -1,6 +1,6 @@
-import { move2048Tracked, has2048MoveWalls, level2048Config, stars2048 } from '../logic.js?v=43';
-import { earnForResult, questEvent, getCoins, spendCoins } from '../loyalty.js?v=43';
-import { makeTileBoard } from './tileboard.js?v=43';
+import { move2048Tracked, has2048MoveWalls, level2048Config, stars2048 } from '../logic.js?v=44';
+import { earnForResult, questEvent, getCoins, spendCoins } from '../loyalty.js?v=44';
+import { makeTileBoard } from './tileboard.js?v=44';
 
 // 2048 Levels — campaign (1000+ generated levels) + head-to-head race. Solo owns ctx.root across views.
 const KEY = 'arcade:2048campaign';
