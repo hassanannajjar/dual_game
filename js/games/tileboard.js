@@ -1,9 +1,9 @@
-import { move2048Tracked } from '../logic.js?v=40';
+import { move2048Tracked } from '../logic.js?v=41';
 
 // Shared animated 2048 tile board. The GAME stays authoritative over the value grid;
 // this renderer is a visual mirror: it slides/merges/pops tiles from a tracked move, spawns on request,
 // and thaws frozen tiles. Position is a pixel transform so slides are smooth (play2048-style).
-const SLIDE = 120;
+const SLIDE = 100;
 
 export function makeTileBoard(ctx, opts) {
   const size = opts.size;
@@ -108,6 +108,9 @@ export function makeTileBoard(ctx, opts) {
     animate, sync, spawnAt, thaw,
     setFrozen(cells) { frozen = cells instanceof Set ? new Set(cells) : new Set((cells || []).map(([x, y]) => x + ',' + y)); },
     isFrozen: (x, y) => frozen.has(x + ',' + y),
+    cellAt(clientX, clientY) { const r = board.getBoundingClientRect(); const px = clientX - r.left, py = clientY - r.top; const x = Math.floor((px - gap / 2) / (cell + gap)), y = Math.floor((py - gap / 2) / (cell + gap)); return (x < 0 || x >= size || y < 0 || y >= size) ? null : [x, y]; },
+    highlight(x, y, on) { const t = grid[y] && grid[y][x]; if (t) t.in.classList.toggle('tb-tile-sel', !!on); },
+    clearHighlights() { for (const t of tiles.values()) t.in.classList.remove('tb-tile-sel'); },
     destroy() { try { ro.disconnect(); } catch (e) {} board.remove(); },
   };
 }

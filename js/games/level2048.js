@@ -1,20 +1,51 @@
-import { move2048Tracked, has2048MoveWalls, level2048Config, stars2048 } from '../logic.js?v=40';
-import { earnForResult, questEvent } from '../loyalty.js?v=40';
-import { makeTileBoard } from './tileboard.js?v=40';
+import { move2048Tracked, has2048MoveWalls, level2048Config, stars2048 } from '../logic.js?v=41';
+import { earnForResult, questEvent } from '../loyalty.js?v=41';
+import { makeTileBoard } from './tileboard.js?v=41';
 
-// 2048 Levels — a self-contained campaign (1000+ generated levels) plus a head-to-head "race the same level" mode.
-// Solo owns ctx.root across three views (select → play → result). Rendering uses the shared animated tile board.
+// 2048 Levels — a self-contained campaign (1000+ generated levels) + a head-to-head "race the same level" mode.
+// Solo owns ctx.root across views (select → play → result). Uses the shared animated tile board.
 const KEY = 'arcade:2048campaign';
-// Each chapter gets its own hue family; tiles within a level ramp by value → distinct, evolving look.
-const THEME_HUES = [140, 200, 25, 280, 330, 50, 190, 0, 260, 160];
-function themeTile(theme) {
-  const hue = THEME_HUES[theme % THEME_HUES.length];
-  return (v) => { if (!v) return { bg: '', fg: '' }; const exp = Math.log2(v); const light = Math.max(34, 72 - exp * 3.2); return { bg: `hsl(${hue} 68% ${light}%)`, fg: light > 56 ? '#0f172a' : '#f8fafc' }; };
-}
-const themeBoardBg = (theme) => `hsl(${THEME_HUES[theme % THEME_HUES.length]} 32% 11%)`;
 
-const M = { view: 'select', n: 1, cfg: null, board: [], wallSet: new Set(), frozenSet: new Set(), score: 0, moves: 0, best: 0,
-  timeLeft: 0, timer: null, tb: null, infoEl: null, chapterView: null, myDone: false, oppBest: 0, oppScore: 0, oppDone: false, ctx: null, keyHandler: null };
+// ---------- curated per-level color schemes (multi-hue gradient ramps; attractive + harmonious) ----------
+const SCHEMES = [
+  { h0: 45, span: -70, s: 82, l0: 64, l1: 48 },   // Sunset (amber→rose)
+  { h0: 190, span: 60, s: 70, l0: 62, l1: 46 },   // Ocean (cyan→indigo)
+  { h0: 95, span: 60, s: 62, l0: 60, l1: 40 },    // Forest (lime→emerald)
+  { h0: 55, span: -55, s: 88, l0: 64, l1: 46 },   // Lava (yellow→red)
+  { h0: 285, span: 55, s: 70, l0: 62, l1: 46 },   // Grape (violet→magenta)
+  { h0: 330, span: -130, s: 72, l0: 66, l1: 52 }, // Candy (pink→sky)
+  { h0: 40, span: 12, s: 85, l0: 66, l1: 48 },    // Gold (amber warm)
+  { h0: 205, span: 25, s: 60, l0: 70, l1: 50 },   // Ice (sky→blue)
+  { h0: 350, span: 30, s: 76, l0: 64, l1: 50 },   // Rose
+  { h0: 150, span: 150, s: 80, l0: 60, l1: 54 },  // Neon (green→purple)
+  { h0: 20, span: 60, s: 78, l0: 64, l1: 48 },    // Ember (red→amber)
+  { h0: 0, span: 300, s: 72, l0: 62, l1: 55 },    // Rainbow
+];
+const schemeFor = (n) => SCHEMES[(n * 5) % SCHEMES.length];
+function tileStyleFor(sc) {
+  return (v) => {
+    if (!v) return { bg: '', fg: '' };
+    const t = Math.max(0, Math.min(1, (Math.log2(v) - 1) / 12));
+    const hue = ((sc.h0 + sc.span * t) % 360 + 360) % 360;
+    const light = sc.l0 + (sc.l1 - sc.l0) * t;
+    return { bg: `hsl(${hue.toFixed(0)} ${sc.s}% ${light.toFixed(0)}%)`, fg: light > 56 ? '#0f172a' : '#f8fafc' };
+  };
+}
+const boardBgFor = (sc) => `hsl(${sc.h0} 22% 10%)`;
+
+// ---------- power-up icons (play2048-style) ----------
+const SVG = (p) => `<svg viewBox="0 0 24 24" class="w-5 h-5 mx-auto" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
+const ICONS = {
+  undo: SVG('<path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/>'),
+  swap: SVG('<path d="M7 4 3 8l4 4"/><path d="M3 8h13"/><path d="M17 20l4-4-4-4"/><path d="M21 16H8"/>'),
+  delete: SVG('<path d="M4 7h16"/><path d="M9 7V5h6v2"/><path d="M6 7l1 13h10l1-13"/>'),
+};
+const POWERS = [{ key: 'undo', milestone: 128 }, { key: 'swap', milestone: 256 }, { key: 'delete', milestone: 512 }];
+
+const M = { view: 'select', n: 1, cfg: null, scheme: null, board: [], wallSet: new Set(), frozenSet: new Set(), score: 0, moves: 0, best: 0,
+  timeLeft: 0, timer: null, tb: null, infoEl: null, powersEl: null, chapterView: null,
+  powers: { undo: 0, swap: 0, delete: 0 }, milestones: new Set(), powerMode: null, selCell: null, undoSnap: null,
+  myDone: false, oppBest: 0, oppScore: 0, oppDone: false, ctx: null, keyHandler: null };
 
 const readProg = () => { try { const s = localStorage.getItem(KEY); return s ? JSON.parse(s) : null; } catch (e) { return null; } };
 const writeProg = (v) => { try { localStorage.setItem(KEY, JSON.stringify(v)); } catch (e) {} };
@@ -33,6 +64,7 @@ function resetPlay() {
   for (const p of c.preset) if (!M.wallSet.has(p.x + ',' + p.y)) b[p.y][p.x] = p.v;
   for (const p of (c.frozen || [])) if (!M.wallSet.has(p.x + ',' + p.y)) b[p.y][p.x] = p.v;
   M.board = b; M.score = 0; M.moves = 0; M.myDone = false;
+  M.powers = { undo: 1, swap: 0, delete: 0 }; M.milestones = new Set(); M.powerMode = null; M.selCell = null; M.undoSnap = null;
   spawnCell(); spawnCell(); M.best = maxTile();
   M.timeLeft = c.limitType === 'time' ? c.limit : 0;
 }
@@ -40,20 +72,43 @@ function resetPlay() {
 function paintInfo() {
   if (!M.infoEl) return;
   const c = M.cfg;
-  let right = c.limitType === 'moves' ? M.ctx.t('lvl_moves_left', { n: Math.max(0, c.limit - M.moves) })
+  const right = c.limitType === 'moves' ? M.ctx.t('lvl_moves_left', { n: Math.max(0, c.limit - M.moves) })
     : c.limitType === 'time' ? Math.floor(M.timeLeft / 60) + ':' + String(M.timeLeft % 60).padStart(2, '0')
       : M.ctx.t('lvl_moves_used', { n: M.moves });
   const opp = M.ctx.solo ? '' : ` · ${M.ctx.t('lvl_opp')}: ${fmt(M.oppBest)}`;
   M.infoEl.innerHTML = `<span class="text-slate-200 font-semibold">${M.ctx.t('lvl_target')}: ${fmt(c.target)}</span> · ${M.ctx.t('lvl_best')} ${fmt(M.best)}${opp} <span class="float-right tabular-nums">${right}</span>`;
 }
+function renderPowers() {
+  if (!M.powersEl) return;
+  M.powersEl.innerHTML = '';
+  for (const p of POWERS) {
+    const cnt = M.powers[p.key], active = M.powerMode === p.key;
+    const b = M.ctx.el('button', 'relative flex-1 py-2 rounded-xl font-semibold text-sm transition ' +
+      (cnt <= 0 ? 'bg-slate-900 text-slate-600' : active ? 'bg-indigo-600' : 'bg-slate-800 hover:bg-slate-700'));
+    b.innerHTML = `<span class="block ${cnt <= 0 ? 'text-slate-600' : ''}">${ICONS[p.key]}</span><span class="absolute top-0.5 right-1.5 text-[10px] font-bold ${cnt > 0 ? 'text-amber-400' : 'text-slate-600'}">${cnt}</span>`;
+    b.title = M.ctx.t('lvl_pw_' + p.key);
+    if (cnt > 0 && !M.myDone) b.onclick = () => togglePower(p.key);
+    M.powersEl.appendChild(b);
+  }
+  // hint: next unearned milestone
+  const next = POWERS.find((p) => !M.milestones.has(p.milestone));
+  const hintEl = M.powersEl.parentNode && M.powersEl.parentNode.querySelector('[data-pw-hint]');
+  if (hintEl) hintEl.textContent = next ? M.ctx.t('lvl_pw_hint', { tile: fmt(next.milestone), name: M.ctx.t('lvl_pw_' + next.key) }) : '';
+}
 function destroyBoard() { if (M.tb) { M.tb.destroy(); M.tb = null; } }
 function mountBoard(ctx, mount) {
   destroyBoard();
-  M.tb = makeTileBoard(ctx, { size: M.cfg.size, walls: M.cfg.walls, frozen: M.cfg.frozen ? M.cfg.frozen.map((p) => [p.x, p.y]) : [], tileStyle: themeTile(M.cfg.theme), boardBg: themeBoardBg(M.cfg.theme), mount });
+  M.scheme = schemeFor(M.n);
+  M.tb = makeTileBoard(ctx, { size: M.cfg.size, walls: M.cfg.walls, frozen: (M.cfg.frozen || []).map((p) => [p.x, p.y]), tileStyle: tileStyleFor(M.scheme), boardBg: boardBgFor(M.scheme), mount });
   M.tb.sync(M.board, [...M.frozenSet].map((k) => k.split(',').map(Number)));
-  let sx = 0, sy = 0;
+  let sx = 0, sy = 0, lastTap = 0;
   M.tb.el.addEventListener('touchstart', (e) => { sx = e.touches[0].clientX; sy = e.touches[0].clientY; }, { passive: true });
-  M.tb.el.addEventListener('touchend', (e) => { const dx = e.changedTouches[0].clientX - sx, dy = e.changedTouches[0].clientY - sy; if (Math.abs(dx) < 20 && Math.abs(dy) < 20) return; move(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up')); }, { passive: true });
+  M.tb.el.addEventListener('touchend', (e) => {
+    const dx = e.changedTouches[0].clientX - sx, dy = e.changedTouches[0].clientY - sy;
+    if (Math.abs(dx) < 20 && Math.abs(dy) < 20) { lastTap = e.timeStamp; if (M.powerMode) { const c = M.tb.cellAt(e.changedTouches[0].clientX, e.changedTouches[0].clientY); if (c) targetTap(c[0], c[1]); } return; }
+    move(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up'));
+  }, { passive: true });
+  M.tb.el.addEventListener('click', (e) => { if (e.timeStamp - lastTap < 700) return; if (M.powerMode) { const c = M.tb.cellAt(e.clientX, e.clientY); if (c) targetTap(c[0], c[1]); } });
 }
 
 function renderSelect(ctx) {
@@ -74,9 +129,10 @@ function renderSelect(ctx) {
   const grid = ctx.el('div', 'grid grid-cols-5 gap-2');
   for (let i = 0; i < 25; i++) {
     const n = M.chapterView * 25 + i + 1, rec = p.levels[n], locked = n > (p.unlocked || 1), boss = n % 10 === 0;
-    const b = ctx.el('button', 'aspect-square rounded-lg flex flex-col items-center justify-center text-sm font-bold transition ' +
-      (locked ? 'bg-slate-900 text-slate-600' : rec ? 'bg-slate-800 hover:bg-slate-700' : 'bg-emerald-600 hover:bg-emerald-500') + (boss ? ' ring-1 ring-amber-400/60' : ''));
-    b.innerHTML = locked ? '🔒' : `<span>${n}</span>${rec ? `<span class="text-[9px] text-amber-400 leading-none">${starStr(rec.stars)}</span>` : ''}`;
+    const sc = schemeFor(n), st = tileStyleFor(sc)(16);
+    const b = ctx.el('button', 'aspect-square rounded-lg flex flex-col items-center justify-center text-sm font-bold transition ' + (locked ? 'text-slate-600' : '') + (boss ? ' ring-1 ring-amber-300/70' : ''));
+    if (!locked) { b.style.background = st.bg; b.style.color = st.fg; } else b.style.background = 'rgba(148,163,184,0.08)';
+    b.innerHTML = locked ? '🔒' : `<span>${n}</span>${rec ? `<span class="text-[9px] leading-none opacity-80">${starStr(rec.stars)}</span>` : ''}`;
     if (!locked) b.onclick = () => startLevel(ctx, n);
     grid.appendChild(b);
   }
@@ -96,6 +152,11 @@ function renderPlay(ctx) {
   wrap.appendChild(ctx.el('p', 'text-center font-display font-bold', `${ctx.t('lvl_level')} ${M.n} · ${M.cfg.name}${M.cfg.boss ? ' 👑' : ''}`));
   M.infoEl = ctx.el('p', 'text-xs text-slate-400 px-1'); wrap.appendChild(M.infoEl);
   const mount = ctx.el('div', ''); wrap.appendChild(mount);
+  // power-up row + hint
+  const pwWrap = ctx.el('div', 'max-w-xs mx-auto');
+  M.powersEl = ctx.el('div', 'flex gap-2'); pwWrap.appendChild(M.powersEl);
+  pwWrap.appendChild(ctx.el('p', 'text-center text-slate-500 text-[11px] mt-1', '')).setAttribute('data-pw-hint', '1');
+  wrap.appendChild(pwWrap);
   wrap.appendChild(ctx.el('p', 'text-center text-slate-600 text-xs', ctx.t('swipe_keys')));
   if (ctx.solo) {
     const row = ctx.el('div', 'max-w-xs mx-auto grid grid-cols-2 gap-2');
@@ -108,7 +169,7 @@ function renderPlay(ctx) {
   root.appendChild(wrap);
   M.view = 'play';
   mountBoard(ctx, mount);
-  paintInfo();
+  paintInfo(); renderPowers();
 }
 function renderResult(ctx, cleared, stars, reward) {
   const root = ctx.root; root.innerHTML = '';
@@ -140,23 +201,57 @@ function renderResult(ctx, cleared, stars, reward) {
 function clearTimer() { if (M.timer) { clearInterval(M.timer); M.timer = null; } }
 function startTimer(ctx) { clearTimer(); if (M.cfg.limitType !== 'time') return; M.timer = setInterval(() => { M.timeLeft--; paintInfo(); if (M.timeLeft <= 0) { clearTimer(); onFail(ctx); } }, 1000); }
 function startLevel(ctx, n) { M.n = Math.max(1, n); M.cfg = level2048Config(M.n); resetPlay(); renderPlay(ctx); startTimer(ctx); }
-function thawAround(x, y) {
-  for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-    const k = (x + dx) + ',' + (y + dy);
-    if (M.frozenSet.has(k)) { M.frozenSet.delete(k); if (M.tb) M.tb.thaw(x + dx, y + dy); }
+function thawAround(x, y) { for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const k = (x + dx) + ',' + (y + dy); if (M.frozenSet.has(k)) { M.frozenSet.delete(k); if (M.tb) M.tb.thaw(x + dx, y + dy); } } }
+function giftMilestones() {
+  for (const p of POWERS) if (!M.milestones.has(p.milestone) && M.best >= p.milestone) { M.milestones.add(p.milestone); M.powers[p.key]++; M.ctx.toast('+' + M.ctx.t('lvl_pw_' + p.key)); M.ctx.sound('badge'); }
+}
+// ---------- power-ups ----------
+function togglePower(key) {
+  if (M.myDone) return;
+  if (key === 'undo') { useUndo(); return; }
+  M.powerMode = M.powerMode === key ? null : key; M.selCell = null; if (M.tb) M.tb.clearHighlights(); renderPowers();
+}
+function useUndo() {
+  if (M.powers.undo <= 0 || !M.undoSnap) return;
+  const s = M.undoSnap; M.board = s.board.map((r) => r.slice()); M.score = s.score; M.moves = s.moves; M.best = s.best; M.frozenSet = new Set(s.frozen);
+  M.undoSnap = null; M.powers.undo--;
+  if (M.tb) M.tb.sync(M.board, [...M.frozenSet].map((k) => k.split(',').map(Number)));
+  M.ctx.sound('toggle'); paintInfo(); renderPowers();
+}
+function targetTap(x, y) {
+  if (!M.powerMode || M.myDone) return;
+  if (M.wallSet.has(x + ',' + y) || !M.board[y][x]) return;   // must target a real tile
+  if (M.powerMode === 'delete') {
+    M.board[y][x] = 0; M.frozenSet.delete(x + ',' + y); M.powers.delete--; M.powerMode = null;
+    if (M.tb) M.tb.sync(M.board, [...M.frozenSet].map((k) => k.split(',').map(Number)));
+    M.ctx.sound('drop'); renderPowers(); return;
+  }
+  if (M.powerMode === 'swap') {
+    if (!M.selCell) { M.selCell = [x, y]; if (M.tb) M.tb.highlight(x, y, true); return; }
+    const [ax, ay] = M.selCell; if (ax === x && ay === y) { if (M.tb) M.tb.highlight(x, y, false); M.selCell = null; return; }
+    const tmp = M.board[ay][ax]; M.board[ay][ax] = M.board[y][x]; M.board[y][x] = tmp;
+    // frozen follows its cell
+    const fa = M.frozenSet.has(ax + ',' + ay), fb = M.frozenSet.has(x + ',' + y);
+    M.frozenSet.delete(ax + ',' + ay); M.frozenSet.delete(x + ',' + y);
+    if (fa) M.frozenSet.add(x + ',' + y); if (fb) M.frozenSet.add(ax + ',' + ay);
+    M.powers.swap--; M.powerMode = null; M.selCell = null;
+    if (M.tb) { M.tb.clearHighlights(); M.tb.sync(M.board, [...M.frozenSet].map((k) => k.split(',').map(Number))); }
+    M.ctx.sound('toggle'); renderPowers();
   }
 }
 function move(dir) {
   const ctx = M.ctx;
-  if (M.view !== 'play' || M.myDone) return;
+  if (M.view !== 'play' || M.myDone || M.powerMode) return;   // ignore swipes while targeting a power-up
   const res = move2048Tracked(M.board, dir, M.cfg.walls, M.frozenSet);
   if (!res.moved) return;
+  M.undoSnap = { board: M.board.map((r) => r.slice()), score: M.score, moves: M.moves, best: M.best, frozen: [...M.frozenSet] };
   M.board = res.board; M.score += res.score; M.moves++;
   if (M.tb) M.tb.animate(res.moves);
   ctx.sound('click');
   const sp = spawnCell(); if (sp && M.tb) M.tb.spawnAt(sp[0], sp[1], sp[2]);
   for (const m of res.moves) if (m.merged) thawAround(m.toX, m.toY);
-  M.best = Math.max(M.best, res.max, maxTile()); paintInfo();
+  M.best = Math.max(M.best, res.max, maxTile());
+  giftMilestones(); paintInfo(); renderPowers();
   if (!ctx.solo) ctx.send('stat', { best: M.best, score: M.score });
   if (M.best >= M.cfg.target) return onWin(ctx);
   if (M.cfg.limitType === 'moves' && M.moves >= M.cfg.limit) return onFail(ctx);

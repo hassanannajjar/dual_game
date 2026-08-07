@@ -1,4 +1,4 @@
-import { ONITAMA_CARDS, onitamaStart, onitamaWinner } from '../logic.js?v=40';
+import { ONITAMA_CARDS, onitamaStart, onitamaWinner } from '../logic.js?v=41';
 
 // 5x5. Side A (indigo, codes 1/2) sits at the bottom and moves up toward row 0; side B (rose, 3/4) mirrors.
 // Fixed 5-card deal keeps both peers in sync without a handshake: A={tiger,crab} B={monkey,crane} middle=mantis.
