@@ -1,7 +1,8 @@
-// Synth SFX + optional music via Web Audio — no audio files (keeps the PWA tiny & offline).
-// sound(name). Mute at arcade:sound, volume at arcade:vol, music at arcade:music.
+// Synth SFX + background music from the user's MP3 library (audio/tracks.json), played
+// Minecraft-style (shuffle with silence gaps) and cached offline.
+// sound(name). Mute at arcade:sound, volume at arcade:vol, music at arcade:music, pick at arcade:musicMood.
 
-let ctx = null, master = null, musicTimer = null, mi = 0;
+let ctx = null, master = null;
 let enabled = true, music = true, vol = 0.8;   // music defaults ON; a stored pref overrides
 try { enabled = localStorage.getItem('arcade:sound') !== 'off'; } catch (e) {}
 try { const v = parseFloat(localStorage.getItem('arcade:vol')); if (!isNaN(v)) vol = Math.min(1, Math.max(0, v)); } catch (e) {}
@@ -15,7 +16,7 @@ function ac() {
   return ctx;
 }
 if (typeof window !== 'undefined') {
-  window.addEventListener('pointerdown', () => { ac(); if (music && enabled && !musicTimer) startMusic(); }, { once: false });
+  window.addEventListener('pointerdown', () => { ac(); if (music && enabled) startMusic(); }, { once: false });
 }
 
 // A pitched voice with an exponential attack/decay envelope, routed through the master bus.
@@ -93,221 +94,159 @@ export function setSound(on) {
 }
 export function soundOn() { return enabled; }
 
-// ---------- background music: adaptive layered generative engine (no files) ----------
-// Original ambient music evoking cinematic-space scores. Each mood = chord progression + a set of
-// layers (organ/choir pad, bass, arpeggio, ticking ostinato, high shimmer), each on its own gain
-// node so layers slowly fade in/out. The mix "breathes" (occasional near-silence) and, in "auto",
-// crossfades moods. A scene (menu vs match) biases which moods/layers are active.
-let mStep = 0, musicBus = null, mixGain = null, layerGains = null, curMood = 'interstellar';
-let moodUntil = 0, musicMode = 'tracks', scene = 'menu', breatheUntil = 0;   // default to user's audio files
-try { musicMode = localStorage.getItem('arcade:musicMood') || 'tracks'; } catch (e) {}
-const semi = (root, n) => root * Math.pow(2, n / 12);
-const LAYERS = ['pad', 'bass', 'arp', 'tick', 'shimmer'];
-const MOODS = {
-  // Epic minor, wide and slow: organ pad + steady ticking ostinato + swelling arpeggio.
-  interstellar: { root: 196, step: 950, chordSteps: 4, padG: 0.05, bassWave: 'sine', bassG: 0.06, arpWave: 'triangle', arpG: 0.045, rest: 0.35, organ: true, tick: true, tickG: 0.028, tickDiv: 1, shimmer: true, shimmerG: 0.03, prog: [[0, 3, 7, 10], [-2, 3, 7, 10], [-4, 0, 3, 7], [-5, 2, 7, 10]] },
-  // Ethereal space-awe: sustained detuned choral drones, very sparse, grand open harmony.
-  odyssey: { root: 174.61, step: 1400, chordSteps: 2, padG: 0.055, bassWave: 'sine', bassG: 0.045, arpWave: 'sine', arpG: 0.03, rest: 0.7, choir: true, shimmer: true, shimmerG: 0.035, prog: [[0, 4, 7, 11], [2, 7, 11, 14], [0, 5, 9, 12], [-3, 4, 9, 12]] },
-  // Original three (kept): swelling / gentle / upbeat.
-  cinematic: { root: 220, step: 900, chordSteps: 4, padWave: 'sine', padG: 0.045, bassWave: 'sine', bassG: 0.05, arpWave: 'triangle', arpG: 0.05, rest: 0.15, prog: [[0, 3, 7, 12], [5, 8, 12, 15], [3, 7, 10, 14], [7, 10, 14, 17]] },
-  calm: { root: 261.63, step: 1050, chordSteps: 4, padWave: 'triangle', padG: 0.035, bassWave: 'sine', bassG: 0.04, arpWave: 'sine', arpG: 0.05, rest: 0.4, prog: [[0, 4, 7, 11], [5, 9, 12, 16], [7, 11, 14, 17], [2, 5, 9, 12]] },
-  arcade: { root: 261.63, step: 320, chordSteps: 8, padWave: 'triangle', padG: 0.025, bassWave: 'square', bassG: 0.045, arpWave: 'square', arpG: 0.04, rest: 0.1, prog: [[0, 4, 7, 12], [0, 4, 7, 12], [5, 9, 12, 17], [7, 11, 14, 19]] },
-};
-// Per-scene layer intensity targets (0..1 multipliers on each layer's gain).
-const SCENE_LAYERS = {
-  menu: { pad: 1.0, bass: 0.65, arp: 0.35, tick: 0.0, shimmer: 0.6 },
-  match: { pad: 1.0, bass: 1.0, arp: 0.9, tick: 0.9, shimmer: 0.85 },
-};
-const AUTO_POOL = { menu: ['odyssey', 'calm', 'interstellar'], match: ['interstellar', 'arcade', 'cinematic'] };
+// ---------- background music: the user's MP3 library, Minecraft-style ----------
+// One <audio> element → master bus. Shuffle the library, play a track, then a randomized silence
+// GAP, then the next random track (reshuffle each cycle) — like Minecraft. Or play one chosen track
+// on repeat. Playlist comes from audio/tracks.json. Files auto-cache offline (see prefetchAudio).
+let scene = 'menu', musicNotify = null, changeNotify = null;
+let mode = 'mix';   // 'mix' = shuffle+gaps, or a track src for a single pick
+try {
+  const saved = localStorage.getItem('arcade:musicMood');
+  mode = (saved && !['auto', 'tracks', 'interstellar', 'odyssey', 'cinematic', 'calm', 'arcade'].includes(saved)) ? saved : 'mix';
+} catch (e) {}
 
-function ensureMusicBus() {
-  const a = ac(); if (!a || !master || musicBus) return;
-  musicBus = a.createGain(); musicBus.gain.value = 1; musicBus.connect(master);
-  const d = a.createDelay(1.0); d.delayTime.value = 0.34;
-  const fb = a.createGain(); fb.gain.value = 0.34;
-  const lp = a.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 2200;
-  musicBus.connect(d); d.connect(lp); lp.connect(fb); fb.connect(d); lp.connect(master);   // feedback delay → space
-  mixGain = a.createGain(); mixGain.gain.value = 1; mixGain.connect(musicBus);              // breathing / crossfade
-  layerGains = {};
-  for (const k of LAYERS) { const g = a.createGain(); g.gain.value = (k === 'pad' || k === 'bass') ? 1 : 0.3; g.connect(mixGain); layerGains[k] = g; }
+let trackList = [], tracksLoaded = false;
+let player = null;                 // { el, g }
+let order = [], pos = 0, curSrc = null;
+let gapTimer = null, running = false;
+
+export function setMusicNotify(fn) { musicNotify = fn; }   // called when music on but no playable files
+export function onMusicChange(fn) { changeNotify = fn; }   // panel highlight refresh on track/mode change
+function announce() { if (changeNotify) try { changeNotify(); } catch (e) {} }
+function trackVol() { return scene === 'match' ? 1.0 : 0.72; }   // duck a touch on the menu
+function shuf(arr) { const a = arr.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+function gapMs() {   // silence between tracks — arcade-short; tighter during a match
+  return scene === 'match' ? 10000 + Math.random() * 30000 : 20000 + Math.random() * 70000;
 }
-function layerNode(layer) { return (layerGains && layerGains[layer]) || mixGain || musicBus; }
-function osc(wave, freq, dur, gain, attack, dest, detune) {
-  const a = ac(); if (!a || !dest) return;
-  const t0 = a.currentTime, o = a.createOscillator(), g = a.createGain();
-  o.type = wave; o.frequency.setValueAtTime(freq, t0); if (detune) o.detune.setValueAtTime(detune, t0);
-  g.gain.setValueAtTime(0.0001, t0);
-  g.gain.exponentialRampToValueAtTime(gain, t0 + (attack || 0.05));
-  g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-  o.connect(g); g.connect(dest); o.start(t0); o.stop(t0 + dur + 0.05);
+
+async function loadTracks() {
+  if (tracksLoaded) return trackList;
+  try {
+    const res = await fetch('audio/tracks.json', { cache: 'no-store' });
+    if (res.ok) { const j = await res.json(); if (Array.isArray(j)) { trackList = j.filter((x) => x && x.src); tracksLoaded = true; } }
+  } catch (e) { /* offline before first load — try again next time */ }
+  return trackList;
 }
-function mvoice(layer, wave, freq, dur, gain, attack) { osc(wave, freq, dur, gain, attack, layerNode(layer), 0); }
-function organVoice(layer, freq, dur, gain, attack) {   // additive: fundamental + octave + fifth-octave
-  const dest = layerNode(layer);
-  osc('sine', freq, dur, gain, attack, dest, -4);
-  osc('sine', freq * 2, dur * 0.9, gain * 0.5, attack, dest, 0);
-  osc('triangle', freq * 3, dur * 0.7, gain * 0.28, attack, dest, 6);
+function ensurePlayer() {
+  const a = ac(); if (!a || !master || player) return;
+  const el = new Audio(); el.crossOrigin = 'anonymous'; el.preload = 'auto';
+  const g = a.createGain(); g.gain.value = 0.0001;
+  a.createMediaElementSource(el).connect(g); g.connect(master);
+  player = { el, g };
 }
-function choirVoice(layer, freq, dur, gain, attack) {   // detuned cluster, slow swell
-  const dest = layerNode(layer);
-  osc('sine', freq, dur, gain, attack, dest, -6);
-  osc('sine', freq, dur, gain * 0.8, attack, dest, 7);
-  osc('triangle', freq * 2, dur * 0.8, gain * 0.22, attack * 1.2, dest, 0);
+function fadeTo(v, secs) { const a = ac(); if (!a || !player) return; player.g.gain.cancelScheduledValues(a.currentTime); player.g.gain.setValueAtTime(Math.max(0.0001, player.g.gain.value), a.currentTime); player.g.gain.linearRampToValueAtTime(Math.max(0.0001, v), a.currentTime + secs); }
+
+// pick the src for the current position (mix) or the chosen single track
+function currentSrc() {
+  if (mode !== 'mix') return mode;
+  if (!order.length) return null;
+  return trackList[order[pos]] && trackList[order[pos]].src;
 }
-function updateLayers() {                                // slowly drift layer gains toward scene targets
-  if (!layerGains) return;
-  const a = ac(); const base = SCENE_LAYERS[scene] || SCENE_LAYERS.menu;
-  const evo = 0.55 + 0.45 * Math.sin(mStep * 0.025);     // slow LFOs so parts breathe in/out
-  const evo2 = 0.55 + 0.45 * Math.sin(mStep * 0.017 + 1.5);
-  const target = { pad: base.pad, bass: base.bass, arp: base.arp * evo, tick: base.tick, shimmer: base.shimmer * evo2 };
-  for (const k of LAYERS) layerGains[k].gain.setTargetAtTime(target[k], a.currentTime, 4.0);
+function advance() {   // move to next in the shuffled order; reshuffle at cycle end (mix only)
+  if (mode !== 'mix') return;
+  pos++;
+  if (pos >= order.length) { order = shuf(trackList.map((_, i) => i)); pos = 0; }
 }
-function maybeBreathe(now) {                              // occasional near-silence between "pieces"
-  if (!mixGain || now < breatheUntil) return;
-  if (Math.random() < 0.012) {
-    const a = ac(); const dip = 3 + Math.random() * 3;
-    mixGain.gain.cancelScheduledValues(a.currentTime);
-    mixGain.gain.setTargetAtTime(0.06, a.currentTime, 1.2);
-    mixGain.gain.setTargetAtTime(1.0, a.currentTime + dip, 2.0);
-    breatheUntil = now + (dip + 9) * 1000;
-  }
+function playCurrent() {
+  ensurePlayer(); if (!player) return;
+  const src = currentSrc(); if (!src) { if (musicNotify) musicNotify(); return; }
+  curSrc = src;
+  try { player.el.src = src; player.el.currentTime = 0; const p = player.el.play(); if (p) p.catch(() => {}); } catch (e) { scheduleNext(); return; }
+  fadeTo(trackVol(), 2.5);
+  announce();
 }
-function pickNextMood() {                                 // masked mood swap via a mixGain dip
-  const pool = AUTO_POOL[scene] || AUTO_POOL.menu;
-  let n; do { n = pool[Math.floor(Math.random() * pool.length)]; } while (n === curMood && pool.length > 1);
-  if (mixGain) { const a = ac(); mixGain.gain.cancelScheduledValues(a.currentTime); mixGain.gain.setTargetAtTime(0.05, a.currentTime, 1.0); mixGain.gain.setTargetAtTime(1.0, a.currentTime + 2.2, 1.5); }
-  setTimeout(() => { curMood = n; mStep = 0; }, 1500);
+function onTrackDone() {   // fade out already done by natural end; wait a gap, then next
+  if (!running || !music || !enabled) return;
+  advance();
+  scheduleNext();
 }
-function musicTick() {
-  if (!enabled || !music || !musicBus) { musicTimer = null; return; }
-  const now = Date.now();
-  if (musicMode === 'auto') { if (now > moodUntil) { pickNextMood(); moodUntil = now + 40000 + Math.floor(Math.random() * 30000); } }
-  else curMood = musicMode;
-  const m = MOODS[curMood] || MOODS.interstellar;
-  const chord = m.prog[Math.floor(mStep / m.chordSteps) % m.prog.length];
-  if (mStep % m.chordSteps === 0) {                                   // chord change: pad + bass
-    const dur = (m.step * m.chordSteps) / 1000;
-    for (const n of chord) {
-      if (m.organ) organVoice('pad', semi(m.root, n), dur * 0.98, m.padG, dur * 0.3);
-      else if (m.choir) choirVoice('pad', semi(m.root, n), dur * 1.1, m.padG, dur * 0.5);
-      else mvoice('pad', m.padWave, semi(m.root, n), dur * 0.95, m.padG, dur * 0.35);
-    }
-    mvoice('bass', m.bassWave, semi(m.root, chord[0] - 12), dur * 0.9, m.bassG, 0.05);
-  }
-  const rest = scene === 'menu' ? Math.min(0.95, m.rest + 0.25) : m.rest;
-  if (m.arpG && Math.random() > rest) {                               // arpeggio note (with rests for space)
-    const n = chord[mStep % chord.length] + (Math.random() < 0.3 ? 12 : 0);
-    mvoice('arp', m.arpWave, semi(m.root, n), Math.min(m.step / 1000 * 1.5, 0.8), m.arpG, 0.04);
-  }
-  if (m.tick && mStep % (m.tickDiv || 1) === 0) mvoice('tick', 'sine', 1760, 0.03, m.tickG, 0.002);   // ticking clock
-  if (m.shimmer && Math.random() < 0.12) mvoice('shimmer', 'triangle', semi(m.root, chord[Math.floor(Math.random() * chord.length)] + 24), 0.6, m.shimmerG, 0.12);
-  maybeBreathe(now);
-  updateLayers();
-  mStep++;
-  musicTimer = setTimeout(musicTick, m.step);
+function scheduleNext() {
+  clearTimeout(gapTimer);
+  gapTimer = setTimeout(() => { if (running && music && enabled) playCurrent(); }, gapMs());
 }
-function startSynth() { ac(); ensureMusicBus(); if (musicTimer) return; musicTick(); }
+function bindEl() {
+  if (!player) return;
+  player.el.onended = () => { player._done = false; onTrackDone(); };
+  player.el.ontimeupdate = () => {   // start fading out ~4s before the end for a smooth tail into the gap
+    const el = player.el;
+    if (el.duration && el.currentTime > el.duration - 4 && !player._done) { player._done = true; fadeTo(0.0001, 3.5); }
+  };
+  player.el.onerror = () => { onTrackDone(); };   // bad/unreachable file → skip to next after a gap
+}
+
 export function startMusic() {
-  if (!enabled) return; ac();
-  if (musicMode === 'tracks') {                        // real audio files (user-supplied)
-    if (tracksRunning) return;
-    tracksRunning = true;
-    startTracks().then((ok) => { if (!ok) { tracksRunning = false; if (musicNotify) musicNotify(); startSynth(); } });
-    return;
-  }
-  startSynth();
+  if (!enabled || !music || running) return;
+  ac(); ensurePlayer(); bindEl();
+  running = true;
+  loadTracks().then((list) => {
+    if (!running) return;
+    if (!list.length) { running = false; if (musicNotify) musicNotify(); return; }
+    if (mode === 'mix') { order = shuf(list.map((_, i) => i)); pos = 0; }
+    playCurrent();
+    prefetchAudio();   // fill the offline cache in the background
+  });
 }
-export function stopMusic() { clearTimeout(musicTimer); musicTimer = null; stopTracks(); tracksRunning = false; }
+export function stopMusic() {
+  running = false; clearTimeout(gapTimer); gapTimer = null;
+  if (player) { player.el.onended = player.el.ontimeupdate = player.el.onerror = null; player._done = false; try { player.el.pause(); } catch (e) {} const a = ac(); if (a) { player.g.gain.cancelScheduledValues(a.currentTime); player.g.gain.value = 0.0001; } }
+  curSrc = null; announce();
+}
 export function setMusic(on) {
   music = !!on;
   try { localStorage.setItem('arcade:music', music ? 'on' : 'off'); } catch (e) {}
   if (music && enabled) startMusic(); else stopMusic();
 }
 export function musicOn() { return music; }
-export function getMusicMode() { return musicMode; }
-export function setMusicMode(mode) {
-  musicMode = ['auto', 'tracks', 'interstellar', 'odyssey', 'cinematic', 'calm', 'arcade'].includes(mode) ? mode : 'auto';
-  try { localStorage.setItem('arcade:musicMood', musicMode); } catch (e) {}
-  if (musicMode !== 'auto' && musicMode !== 'tracks') { curMood = musicMode; moodUntil = 0; mStep = 0; }
-  if (music && enabled) { stopMusic(); startMusic(); }   // switch engine (synth ↔ files) live
+export function getMusicMode() { return mode; }
+export function nowPlaying() { return running ? curSrc : null; }
+export async function getMusicList() { return loadTracks(); }
+export function setMusicMode(m) {
+  mode = m || 'mix';
+  try { localStorage.setItem('arcade:musicMood', mode); } catch (e) {}
+  if (music && enabled) { const wasRun = running; stopMusic(); if (wasRun || true) startMusic(); } else announce();
 }
-// Adaptive scene: 'menu' = sparse/calm, 'match' = fuller/tenser. Biases synth layers, ducks file volume.
+export function playMix() { setMusicMode('mix'); }
+export function playTrackNow(src) { if (src) setMusicMode(src); }
+// Adaptive scene: 'menu' ducks a touch, 'match' full. Only re-levels the currently playing track.
 export function setMusicScene(s) {
   scene = s === 'match' ? 'match' : 'menu';
-  if (musicMode === 'auto') moodUntil = 0;   // re-pick a mood suited to the new scene on the next tick
-  if (musicMode === 'tracks' && trackPlayer) { const a = ac(); const ch = trackPlayer.ch[trackPlayer.active]; if (a && ch && ch.g) ch.g.gain.setTargetAtTime(trackVol(), a.currentTime, 2.0); }
+  if (running && player && !player._done) fadeTo(trackVol(), 2.0);
 }
-// One-shot warm swell (e.g. on a win): brief lift + a rising shimmer chord.
+// One-shot warm swell (e.g. on a win): a brief volume lift on the current track.
 export function musicSwell() {
-  if (!enabled || !music || !musicBus) return;
-  const a = ac(); const m = MOODS[curMood] || MOODS.interstellar;
-  for (const n of [0, 4, 7, 12]) choirVoice('shimmer', semi(m.root, n + 12), 2.4, 0.045, 0.35);
-  if (mixGain) { mixGain.gain.cancelScheduledValues(a.currentTime); mixGain.gain.setTargetAtTime(1.25, a.currentTime, 0.3); mixGain.gain.setTargetAtTime(1.0, a.currentTime + 2.0, 1.2); }
+  if (!enabled || !music || !running || !player || player._done) return;
+  const a = ac(); if (!a) return;
+  player.g.gain.cancelScheduledValues(a.currentTime);
+  player.g.gain.setValueAtTime(player.g.gain.value, a.currentTime);
+  player.g.gain.linearRampToValueAtTime(Math.min(1, trackVol() * 1.3), a.currentTime + 0.4);
+  player.g.gain.linearRampToValueAtTime(trackVol(), a.currentTime + 2.4);
 }
 
-// ---------- real audio-file playback (user-supplied, rights-cleared tracks) ----------
-// Two <audio> elements routed through the master bus; crossfade near the end of each track.
-// Playlist comes from audio/tracks.json (shipped empty). No audio files are bundled.
-let trackPlayer = null, tracksRunning = false, tracksLoaded = false, trackList = [], musicNotify = null;
-export function setMusicNotify(fn) { musicNotify = fn; }   // called when 'tracks' selected but none found
-function trackVol() { return scene === 'match' ? 1.0 : 0.72; }   // duck a touch on the menu
-async function loadTracks() {
-  if (tracksLoaded) return trackList;
-  tracksLoaded = true;
+// ---------- offline: auto-download the whole library into a persistent Cache bucket ----------
+// Separate from the versioned app-shell cache so version bumps don't wipe it. Sequential full GETs
+// (200s) so the service worker can serve them offline. Safe to call repeatedly; skips cached files.
+const AUDIO_CACHE = 'arcade-audio';
+let prefetching = false;
+export async function prefetchAudio(onProgress) {
+  if (prefetching) return;
+  if (typeof caches === 'undefined' || (typeof navigator !== 'undefined' && navigator.onLine === false)) return;
+  prefetching = true;
   try {
-    const res = await fetch('audio/tracks.json?t=' + Date.now(), { cache: 'no-store' });
-    if (res.ok) { const j = await res.json(); if (Array.isArray(j)) trackList = j.filter((x) => x && x.src); }
+    const list = await loadTracks();
+    if (!list.length) { prefetching = false; return; }
+    const cache = await caches.open(AUDIO_CACHE);
+    let done = 0;
+    for (const trk of list) {
+      try {
+        const hit = await cache.match(trk.src);
+        if (!hit) { const res = await fetch(trk.src, { cache: 'no-store' }); if (res && res.ok) await cache.put(trk.src, res.clone()); }
+      } catch (e) { /* skip this file, keep going */ }
+      done++;
+      if (onProgress) try { onProgress(done, list.length); } catch (e) {}
+    }
+    if (done >= list.length) { try { localStorage.setItem('arcade:audioCached', '1'); } catch (e) {} }
   } catch (e) {}
-  return trackList;
+  prefetching = false;
 }
-function ensureTrackPlayer() {
-  const a = ac(); if (!a || !master || trackPlayer) return;
-  const mk = () => {
-    const el = new Audio(); el.crossOrigin = 'anonymous'; el.preload = 'auto';
-    const src = a.createMediaElementSource(el);
-    const g = a.createGain(); g.gain.value = 0.0001; src.connect(g); g.connect(master);
-    return { el, g, fading: false };
-  };
-  trackPlayer = { ch: [mk(), mk()], active: 0, order: [], pos: 0, list: [] };
-}
-function shuf(arr) { const a = arr.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
-async function startTracks() {
-  ensureTrackPlayer(); if (!trackPlayer) return false;
-  const list = await loadTracks();
-  if (!list.length) return false;                         // caller falls back to synth
-  trackPlayer.list = list;
-  trackPlayer.order = shuf(list.map((_, i) => i));
-  trackPlayer.pos = 0;
-  playTrack(0);
-  return true;
-}
-function playTrack(chIndex) {
-  const tp = trackPlayer, ch = tp.ch[chIndex], a = ac();
-  const t = tp.list[tp.order[tp.pos]];
-  ch.fading = false;
-  try { ch.el.src = t.src; ch.el.currentTime = 0; ch.el.play().catch(() => {}); } catch (e) { return; }
-  ch.g.gain.cancelScheduledValues(a.currentTime);
-  ch.g.gain.setValueAtTime(0.0001, a.currentTime);
-  ch.g.gain.linearRampToValueAtTime(trackVol(), a.currentTime + 3);
-  tp.active = chIndex;
-  ch.el.ontimeupdate = () => {
-    if (!music || musicMode !== 'tracks') return;
-    if (ch.el.duration && ch.el.currentTime > ch.el.duration - 6 && !ch.fading) { ch.fading = true; nextTrack(); }
-  };
-  ch.el.onended = () => { if (!ch.fading) { ch.fading = true; nextTrack(); } };
-  ch.el.onerror = () => { stopTracks(); tracksRunning = false; if (musicMode === 'tracks') startSynth(); };   // bad file → never silent
-}
-function nextTrack() {
-  const tp = trackPlayer; if (!tp) return;
-  const a = ac(), prev = tp.ch[tp.active], nextCh = 1 - tp.active;
-  tp.pos = (tp.pos + 1) % tp.order.length;
-  prev.g.gain.cancelScheduledValues(a.currentTime);
-  prev.g.gain.setValueAtTime(Math.max(0.0001, prev.g.gain.value), a.currentTime);
-  prev.g.gain.linearRampToValueAtTime(0.0001, a.currentTime + 6);
-  setTimeout(() => { try { prev.el.pause(); } catch (e) {} prev.ontimeupdate = null; }, 6500);
-  playTrack(nextCh);
-}
-function stopTracks() {
-  if (!trackPlayer) return;
-  for (const ch of trackPlayer.ch) { ch.el.ontimeupdate = null; ch.el.onended = null; ch.fading = false; try { ch.el.pause(); } catch (e) {} if (ch.g) { const a = ac(); ch.g.gain.cancelScheduledValues(a.currentTime); ch.g.gain.value = 0.0001; } }
-}
+export function audioCached() { try { return localStorage.getItem('arcade:audioCached') === '1'; } catch (e) { return false; } }
+if (typeof window !== 'undefined') window.addEventListener('online', () => { if (!audioCached()) prefetchAudio(); });

@@ -1,1 +1,78 @@
-[{ "title": "Interstellar", "src": "audio/interSteller.mp3" }]
+[
+  {
+    "title": "Lux Aeterna — Clint Mansell",
+    "src": "audio/Clint%20Mansell%20-%20Lux%20Aeterna%20(Requiem%20for%20a%20Dream)%20-%20Nederlands%20Concertkoor%20(192k).mp3"
+  },
+  {
+    "title": "Concerning Hobbits — Howard Shore",
+    "src": "audio/Concerning%20Hobbits%20(Howard%20Shore)%20-%20Music%20Video%20-%20Lord%20of%20the%20Rings%20-%20Fitzcarraldo%20(192k).mp3"
+  },
+  {
+    "title": "Time — Hans Zimmer",
+    "src": "audio/Hans%20Zimmer%20-%20Time%20(Official%20Audio)%20-%20WaterTower%20Music%20(192k).mp3"
+  },
+  {
+    "title": "Best Part (Slowed + Reverb) — Bella Isa",
+    "src": "audio/Idea%2022%20-%20Best%20Part%20(looped)%20%C2%B0%20slowed%20+%20reverb%20%C2%B0%20-%20Bella%20Isa%20(192k).mp3"
+  },
+  {
+    "title": "Interstellar — Hans Zimmer",
+    "src": "audio/interSteller.mp3"
+  },
+  {
+    "title": "Ithaca — Ludwig Göransson",
+    "src": "audio/Ithaca%20-%20Ludwig%20Goransson%20(128k).mp3"
+  },
+  {
+    "title": "Jurassic Park Theme — John Williams",
+    "src": "audio/John%20Williams%20&%20Vienna%20Philharmonic%20%E2%80%93%20Williams%20Theme%20from%20%E2%80%9CJurassic%20Park%E2%80%9D%20-%20Deutsche%20Grammophon%20-%20DG%20(192k).mp3"
+  },
+  {
+    "title": "Hedwig’s Theme — John Williams",
+    "src": "audio/John%20Williams%20&%20Vienna%20Philharmonic%20feat.%20Anne-Sophie%20Mutter%20%E2%80%93%20%E2%80%9CHedwig%E2%80%99s%20Theme%E2%80%9D%20From%20%E2%80%9CHarry%20Potter%E2%80%9D%20-%20Deutsche%20Grammophon%20-%20DG%20(192k).mp3"
+  },
+  {
+    "title": "Oppenheimer Suite — Ludwig Göransson",
+    "src": "audio/Ludwig%20Go%CC%88ransson%20-%20OPPENHEIMER%20Soundtrack%20Suite%20(MIDI%20Production)%20-%20Ashton%20Gleckman%20(128k).mp3"
+  },
+  {
+    "title": "The Odyssey — Ludwig Göransson",
+    "src": "audio/Ludwig%20Go%CC%88ransson%20The%20Odyssey%20%5BExtended%20Theme%20Suite%20by%20Gilles%20Nuytens%5D%20-%20Gilles%20Nuytens%20(128k).mp3"
+  },
+  {
+    "title": "On the Nature of Daylight — Max Richter",
+    "src": "audio/Max%20Richter%20-%20On%20The%20Nature%20Of%20Daylight%20(Official%20Video)%20-%20Max%20Richter%20(192k).mp3"
+  },
+  {
+    "title": "My Heart Will Go On — James Horner",
+    "src": "audio/My%20heart%20will%20go%20on%20-%20James%20Horner%20-%20Camiel%20Lemmens%20(192k).mp3"
+  },
+  {
+    "title": "Odysseus — Ludwig Göransson",
+    "src": "audio/Odysseus%20-%20Ludwig%20Go%CC%88ransson%20(the%20best%20part)%20-%20The%20Odyssey%20-%20A2M%20Score%20(128k).mp3"
+  },
+  {
+    "title": "Light of the Seven — Ramin Djawadi",
+    "src": "audio/Ramin%20Djawadi%20-%20Light%20of%20the%20Seven%20Game%20of%20Thrones%20(Music%20from%20the%20HBO%C2%AE%20Series%20-%20Season%206)%20-%20SonySoundtracksVEVO%20(192k).mp3"
+  },
+  {
+    "title": "The Ecstasy of Gold — Ennio Morricone",
+    "src": "audio/The%20Ecstasy%20of%20Gold%20-%20Ennio%20Morricone%20(%20The%20Good,%20the%20Bad%20and%20the%20Ugly%20)%20%5BHigh%20Quality%20Audio%5D%20-%20Cinema%20Hotel%20Studios%20(192k).mp3"
+  },
+  {
+    "title": "Sirens (Slowed + Reverb) — The Odyssey",
+    "src": "audio/The%20Odyssey%20-%20Sirens%20(Slowed%20+%20Reverb)%20-%20Macrotus%20(128k).mp3"
+  },
+  {
+    "title": "Shawshank Redemption — Thomas Newman",
+    "src": "audio/Thomas%20Newman%20-%20Shawshank%20Prison%20-%20Stoic%20Theme%20The%20Shawshank%20Redemption%20-%20SonySoundtracksVEVO%20(192k).mp3"
+  },
+  {
+    "title": "Trinity — Ludwig Göransson",
+    "src": "audio/Trinity%20-%20Ludwig%20Goransson%20(192k).mp3"
+  },
+  {
+    "title": "Troy — Ludwig Göransson",
+    "src": "audio/Troy%20-%20Ludwig%20Goransson%20(128k).mp3"
+  }
+]

@@ -1,7 +1,7 @@
 // Preferences: display name, theme/accent, haptics + the settings panel.
-import { applyLang, getLang, t, onLangChange } from './i18n.js?v=46';
-import { setSound, soundOn, setVolume, getVolume, setMusic, musicOn, setMusicMode, getMusicMode } from './sound.js?v=46';
-import { owns, buy } from './loyalty.js?v=46';
+import { applyLang, getLang, t, onLangChange } from './i18n.js?v=47';
+import { setSound, soundOn, setVolume, getVolume, setMusic, musicOn, getMusicMode, playMix, playTrackNow, nowPlaying, getMusicList, onMusicChange, prefetchAudio, audioCached } from './sound.js?v=47';
+import { owns, buy } from './loyalty.js?v=47';
 
 const THEMES = ['indigo', 'emerald', 'rose', 'amber', 'sky', 'violet', 'teal'];
 const SWATCH = { indigo: '#6366f1', emerald: '#10b981', rose: '#f43f5e', amber: '#f59e0b', sky: '#0ea5e9', violet: '#8b5cf6', teal: '#14b8a6' };
@@ -44,7 +44,7 @@ function refresh() {
   $('btn-sound-toggle').className = toggleCls(soundOn());
   if ($('pref-volume')) $('pref-volume').value = String(Math.round(getVolume() * 100));
   if ($('btn-music-toggle')) { $('btn-music-toggle').textContent = t(musicOn() ? 'on' : 'off'); $('btn-music-toggle').className = toggleCls(musicOn()); }
-  if ($('pref-music-mood')) { $('pref-music-mood').value = getMusicMode(); $('pref-music-mood').disabled = !musicOn(); }
+  if ($('btn-music-pick')) $('btn-music-pick').disabled = !musicOn();
   const light = getMode() === 'light';
   $('btn-mode-toggle').textContent = t(light ? 'mode_light' : 'mode_dark');
   $('btn-mode-toggle').className = toggleCls(!light);
@@ -102,7 +102,8 @@ export function initPrefs() {
   $('btn-sound-toggle').onclick = () => { setSound(!soundOn()); refresh(); };
   if ($('pref-volume')) $('pref-volume').oninput = (e) => setVolume((+e.target.value || 0) / 100);
   if ($('btn-music-toggle')) $('btn-music-toggle').onclick = () => { setMusic(!musicOn()); refresh(); };
-  if ($('pref-music-mood')) $('pref-music-mood').onchange = (e) => setMusicMode(e.target.value);
+  if ($('btn-music-pick')) $('btn-music-pick').onclick = openMusicPanel;
+  onMusicChange(() => { if (musicPanel) paintMusicPanel(); });
   $('btn-mode-toggle').onclick = () => { applyMode(getMode() === 'light' ? 'dark' : 'light'); refresh(); };
   $('btn-haptics-toggle').onclick = () => { setHaptics(!hapticsOn()); refresh(); };
   $('pref-name').oninput = (e) => setName(e.target.value.slice(0, 16));
@@ -135,4 +136,62 @@ export function initPrefs() {
   }
 
   onLangChange(refresh);
+}
+
+// ---------- music picker panel ----------
+let musicPanel = null, musicListEl = null, musicOffEl = null;
+const elx = (tag, cls, html) => { const n = document.createElement(tag); if (cls) n.className = cls; if (html != null) n.innerHTML = html; return n; };
+const escx = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+export function closeMusicPanel() { if (musicPanel) { musicPanel.remove(); musicPanel = null; musicListEl = null; musicOffEl = null; } }
+export function openMusicPanel() {
+  if (musicPanel) return;
+  const ov = elx('div', 'fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-slate-950/70 backdrop-blur-sm p-4'); musicPanel = ov;
+  const box = elx('div', 'w-full max-w-sm bg-slate-900 border border-slate-700 rounded-2xl p-4 flex flex-col max-h-[85vh]');
+  const head = elx('div', 'flex items-center justify-between mb-3');
+  head.append(elx('h3', 'font-bold text-lg', '🎵 ' + t('music_pick')));
+  const x = elx('button', 'w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300', '✕'); x.onclick = closeMusicPanel; head.append(x);
+  box.append(head);
+
+  const mix = elx('button', 'w-full flex items-center gap-3 rounded-xl p-3 mb-3 transition text-left', ''); mix.dataset.role = 'mix';
+  mix.innerHTML = `<span class="text-2xl">🎲</span><span class="flex-1"><span class="block font-bold">${t('music_mix')}</span><span class="block text-[11px] text-slate-400">${t('music_mix_hint')}</span></span>`;
+  mix.onclick = () => { playMix(); paintMusicPanel(); };
+  box.append(mix);
+
+  box.append(elx('p', 'text-[11px] uppercase tracking-wide text-slate-500 font-semibold mb-1', t('music_tracks')));
+  musicListEl = elx('div', 'flex-1 overflow-y-auto space-y-1 -mx-1 px-1');
+  box.append(musicListEl);
+  musicOffEl = elx('p', 'text-[11px] text-slate-500 text-center pt-2'); box.append(musicOffEl);
+
+  ov.append(box); ov.addEventListener('click', (e) => { if (e.target === ov) closeMusicPanel(); });
+  document.body.appendChild(ov);
+
+  getMusicList().then((list) => {
+    if (!musicListEl) return;
+    musicListEl.innerHTML = '';
+    if (!list.length) { musicListEl.appendChild(elx('p', 'text-sm text-slate-500 text-center py-4', t('music_no_files'))); }
+    for (const trk of list) {
+      const row = elx('button', 'w-full flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-left transition');
+      row.dataset.src = trk.src;
+      row.innerHTML = `<span class="w-4 shrink-0 text-center" data-ico></span><span class="truncate flex-1">${escx(trk.title || trk.src)}</span>`;
+      row.onclick = () => { playTrackNow(trk.src); paintMusicPanel(); };
+      musicListEl.appendChild(row);
+    }
+    paintMusicPanel();
+  });
+  // ensure the offline download is running and reflect progress
+  if (!audioCached()) prefetchAudio((done, total) => { if (musicOffEl) musicOffEl.textContent = t('music_offline_saving', { pct: Math.round((done / total) * 100) }); });
+  paintMusicPanel();
+}
+function paintMusicPanel() {
+  if (!musicPanel) return;
+  const mode = getMusicMode(), np = nowPlaying();
+  const mix = musicPanel.querySelector('[data-role="mix"]');
+  if (mix) mix.className = 'w-full flex items-center gap-3 rounded-xl p-3 mb-3 transition text-left ' + (mode === 'mix' ? 'bg-indigo-600/25 ring-1 ring-indigo-500/60' : 'bg-slate-800 hover:bg-slate-700');
+  if (musicListEl) for (const row of musicListEl.querySelectorAll('[data-src]')) {
+    const src = row.dataset.src, sel = mode === src, playing = np === src;
+    row.className = 'w-full flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-left transition ' + (sel ? 'bg-indigo-600/25 ring-1 ring-indigo-500/60' : 'bg-slate-800/60 hover:bg-slate-700');
+    const ico = row.querySelector('[data-ico]'); if (ico) ico.textContent = playing ? '▶' : (sel ? '•' : '');
+  }
+  if (musicOffEl && audioCached()) musicOffEl.textContent = '✓ ' + t('music_offline_saved');
 }

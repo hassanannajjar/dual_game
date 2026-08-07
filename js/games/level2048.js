@@ -1,8 +1,8 @@
-import { move2048Tracked, has2048MoveWalls, level2048Config, stars2048 } from '../logic.js?v=46';
-import { earnForResult, questEvent, getCoins, spendCoins } from '../loyalty.js?v=46';
-import { makeTileBoard } from './tileboard.js?v=46';
-import { getBoard, publishScore, isOnline } from '../presence.js?v=46';
-import { myProfileSummary, openPeerProfile } from '../profile.js?v=46';
+import { move2048Tracked, has2048MoveWalls, level2048Config, stars2048 } from '../logic.js?v=47';
+import { earnForResult, questEvent, getCoins, spendCoins } from '../loyalty.js?v=47';
+import { makeTileBoard } from './tileboard.js?v=47';
+import { getBoard, publishScore, isOnline } from '../presence.js?v=47';
+import { myProfileSummary, openPeerProfile } from '../profile.js?v=47';
 
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
