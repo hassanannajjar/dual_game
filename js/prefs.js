@@ -1,7 +1,7 @@
 // Preferences: display name, theme/accent, haptics + the settings panel.
-import { applyLang, getLang, t, onLangChange } from './i18n.js?v=47';
-import { setSound, soundOn, setVolume, getVolume, setMusic, musicOn, getMusicMode, playMix, playTrackNow, nowPlaying, getMusicList, onMusicChange, prefetchAudio, audioCached } from './sound.js?v=47';
-import { owns, buy } from './loyalty.js?v=47';
+import { applyLang, getLang, t, onLangChange } from './i18n.js?v=48';
+import { setSound, soundOn, setVolume, getVolume, setMusic, musicOn, getMusicMode, playMix, playTrackNow, nowPlaying, getMusicList, onMusicChange, prefetchAudio, audioCached } from './sound.js?v=48';
+import { owns, buy } from './loyalty.js?v=48';
 
 const THEMES = ['indigo', 'emerald', 'rose', 'amber', 'sky', 'violet', 'teal'];
 const SWATCH = { indigo: '#6366f1', emerald: '#10b981', rose: '#f43f5e', amber: '#f59e0b', sky: '#0ea5e9', violet: '#8b5cf6', teal: '#14b8a6' };
@@ -189,9 +189,9 @@ function paintMusicPanel() {
   const mix = musicPanel.querySelector('[data-role="mix"]');
   if (mix) mix.className = 'w-full flex items-center gap-3 rounded-xl p-3 mb-3 transition text-left ' + (mode === 'mix' ? 'bg-indigo-600/25 ring-1 ring-indigo-500/60' : 'bg-slate-800 hover:bg-slate-700');
   if (musicListEl) for (const row of musicListEl.querySelectorAll('[data-src]')) {
-    const src = row.dataset.src, sel = mode === src, playing = np === src;
-    row.className = 'w-full flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-left transition ' + (sel ? 'bg-indigo-600/25 ring-1 ring-indigo-500/60' : 'bg-slate-800/60 hover:bg-slate-700');
-    const ico = row.querySelector('[data-ico]'); if (ico) ico.textContent = playing ? '▶' : (sel ? '•' : '');
+    const playing = np === row.dataset.src;   // picks are one-offs → highlight only what's actually playing
+    row.className = 'w-full flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-left transition ' + (playing ? 'bg-indigo-600/25 ring-1 ring-indigo-500/60 text-indigo-100' : 'bg-slate-800/60 hover:bg-slate-700');
+    const ico = row.querySelector('[data-ico]'); if (ico) ico.textContent = playing ? '▶' : '';
   }
   if (musicOffEl && audioCached()) musicOffEl.textContent = '✓ ' + t('music_offline_saved');
 }

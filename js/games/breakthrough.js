@@ -1,4 +1,4 @@
-import { breakthroughMoves, breakthroughWinner } from '../logic.js?v=47';
+import { breakthroughMoves, breakthroughWinner } from '../logic.js?v=48';
 
 // Player 1 (indigo) starts on the top two rows and races DOWN to the last row.
 // Player 2 (rose) starts on the bottom two rows and races UP to row 0.

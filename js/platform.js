@@ -2,18 +2,18 @@
 // drives phases: home -> connect -> lobby -> [setup] -> [toss] -> play -> over,
 // and handles pause / disconnect-reconnect / refresh-resume.
 // Depends on the global `Peer` (PeerJS, loaded via CDN).
-import { t, initLang, onLangChange, getLang } from './i18n.js?v=47';
-import { rpRank, romanDiv } from './logic.js?v=47';
-import { sound, setMusicScene, musicSwell, setMusicNotify, prefetchAudio } from './sound.js?v=47';
-import { initPrefs, getName, setName, haptic } from './prefs.js?v=47';
-import { demo } from './demos.js?v=47';
-import { goOnline as presenceOnline, onBoard as onPresenceBoard, publishScore, setPresence, isOnline } from './presence.js?v=47';
-import { recordResult, getRating, overallRating, openProfile, closeProfile, initProfile, getAvatar, shareStats, shareResult, currentSeason, myProfileSummary, openPeerProfile } from './profile.js?v=47';
-import { claimDaily, getLevel, getCoins, setNotify } from './loyalty.js?v=47';
-import { getUid, getGuestName } from './identity.js?v=47';
-import { isFav, toggleFav, getFavs } from './favorites.js?v=47';
-import { getFriends, addFriend } from './friends.js?v=47';
-import { hasTutorial, getTutorial } from './tutorials.js?v=47';
+import { t, initLang, onLangChange, getLang } from './i18n.js?v=48';
+import { rpRank, romanDiv } from './logic.js?v=48';
+import { sound, setMusicScene, musicSwell, setMusicNotify, prefetchAudio, preloadMusic } from './sound.js?v=48';
+import { initPrefs, getName, setName, haptic } from './prefs.js?v=48';
+import { demo } from './demos.js?v=48';
+import { goOnline as presenceOnline, onBoard as onPresenceBoard, publishScore, setPresence, isOnline } from './presence.js?v=48';
+import { recordResult, getRating, overallRating, openProfile, closeProfile, initProfile, getAvatar, shareStats, shareResult, currentSeason, myProfileSummary, openPeerProfile } from './profile.js?v=48';
+import { claimDaily, getLevel, getCoins, setNotify } from './loyalty.js?v=48';
+import { getUid, getGuestName } from './identity.js?v=48';
+import { isFav, toggleFav, getFavs } from './favorites.js?v=48';
+import { getFriends, addFriend } from './friends.js?v=48';
+import { hasTutorial, getTutorial } from './tutorials.js?v=48';
 
 // ---------- DOM helpers ----------
 const $ = (id) => document.getElementById(id);
@@ -1016,6 +1016,7 @@ export function boot() {
   onLangChange(() => { renderHome(); if (!$('screen-play').classList.contains('hidden')) updateTurnLabel(); });
   renderHome();
   setMusicScene('menu');
+  preloadMusic();                            // warm the playlist so the first tap starts Auto Mix in-gesture
   setTimeout(() => prefetchAudio(), 6000);   // auto-cache the music library for offline, after boot settles
   // Daily login bonus (once per day).
   const daily = claimDaily();

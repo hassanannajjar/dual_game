@@ -1,4 +1,4 @@
-import { msReveal, msCount, msNeighbors } from '../logic.js?v=47';
+import { msReveal, msCount, msNeighbors } from '../logic.js?v=48';
 
 const LEVELS = { easy: [8, 8, 10], medium: [10, 12, 22], hard: [12, 16, 40] };
 const NUMCLR = ['', 'text-sky-400', 'text-emerald-400', 'text-rose-400', 'text-indigo-300', 'text-amber-400', 'text-cyan-300', 'text-slate-200', 'text-slate-400'];

@@ -1,4 +1,4 @@
-import { hexConnected, hexBotMove } from '../logic.js?v=47';
+import { hexConnected, hexBotMove } from '../logic.js?v=48';
 
 const N = 11;
 const M = { board: [], mine: 'r', opp: 'b', cells: [] };

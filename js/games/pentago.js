@@ -1,4 +1,4 @@
-import { pentagoRotate, pentagoWinner } from '../logic.js?v=47';
+import { pentagoRotate, pentagoWinner } from '../logic.js?v=48';
 
 // 6x6. A turn = place a marble on an empty cell, then rotate one 3x3 quadrant 90°. First 5-in-a-row wins.
 const M = { b: [], mine: 1, opp: 2, phase: 'place', pending: null, cells: [], rotWrap: null, msgEl: null };
