@@ -2,18 +2,18 @@
 // drives phases: home -> connect -> lobby -> [setup] -> [toss] -> play -> over,
 // and handles pause / disconnect-reconnect / refresh-resume.
 // Depends on the global `Peer` (PeerJS, loaded via CDN).
-import { t, initLang, onLangChange, getLang } from './i18n.js?v=38';
-import { rpRank, romanDiv } from './logic.js?v=38';
-import { sound, setMusicScene, musicSwell, setMusicNotify } from './sound.js?v=38';
-import { initPrefs, getName, setName, haptic } from './prefs.js?v=38';
-import { demo } from './demos.js?v=38';
-import { goOnline as presenceOnline, onBoard as onPresenceBoard, publishScore, setPresence, isOnline } from './presence.js?v=38';
-import { recordResult, getRating, overallRating, openProfile, closeProfile, initProfile, getAvatar, shareStats, shareResult, currentSeason, myProfileSummary, openPeerProfile } from './profile.js?v=38';
-import { claimDaily, getLevel, getCoins, setNotify } from './loyalty.js?v=38';
-import { getUid, getGuestName } from './identity.js?v=38';
-import { isFav, toggleFav, getFavs } from './favorites.js?v=38';
-import { getFriends, addFriend } from './friends.js?v=38';
-import { hasTutorial, getTutorial } from './tutorials.js?v=38';
+import { t, initLang, onLangChange, getLang } from './i18n.js?v=39';
+import { rpRank, romanDiv } from './logic.js?v=39';
+import { sound, setMusicScene, musicSwell, setMusicNotify } from './sound.js?v=39';
+import { initPrefs, getName, setName, haptic } from './prefs.js?v=39';
+import { demo } from './demos.js?v=39';
+import { goOnline as presenceOnline, onBoard as onPresenceBoard, publishScore, setPresence, isOnline } from './presence.js?v=39';
+import { recordResult, getRating, overallRating, openProfile, closeProfile, initProfile, getAvatar, shareStats, shareResult, currentSeason, myProfileSummary, openPeerProfile } from './profile.js?v=39';
+import { claimDaily, getLevel, getCoins, setNotify } from './loyalty.js?v=39';
+import { getUid, getGuestName } from './identity.js?v=39';
+import { isFav, toggleFav, getFavs } from './favorites.js?v=39';
+import { getFriends, addFriend } from './friends.js?v=39';
+import { hasTutorial, getTutorial } from './tutorials.js?v=39';
 
 // ---------- DOM helpers ----------
 const $ = (id) => document.getElementById(id);
@@ -438,8 +438,8 @@ function startSolo() {
   S.solo = true; S.vsBot = false; S.isHost = true; S.roomCode = 'SOLO';
   S.conn = loopbackConn(false);
   S.working = defaultConfig();
-  if ((S.game.options || []).length) enterHostLobby();          // let solo pick game options (target/board/undos…)
-  else { S.config = Object.assign({}, S.working); proceedAfterConfig(); }
+  if ((S.game.options || []).length && !S.game.soloCampaign) enterHostLobby();   // let solo pick game options (target/board/undos…)
+  else { S.config = Object.assign({}, S.working); proceedAfterConfig(); }         // campaign games self-manage in ctx.root
 }
 function startBot() {
   S.vsBot = true; S.solo = false; S.isHost = true; S.botLevel = S.botLevelSel || 'medium'; S.roomCode = 'BOT';

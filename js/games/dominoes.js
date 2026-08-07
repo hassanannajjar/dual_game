@@ -1,4 +1,4 @@
-import { dominoDeck, dominoPips, dominoCanPlay } from '../logic.js?v=38';
+import { dominoDeck, dominoPips, dominoCanPlay } from '../logic.js?v=39';
 
 // Block Dominoes (2P): deal 7 each, no boneyard draw. Match an open end; must play if able, else pass.
 // First to empty their hand wins; if both pass in a row the game is blocked and the lower pip count wins.

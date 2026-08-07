@@ -434,4 +434,17 @@ assert.strictEqual(onitamaWinner(onitamaStart()), null, 'onitama ongoing');
   walls.hw.add('4,4'); assert.strictEqual(quoridorBlocked(walls, 4, 4, 4, 5), true, 'quoridor h-wall blocks'); }
 assert.strictEqual(quoridorPathExists({ hw: new Set(), vw: new Set() }, 9, [4, 8], 0), true, 'quoridor path exists on open board');
 
-console.log('PASS (all logic incl. bots/minesweeper/sudoku + rating/achievements + loyalty + quests/chests + hard-bots + new-games incl. mastermind/dominoes/word-race/match3 + pentago/breakthrough/loa/onitama/quoridor + weekly + history/seasons/rank/friends + RP + earlier)');
+// ---- 2048 Levels campaign engine ----
+import { level2048Config, move2048Walls, has2048MoveWalls, stars2048 } from './js/logic.js';
+{ const a = JSON.stringify(level2048Config(7)), b = JSON.stringify(level2048Config(7)); assert.strictEqual(a, b, 'level config deterministic'); }
+{ const c = level2048Config(1); assert.ok(c.size >= 4 && c.size <= 6 && c.target >= 128, 'level 1 sane'); assert.ok(level2048Config(200).target >= level2048Config(1).target, 'target rises with n'); }
+{ const b = [[2, 0, 2, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]];
+  assert.strictEqual(move2048Walls(b, 'left', []).board[0][0], 4, 'walls-move merges with no walls');
+  const r = move2048Walls(b, 'left', [[1, 0]]);
+  assert.strictEqual(r.board[0][0], 2, 'wall keeps first 2 in place'); assert.strictEqual(r.board[0][2], 2, 'wall blocks the merge across it'); assert.strictEqual(r.score, 0, 'no score across wall'); }
+{ const full = [[2, 4], [4, 2]]; assert.strictEqual(has2048MoveWalls(full, []), false, 'walls: full 2x2 checker has no move');
+  assert.strictEqual(has2048MoveWalls([[2, 2], [4, 8]], []), true, 'walls: adjacent pair has a move');
+  assert.strictEqual(has2048MoveWalls([[2, 2], [4, 8]], [[1, 0]]), false, 'walls: barrier blocks the only merge'); }
+assert.strictEqual(stars2048(100, 50), 3, 'stars 3'); assert.strictEqual(stars2048(100, 80), 2, 'stars 2'); assert.strictEqual(stars2048(100, 95), 1, 'stars 1');
+
+console.log('PASS (all logic incl. bots/minesweeper/sudoku + rating/achievements + loyalty + quests/chests + hard-bots + new-games incl. mastermind/dominoes/word-race/match3 + pentago/breakthrough/loa/onitama/quoridor + 2048-levels + weekly + history/seasons/rank/friends + RP + earlier)');

@@ -1,5 +1,5 @@
-import { move2048, has2048Move } from '../logic.js?v=38';
-import { getSkin } from '../loyalty.js?v=38';
+import { move2048, has2048Move } from '../logic.js?v=39';
+import { getSkin } from '../loyalty.js?v=39';
 
 const SKINS = {
   classic: { 0: 'bg-slate-800', 2: 'bg-slate-600', 4: 'bg-slate-500', 8: 'bg-amber-600', 16: 'bg-amber-500', 32: 'bg-orange-500', 64: 'bg-orange-600', 128: 'bg-yellow-500', 256: 'bg-yellow-400 text-slate-900', 512: 'bg-lime-500 text-slate-900', 1024: 'bg-emerald-500 text-slate-900', 2048: 'bg-indigo-500', 4096: 'bg-purple-600', 8192: 'bg-fuchsia-600', 16384: 'bg-rose-600', 32768: 'bg-red-600' },
@@ -27,7 +27,7 @@ function paint(ctx) {
   for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
     const v = M.board[y][x], c = M.cells[y][x];
     c.textContent = v ? fmt(v) : '';
-    c.className = 'aspect-square rounded-lg flex items-center justify-center font-bold transition-colors ' + font + ' ' + (pal[v] || 'bg-indigo-600');
+    c.className = 'aspect-square rounded-lg flex items-center justify-center font-bold transition-colors ' + font + ' ' + (pal[v] || 'bg-slate-700');
   }
   M.best = Math.max(M.best, maxTile());
   updateUndoBtn(ctx);

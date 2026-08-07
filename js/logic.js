@@ -1123,3 +1123,88 @@ export function quoridorPathExists(walls, n, start, goalY) {   // BFS: can (star
   }
   return false;
 }
+
+// ================= 2048 Levels (campaign) — pure, deterministic =================
+function lvlHash(x) { x = x | 0; x = Math.imul(x ^ (x >>> 15), 0x2c1b3c6d); x ^= x >>> 12; x = Math.imul(x ^ (x >>> 7), 0x297a2d39); x ^= x >>> 15; return x >>> 0; }
+function lvlRng(seed) { let s = (lvlHash(seed) || 1) >>> 0; return () => { s = (Math.imul(s, 1664525) + 1013904223) >>> 0; return s / 4294967296; }; }
+const LVL_CHAPTERS = ['Sprout', 'Foothills', 'Rapids', 'Foundry', 'Aurora', 'Tempest', 'Clockwork', 'Obsidian', 'Nebula', 'Mirage'];
+
+// Deterministic level generator: same n → same config on every device (needed for the head-to-head race).
+export function level2048Config(n) {
+  n = Math.max(1, Math.floor(n || 1));
+  const rnd = lvlRng(n * 2654435761 >>> 0);
+  const chapter = Math.floor((n - 1) / 25), boss = n % 10 === 0;
+  const name = LVL_CHAPTERS[chapter % LVL_CHAPTERS.length] + ' ' + (((n - 1) % 25) + 1);
+  let size = 4 + Math.min(2, Math.floor((n - 1) / 120));
+  if (n > 40 && rnd() < 0.25) size += 1;
+  size = Math.max(4, Math.min(6, size));
+  const maxExp = size === 4 ? 11 : size === 5 ? 12 : 13;
+  let exp = 7 + Math.floor((n - 1) / 12) + (boss ? 1 : 0);
+  exp = Math.max(7, Math.min(maxExp, exp));
+  const target = 2 ** exp;
+  let limitType = 'none';
+  if (n > 5) { const r = rnd(); limitType = r < 0.34 ? 'moves' : r < 0.6 ? 'time' : 'none'; if (boss) limitType = rnd() < 0.5 ? 'moves' : 'none'; }
+  const par = Math.max(20, Math.round(exp * 14 * (size / 4)));
+  const limit = limitType === 'moves' ? Math.round(par * 1.7) : limitType === 'time' ? Math.round(par * 3) : 0;
+  const spawnFour = boss ? 0.05 : [0.0, 0.1, 0.15, 0.2][Math.floor(rnd() * 4)];
+  const wallCount = (size >= 5 && n > 30) ? Math.min(size >= 6 ? 6 : 4, 1 + Math.floor((n - 30) / 50) + (boss ? 1 : 0)) : 0;
+  let presetCount = n > 15 ? Math.floor(rnd() * 3) : 0;
+  const cells = []; for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) cells.push([x, y]);
+  for (let i = cells.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); const t = cells[i]; cells[i] = cells[j]; cells[j] = t; }
+  const walls = [], preset = [], used = new Set();
+  for (const [x, y] of cells) { if (walls.length >= wallCount) break; walls.push([x, y]); used.add(x + ',' + y); }
+  for (const [x, y] of cells) { if (preset.length >= presetCount) break; const k = x + ',' + y; if (used.has(k)) continue; preset.push({ x, y, v: rnd() < 0.7 ? 2 : 4 }); used.add(k); }
+  while (preset.length && size * size - walls.length - preset.length < 3) preset.pop();
+  while (walls.length && size * size - walls.length - preset.length < 3) walls.pop();
+  return { n, chapter, name, boss, size, target, exp, limitType, limit, par, spawnFour, walls, preset };
+}
+
+// Wall-aware 2048 slide: walls (array of [x,y] or a Set of 'x,y') act as immovable barriers that split each line.
+function lvlSlideSeg(vals) {
+  const nums = vals.filter((v) => v); let gained = 0;
+  for (let i = 0; i < nums.length - 1; i++) if (nums[i] === nums[i + 1]) { nums[i] *= 2; gained += nums[i]; nums.splice(i + 1, 1); }
+  while (nums.length < vals.length) nums.push(0);
+  return { vals: nums, gained };
+}
+export function move2048Walls(board, dir, walls) {
+  const n = board.length;
+  const wset = walls instanceof Set ? walls : new Set((walls || []).map(([x, y]) => x + ',' + y));
+  const g = board.map((r) => r.slice()); let score = 0;
+  for (let l = 0; l < n; l++) {
+    const cells = [];
+    for (let k = 0; k < n; k++) {
+      let x, y;
+      if (dir === 'left') { x = k; y = l; } else if (dir === 'right') { x = n - 1 - k; y = l; }
+      else if (dir === 'up') { x = l; y = k; } else { x = l; y = n - 1 - k; }
+      cells.push([x, y]);
+    }
+    const vals = cells.map(([x, y]) => g[y][x]);
+    const wmask = cells.map(([x, y]) => wset.has(x + ',' + y));
+    const out = new Array(n).fill(0);
+    let i = 0;
+    while (i < n) {
+      if (wmask[i]) { i++; continue; }
+      let j = i; const seg = [];
+      while (j < n && !wmask[j]) { seg.push(vals[j]); j++; }
+      const r = lvlSlideSeg(seg); score += r.gained;
+      for (let k = 0; k < r.vals.length; k++) out[i + k] = r.vals[k];
+      i = j;
+    }
+    for (let k = 0; k < n; k++) { const [x, y] = cells[k]; g[y][x] = out[k]; }
+  }
+  const moved = JSON.stringify(g) !== JSON.stringify(board);
+  let max = 0; for (const row of g) for (const v of row) if (v > max) max = v;
+  return { board: g, moved, score, max };
+}
+export function has2048MoveWalls(board, walls) {
+  const n = board.length;
+  const wset = walls instanceof Set ? walls : new Set((walls || []).map(([x, y]) => x + ',' + y));
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+    if (wset.has(x + ',' + y)) continue;
+    if (!board[y][x]) return true;
+    if (x < n - 1 && !wset.has((x + 1) + ',' + y) && board[y][x] === board[y][x + 1]) return true;
+    if (y < n - 1 && !wset.has(x + ',' + (y + 1)) && board[y][x] === board[y + 1][x]) return true;
+  }
+  return false;
+}
+export function stars2048(par, used) { if (used <= Math.ceil(par * 0.6)) return 3; if (used <= Math.ceil(par * 0.85)) return 2; return 1; }

@@ -1,4 +1,4 @@
-import { chessInitial, chessLegalMoves, chessApply, chessStatus, chessInCheck, chessBotMove } from '../logic.js?v=38';
+import { chessInitial, chessLegalMoves, chessApply, chessStatus, chessInCheck, chessBotMove } from '../logic.js?v=39';
 
 const SOLID = { K: '♚', Q: '♛', R: '♜', B: '♝', N: '♞', P: '♟' };
 const M = { state: null, mine: 'w', sel: null, legal: [], promo: null, cells: {}, promoEl: null, msgEl: null, lastMove: null, animateTo: null };
