@@ -441,6 +441,8 @@ import { level2048Config, move2048Walls, has2048MoveWalls, stars2048 } from './j
   assert.ok(c.size * c.size - c.walls.length - c.frozen.length - c.preset.length >= 3, 'level leaves enough free cells');
   assert.ok(level2048Config(200).target >= level2048Config(1).target, 'target rises with n'); }
 { const c = level2048Config(120); assert.ok(Array.isArray(c.frozen) && c.frozen.length >= 1, 'frozen tiles appear in later chapters'); }
+{ const types = new Set(); for (let n = 4; n <= 12; n++) types.add(level2048Config(n).limitType);
+  for (const t of ['none', 'moves', 'time']) assert.ok(types.has(t), 'objective variety includes ' + t); }
 { const b = [[2, 0, 2, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]];
   assert.strictEqual(move2048Walls(b, 'left', []).board[0][0], 4, 'walls-move merges with no walls');
   const r = move2048Walls(b, 'left', [[1, 0]]);

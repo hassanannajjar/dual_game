@@ -1157,10 +1157,11 @@ export function level2048Config(n) {
   let exp = 7 + Math.floor((n - 1) / 12) + (boss ? 1 : 0);
   exp = Math.max(7, Math.min(maxExp, exp));
   const target = 2 ** exp;
+  // Objective rotates deterministically so consecutive levels clearly vary: reach target / in N moves / before time.
   let limitType = 'none';
-  if (n > 5) { const r = rnd(); limitType = r < 0.34 ? 'moves' : r < 0.6 ? 'time' : 'none'; if (boss) limitType = rnd() < 0.5 ? 'moves' : 'none'; }
+  if (n > 3) { const types = ['none', 'moves', 'time']; limitType = boss ? (rnd() < 0.5 ? 'moves' : 'none') : types[(n + chapter) % 3]; }
   const par = Math.max(20, Math.round(exp * 14 * (size / 4)));
-  const limit = limitType === 'moves' ? Math.round(par * 1.7) : limitType === 'time' ? Math.round(par * 3) : 0;
+  const limit = limitType === 'moves' ? Math.round(par * (n < 50 ? 1.6 : 1.4)) : limitType === 'time' ? Math.round(par * (n < 50 ? 3.2 : 2.6)) : 0;
   const spawnFour = boss ? 0.05 : [0.0, 0.1, 0.15, 0.2][Math.floor(rnd() * 4)];
   // Patterned walls (deterministic shape), capped so at least ~half the board stays free.
   let shape = 'none';

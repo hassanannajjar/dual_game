@@ -65,12 +65,12 @@ button:focus-visible, a:focus-visible, select:focus-visible, [tabindex]:focus-vi
   animation: winBanner 2.4s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
 
 /* ---------- Animated 2048 tile board (shared by 2048 + 2048 Levels) ---------- */
-.tb-board { position: relative; width: 100%; max-width: 26rem; margin: 0 auto; border-radius: 0.9rem; background: #0f172a; box-shadow: 0 10px 30px -12px rgba(0,0,0,0.6), inset 0 0 0 1px rgba(148,163,184,0.08); touch-action: none; }
+.tb-board { position: relative; width: 100%; max-width: min(26rem, 92vw); aspect-ratio: 1; margin: 0 auto; container-type: inline-size; border-radius: 0.9rem; background: #0f172a; box-shadow: 0 10px 30px -12px rgba(0,0,0,0.6), inset 0 0 0 1px rgba(148,163,184,0.08); touch-action: none; }
 .tb-bg, .tb-layer { position: absolute; inset: 0; }
-.tb-cell { position: absolute; border-radius: 0.5rem; background: rgba(148,163,184,0.10); }
+.tb-cell { position: absolute; border-radius: 2.5cqw; background: rgba(148,163,184,0.10); }
 .tb-cell.tb-wall { background: #020617; box-shadow: inset 0 0 0 2px rgba(148,163,184,0.28); }
-.tb-tile { position: absolute; top: 0; left: 0; transition: transform 0.1s ease-in-out; will-change: transform; }
-.tb-tile-in { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-weight: 800; border-radius: 0.5rem; color: #f8fafc; line-height: 1; box-shadow: inset 0 -3px 0 rgba(0,0,0,0.14), 0 1px 3px rgba(0,0,0,0.28); }
+.tb-tile { position: absolute; transition: left 0.1s ease-in-out, top 0.1s ease-in-out; }
+.tb-tile-in { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: var(--tb-fs, 8cqw); border-radius: 2.5cqw; color: #f8fafc; line-height: 1; box-shadow: inset 0 -3px 0 rgba(0,0,0,0.14), 0 1px 3px rgba(0,0,0,0.28); }
 .tb-tile-sel { outline: 3px solid #fff; outline-offset: -3px; }
 .tb-notrans .tb-tile { transition: none !important; }
 @keyframes tbPop { 0% { transform: scale(0.1); opacity: 0.2; } 60% { transform: scale(1.08); } 100% { transform: scale(1); opacity: 1; } }
@@ -78,7 +78,7 @@ button:focus-visible, a:focus-visible, select:focus-visible, [tabindex]:focus-vi
 @keyframes tbMerge { 0% { transform: scale(1); } 45% { transform: scale(1.18); } 100% { transform: scale(1); } }
 .tb-merge { animation: tbMerge 0.16s ease-in-out; }
 .tb-frozen { position: relative; filter: saturate(0.5) brightness(0.92); box-shadow: inset 0 0 0 3px rgba(125,211,252,0.75); }
-.tb-frozen::after { content: '❄'; position: absolute; top: 2px; right: 4px; font-size: 0.7rem; opacity: 0.85; }
+.tb-frozen::after { content: '\2744\FE0E'; position: absolute; top: 2px; right: 4px; font-size: 0.7rem; opacity: 0.85; }
 @media (prefers-reduced-motion: reduce) { .tb-tile { transition: none; } .tb-pop, .tb-merge { animation: none; } }
 
 /* Connect Four disc drop (applied to the just-placed cell). */

@@ -1,37 +1,29 @@
-import { move2048Tracked, has2048MoveWalls, level2048Config, stars2048 } from '../logic.js?v=41';
-import { earnForResult, questEvent } from '../loyalty.js?v=41';
-import { makeTileBoard } from './tileboard.js?v=41';
+import { move2048Tracked, has2048MoveWalls, level2048Config, stars2048 } from '../logic.js?v=42';
+import { earnForResult, questEvent } from '../loyalty.js?v=42';
+import { makeTileBoard } from './tileboard.js?v=42';
 
 // 2048 Levels — a self-contained campaign (1000+ generated levels) + a head-to-head "race the same level" mode.
 // Solo owns ctx.root across views (select → play → result). Uses the shared animated tile board.
 const KEY = 'arcade:2048campaign';
 
-// ---------- curated per-level color schemes (multi-hue gradient ramps; attractive + harmonious) ----------
-const SCHEMES = [
-  { h0: 45, span: -70, s: 82, l0: 64, l1: 48 },   // Sunset (amber→rose)
-  { h0: 190, span: 60, s: 70, l0: 62, l1: 46 },   // Ocean (cyan→indigo)
-  { h0: 95, span: 60, s: 62, l0: 60, l1: 40 },    // Forest (lime→emerald)
-  { h0: 55, span: -55, s: 88, l0: 64, l1: 46 },   // Lava (yellow→red)
-  { h0: 285, span: 55, s: 70, l0: 62, l1: 46 },   // Grape (violet→magenta)
-  { h0: 330, span: -130, s: 72, l0: 66, l1: 52 }, // Candy (pink→sky)
-  { h0: 40, span: 12, s: 85, l0: 66, l1: 48 },    // Gold (amber warm)
-  { h0: 205, span: 25, s: 60, l0: 70, l1: 50 },   // Ice (sky→blue)
-  { h0: 350, span: 30, s: 76, l0: 64, l1: 50 },   // Rose
-  { h0: 150, span: 150, s: 80, l0: 60, l1: 54 },  // Neon (green→purple)
-  { h0: 20, span: 60, s: 78, l0: 64, l1: 48 },    // Ember (red→amber)
-  { h0: 0, span: 300, s: 72, l0: 62, l1: 55 },    // Rainbow
+// ---------- curated per-level palettes (each value its own distinct, harmonious color, like play2048) ----------
+const PALETTES = [
+  ['#ffd98a', '#ffbf6b', '#ffa15c', '#ff7f5c', '#ff5e73', '#ef4c8b', '#cf47a6', '#a544c0', '#7b46cf', '#5a4fd6', '#3f63cf', '#3f86c9', '#46b0c0'], // Sunset
+  ['#d7f6ff', '#a9e7fb', '#7cd2f2', '#55b8e8', '#3f9bda', '#2f80c6', '#2266b0', '#1b5099', '#17417d', '#123566', '#0f2c54', '#0d2444', '#0b1d38'], // Ocean
+  ['#eef9c9', '#d3f0a0', '#b3e56a', '#8fd857', '#64c94b', '#3fb552', '#1fa05c', '#128a63', '#0e7a66', '#0d6a66', '#0c5b60', '#0b4d55', '#0a4048'], // Forest
+  ['#f2e6d4', '#f4d9b0', '#f7bd77', '#f6a15c', '#f4854f', '#ef6a45', '#e64f3f', '#d43f57', '#b83f79', '#9a3f95', '#7d3fa8', '#613fb0', '#4a3690'], // Ember
+  ['#c9fff0', '#9bf6dd', '#6fead0', '#4fdccb', '#3fc9db', '#3fa9e3', '#3f88e3', '#4f66e3', '#6f47e0', '#9040d6', '#b03fc6', '#c93fa6', '#d43f86'], // Aurora
+  ['#ffe3f1', '#ffc2e2', '#ff9ed2', '#ff7abd', '#ff5aa6', '#f43f93', '#d63fa2', '#b23fb4', '#8f3fc2', '#6f3fcb', '#5142cf', '#3f5fc4', '#3f86b0'], // Candy
+  ['#fff3c4', '#ffe08a', '#ffcf5c', '#f6b73c', '#e79b2f', '#cf7f2f', '#b6642f', '#944e3f', '#6f4a63', '#524a86', '#3f52a8', '#3f6fc0', '#3f97c9'], // Royal
+  ['#ffe0ec', '#ffb8d4', '#ff8fbf', '#f56aab', '#e04f9c', '#c43f98', '#a33f9e', '#7f3faa', '#5f3fb2', '#4a3fba', '#3f52b0', '#3f74a0', '#3f9488'], // Berry
+  ['#eef1f6', '#d6dde7', '#b8c2d1', '#97a3b8', '#7a889f', '#616f88', '#4d5b72', '#6a5750', '#8a6a45', '#ad853f', '#d0a63f', '#ecc457', '#ffe07a'], // Mono-lux
+  ['#aeffe0', '#7bff6b', '#c8ff4f', '#ffe14f', '#ffb14f', '#ff6f6f', '#ff4fa8', '#e84ff0', '#a84fff', '#6f6fff', '#4fb0ff', '#4fe8ff', '#4fffd0'], // Neon
 ];
-const schemeFor = (n) => SCHEMES[(n * 5) % SCHEMES.length];
-function tileStyleFor(sc) {
-  return (v) => {
-    if (!v) return { bg: '', fg: '' };
-    const t = Math.max(0, Math.min(1, (Math.log2(v) - 1) / 12));
-    const hue = ((sc.h0 + sc.span * t) % 360 + 360) % 360;
-    const light = sc.l0 + (sc.l1 - sc.l0) * t;
-    return { bg: `hsl(${hue.toFixed(0)} ${sc.s}% ${light.toFixed(0)}%)`, fg: light > 56 ? '#0f172a' : '#f8fafc' };
-  };
-}
-const boardBgFor = (sc) => `hsl(${sc.h0} 22% 10%)`;
+function lum(hex) { const h = hex.replace('#', ''); const r = parseInt(h.slice(0, 2), 16), g = parseInt(h.slice(2, 4), 16), b = parseInt(h.slice(4, 6), 16); return (0.299 * r + 0.587 * g + 0.114 * b) / 255; }
+const textFor = (hex) => lum(hex) > 0.6 ? '#1e293b' : '#f8fafc';
+const paletteFor = (n) => PALETTES[(n * 5) % PALETTES.length];
+function tileStyleFor(pal) { return (v) => { if (!v) return { bg: '', fg: '' }; const i = Math.max(0, Math.min(12, Math.floor(Math.log2(v)) - 1)); const bg = pal[i]; return { bg, fg: textFor(bg) }; }; }
+const BOARD_BG = '#0b1020';
 
 // ---------- power-up icons (play2048-style) ----------
 const SVG = (p) => `<svg viewBox="0 0 24 24" class="w-5 h-5 mx-auto" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
@@ -98,8 +90,8 @@ function renderPowers() {
 function destroyBoard() { if (M.tb) { M.tb.destroy(); M.tb = null; } }
 function mountBoard(ctx, mount) {
   destroyBoard();
-  M.scheme = schemeFor(M.n);
-  M.tb = makeTileBoard(ctx, { size: M.cfg.size, walls: M.cfg.walls, frozen: (M.cfg.frozen || []).map((p) => [p.x, p.y]), tileStyle: tileStyleFor(M.scheme), boardBg: boardBgFor(M.scheme), mount });
+  M.pal = paletteFor(M.n);
+  M.tb = makeTileBoard(ctx, { size: M.cfg.size, walls: M.cfg.walls, frozen: (M.cfg.frozen || []).map((p) => [p.x, p.y]), tileStyle: tileStyleFor(M.pal), boardBg: BOARD_BG, mount });
   M.tb.sync(M.board, [...M.frozenSet].map((k) => k.split(',').map(Number)));
   let sx = 0, sy = 0, lastTap = 0;
   M.tb.el.addEventListener('touchstart', (e) => { sx = e.touches[0].clientX; sy = e.touches[0].clientY; }, { passive: true });
@@ -129,7 +121,7 @@ function renderSelect(ctx) {
   const grid = ctx.el('div', 'grid grid-cols-5 gap-2');
   for (let i = 0; i < 25; i++) {
     const n = M.chapterView * 25 + i + 1, rec = p.levels[n], locked = n > (p.unlocked || 1), boss = n % 10 === 0;
-    const sc = schemeFor(n), st = tileStyleFor(sc)(16);
+    const st = tileStyleFor(paletteFor(n))(16);
     const b = ctx.el('button', 'aspect-square rounded-lg flex flex-col items-center justify-center text-sm font-bold transition ' + (locked ? 'text-slate-600' : '') + (boss ? ' ring-1 ring-amber-300/70' : ''));
     if (!locked) { b.style.background = st.bg; b.style.color = st.fg; } else b.style.background = 'rgba(148,163,184,0.08)';
     b.innerHTML = locked ? '🔒' : `<span>${n}</span>${rec ? `<span class="text-[9px] leading-none opacity-80">${starStr(rec.stars)}</span>` : ''}`;
@@ -150,6 +142,9 @@ function renderPlay(ctx) {
   const root = ctx.root; root.innerHTML = '';
   const wrap = ctx.el('div', 'mx-auto space-y-3 select-none'); wrap.style.maxWidth = '26rem';
   wrap.appendChild(ctx.el('p', 'text-center font-display font-bold', `${ctx.t('lvl_level')} ${M.n} · ${M.cfg.name}${M.cfg.boss ? ' 👑' : ''}`));
+  const mmss = (s) => Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+  const obj = M.cfg.limitType === 'moves' ? `🎯 ${fmt(M.cfg.target)} · ⟳ ${M.cfg.limit}` : M.cfg.limitType === 'time' ? `🎯 ${fmt(M.cfg.target)} · ⏱ ${mmss(M.cfg.limit)}` : `🎯 ${fmt(M.cfg.target)}`;
+  wrap.appendChild(ctx.el('p', 'text-center text-slate-400 text-xs', obj));
   M.infoEl = ctx.el('p', 'text-xs text-slate-400 px-1'); wrap.appendChild(M.infoEl);
   const mount = ctx.el('div', ''); wrap.appendChild(mount);
   // power-up row + hint
